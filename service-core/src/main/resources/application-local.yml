@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
+    username: ${DB_USERNAME:kkpp}
+    password: ${DB_PASSWORD:kkpp}
+  jpa:
+    properties:
+      hibernate:
+        default_schema: core
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

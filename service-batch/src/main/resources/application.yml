@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: service-batch
+  profiles:
+    active: local
+  batch:
+    job:
+      enabled: false

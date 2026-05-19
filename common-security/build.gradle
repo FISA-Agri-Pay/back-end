@@ -1,0 +1,19 @@
+dependencies {
+    implementation project(':common-core')
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+}
