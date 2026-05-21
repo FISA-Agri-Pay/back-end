@@ -59,5 +59,18 @@ CREATE TABLE IF NOT EXISTS core.bss_scores (
     total_score INT NOT NULL,
     calculated_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_bss_period_type
+        CHECK (period_type IN ('MONTHLY', 'ANNUAL')),
+    CONSTRAINT chk_bss_period_month
+        CHECK (
+            (period_type = 'MONTHLY' AND period_month BETWEEN 1 AND 12)
+            OR (period_type = 'ANNUAL' AND period_month IS NULL)
+        ),
+    CONSTRAINT chk_bss_scores_range
+        CHECK (
+            total_score BETWEEN 0 AND 100
+            AND (monthly_score IS NULL OR monthly_score BETWEEN 0 AND 100)
+            AND (annual_score IS NULL OR annual_score BETWEEN 0 AND 100)
+        )
 );

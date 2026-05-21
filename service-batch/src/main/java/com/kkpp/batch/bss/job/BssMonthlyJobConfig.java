@@ -1,6 +1,8 @@
 package com.kkpp.batch.bss.job;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.Map;
 
@@ -13,6 +15,7 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
@@ -33,8 +36,14 @@ public class BssMonthlyJobConfig {
     @Bean
     public Job bssMonthlyJob(JobRepository jobRepository, Step bssMonthlyStep) {
         return new JobBuilder("bssMonthlyJob", jobRepository)
+                .incrementer(new RunIdIncrementer())
                 .start(bssMonthlyStep)
                 .build();
+    }
+
+    @Bean
+    public Clock batchClock() {
+        return Clock.system(ZoneId.of("Asia/Seoul"));
     }
 
     @Bean
@@ -77,11 +86,12 @@ public class BssMonthlyJobConfig {
     @StepScope
     public ItemProcessor<CreditLimit, BssCalculationResult> bssMonthlyProcessor(
             BssCalculationService bssCalculationService,
+            Clock batchClock,
             @Value("#{jobParameters['periodYear']}") String periodYear,
             @Value("#{jobParameters['periodMonth']}") String periodMonth
     ) {
-        YearMonth targetMonth = resolveTargetMonth(periodYear, periodMonth);
-        LocalDateTime calculatedAt = LocalDateTime.now();
+        YearMonth targetMonth = resolveTargetMonth(periodYear, periodMonth, batchClock);
+        LocalDateTime calculatedAt = LocalDateTime.now(batchClock);
 
         return creditLimit -> bssCalculationService.calculate(creditLimit, targetMonth, calculatedAt);
     }
@@ -96,11 +106,22 @@ public class BssMonthlyJobConfig {
         };
     }
 
-    private YearMonth resolveTargetMonth(String periodYear, String periodMonth) {
-        if (periodYear != null && periodMonth != null) {
-            return YearMonth.of(Integer.parseInt(periodYear), Integer.parseInt(periodMonth));
+    private YearMonth resolveTargetMonth(String periodYear, String periodMonth, Clock batchClock) {
+        boolean hasYear = periodYear != null && !periodYear.isBlank();
+        boolean hasMonth = periodMonth != null && !periodMonth.isBlank();
+
+        if (hasYear != hasMonth) {
+            throw new IllegalArgumentException("periodYear and periodMonth must be provided together.");
         }
 
-        return YearMonth.now().minusMonths(1);
+        if (!hasYear) {
+            return YearMonth.now(batchClock).minusMonths(1);
+        }
+
+        try {
+            return YearMonth.of(Integer.parseInt(periodYear), Integer.parseInt(periodMonth));
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("periodYear and periodMonth must be numeric.", ex);
+        }
     }
 }
