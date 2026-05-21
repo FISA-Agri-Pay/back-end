@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Tag(name = "한도 심사 신청")
@@ -358,9 +359,16 @@ public class CreditApplicationController {
             @Parameter(hidden = true) @AuthUser AuthUserInfo authUser,
             @Parameter(description = "심사 세션 ID", example = "sess_8f9e1a2b3c4d")
             @RequestParam(required = false) String sessionId,
-            @Parameter(description = "서류 파일. 필드명 예: files[AGRI_MANAGEMENT_REGISTRATION], files[CROP_DISASTER_INSURANCE]")
-            @RequestParam Map<String, MultipartFile> files
+            @Parameter(description = "농업 경영체 등록 확인서")
+            @RequestParam(value = "files[AGRI_MANAGEMENT_REGISTRATION]", required = false)
+            MultipartFile agriManagementRegistration,
+            @Parameter(description = "농작물 재해보험 가입 증명서")
+            @RequestParam(value = "files[CROP_DISASTER_INSURANCE]", required = false)
+            MultipartFile cropDisasterInsurance
     ) {
+        Map<String, MultipartFile> files = new HashMap<>();
+        files.put("AGRI_MANAGEMENT_REGISTRATION", agriManagementRegistration);
+        files.put("CROP_DISASTER_INSURANCE", cropDisasterInsurance);
         SubmitResponse response = creditApplicationService.submit(authUser.userId(), sessionId, files);
         return ApiResponse.success(response, "한도 심사 신청이 완료되었습니다.");
     }
