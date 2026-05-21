@@ -247,10 +247,17 @@ public class CreditApplicationService {
 
     private void rollbackUploadedDocuments(List<UploadedDocument> uploadedDocuments) {
         uploadedDocuments.forEach(uploadedDocument -> {
-            log.error("[CreditSubmit] rolling back uploaded file documentType={} url={}",
-                    uploadedDocument.documentType(),
-                    uploadedDocument.fileUrl());
-            fileStorageService.delete(uploadedDocument.fileUrl());
+            try {
+                log.error("[CreditSubmit] rolling back uploaded file documentType={} url={}",
+                        uploadedDocument.documentType(),
+                        uploadedDocument.fileUrl());
+                fileStorageService.delete(uploadedDocument.fileUrl());
+            } catch (RuntimeException rollbackException) {
+                log.error("[CreditSubmit] rollback delete failed documentType={} url={}",
+                        uploadedDocument.documentType(),
+                        uploadedDocument.fileUrl(),
+                        rollbackException);
+            }
         });
     }
 
