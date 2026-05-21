@@ -225,17 +225,24 @@ public class CreditApplicationService {
 
     private List<UploadedDocument> uploadDocuments(String sessionId, Map<RequiredDocumentType, MultipartFile> files) {
         List<UploadedDocument> uploadedDocuments = new ArrayList<>();
-        files.forEach((documentType, file) -> {
-            if (file == null || file.isEmpty()) {
-                return;
+        try {
+            for (Map.Entry<RequiredDocumentType, MultipartFile> entry : files.entrySet()) {
+                RequiredDocumentType documentType = entry.getKey();
+                MultipartFile file = entry.getValue();
+                if (file == null || file.isEmpty()) {
+                    continue;
+                }
+                String fileUrl = fileStorageService.upload(sessionId, file);
+                log.info("[CreditSubmit] uploaded documentType={} url={}",
+                        documentType,
+                        fileUrl);
+                uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
             }
-            String fileUrl = fileStorageService.upload(sessionId, file);
-            log.info("[CreditSubmit] uploaded documentType={} url={}",
-                    documentType,
-                    fileUrl);
-            uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
-        });
-        return uploadedDocuments;
+            return uploadedDocuments;
+        } catch (RuntimeException exception) {
+            rollbackUploadedDocuments(uploadedDocuments);
+            throw exception;
+        }
     }
 
     private void rollbackUploadedDocuments(List<UploadedDocument> uploadedDocuments) {
