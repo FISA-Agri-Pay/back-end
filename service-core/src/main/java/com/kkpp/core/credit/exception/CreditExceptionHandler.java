@@ -17,12 +17,10 @@ public class CreditExceptionHandler {
             HttpServletRequest request
     ) {
         CreditErrorCode errorCode = exception.getErrorCode();
-        log.warn("[CreditException] {} {} code={} input={}",
+        log.warn("[CreditException] {} {} code={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                errorCode.getCode(),
-                exception.getInputValue(),
-                exception);
+                errorCode.getCode());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
