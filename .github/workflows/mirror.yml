@@ -1,0 +1,29 @@
+name: On-Premise Direct Mirror & Deploy
+
+on:
+  push:
+    branches: [ main, dev ]
+
+jobs:
+  build-and-deploy:
+    permissions:
+      contents: read
+
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push Mirror to GitLab
+        run: |
+          git remote remove gitlab || true
+          git remote add gitlab "${{ secrets.INTERNAL_GITLAB_URL }}"
+          git push --mirror gitlab
+
+      - name: Deploy to K0s Cluster
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "GitHub Actions 파이프라인 연동 성공! 배포 단계를 대기 중입니다."
