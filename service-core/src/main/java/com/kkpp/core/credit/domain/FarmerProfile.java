@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -32,7 +33,7 @@ public class FarmerProfile extends BaseEntity {
     private String farmAddress;
 
     @Column(nullable = false)
-    private Double fieldAreaM2;
+    private BigDecimal fieldAreaM2;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -43,7 +44,7 @@ public class FarmerProfile extends BaseEntity {
 
     private LocalDate farmingSince;
 
-    public static FarmerProfile create(Long userId, String farmAddress, Double fieldAreaM2,
+    public static FarmerProfile create(Long userId, String farmAddress, BigDecimal fieldAreaM2,
                                        CropType mainCrop, Boolean hasCropInsurance) {
         FarmerProfile profile = new FarmerProfile();
         profile.userId = userId;
@@ -51,7 +52,7 @@ public class FarmerProfile extends BaseEntity {
         return profile;
     }
 
-    public void update(String farmAddress, Double fieldAreaM2, CropType mainCrop, Boolean hasCropInsurance) {
+    public void update(String farmAddress, BigDecimal fieldAreaM2, CropType mainCrop, Boolean hasCropInsurance) {
         this.farmAddress = farmAddress;
         this.fieldAreaM2 = fieldAreaM2;
         this.mainCrop = mainCrop;

@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.io.Serializable;
 import java.util.List;
 
@@ -18,13 +19,15 @@ public class CreditApplicationDraft implements Serializable {
     private String sessionId;
     private Long userId;
     private String address;
-    private Double areaSizeM2;
+    private BigDecimal areaSizeM2;
     private CropType cropType;
     private Boolean hasCropInsurance;
     private List<RequiredDocumentResponse> requiredDocuments;
 
     @JsonIgnore
     public boolean isLandFilled() {
-        return address != null && !address.isBlank() && areaSizeM2 != null && areaSizeM2 > 0;
+        return address != null && !address.isBlank()
+                && areaSizeM2 != null
+                && areaSizeM2.compareTo(BigDecimal.ZERO) > 0;
     }
 }

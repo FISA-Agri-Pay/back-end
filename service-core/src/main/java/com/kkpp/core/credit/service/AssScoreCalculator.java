@@ -4,6 +4,8 @@ import com.kkpp.core.credit.domain.FarmerProfile;
 import com.kkpp.core.credit.dto.AssScoreResult;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 public class AssScoreCalculator {
 
@@ -16,7 +18,7 @@ public class AssScoreCalculator {
         );
     }
 
-    private int calculateFieldAreaScore(Double fieldAreaM2) {
+    private int calculateFieldAreaScore(BigDecimal fieldAreaM2) {
         // TODO: ASS 면적 점수 산정 기준 확정 후 구현
         return 0;
     }

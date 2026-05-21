@@ -22,6 +22,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public class CreditApplicationService {
     private static final String SESSION_KEY_PREFIX = "credit:application:session:";
     private static final Duration DRAFT_TTL = Duration.ofHours(1);
     private static final Duration SESSION_MARKER_TTL = Duration.ofDays(7);
-    private static final double PYEONG_TO_M2 = 3.305785;
+    private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
 
@@ -71,7 +72,7 @@ public class CreditApplicationService {
         validateLand(request);
 
         draft.setAddress(request.address());
-        draft.setAreaSizeM2(request.areaSize() * PYEONG_TO_M2);
+        draft.setAreaSizeM2(BigDecimal.valueOf(request.areaSize()).multiply(PYEONG_TO_M2));
         saveDraft(draft);
     }
 
@@ -140,7 +141,7 @@ public class CreditApplicationService {
 
     private void validateSubmitDraft(CreditApplicationDraft draft) {
         if (draft.getAddress() == null || draft.getAddress().isBlank()
-                || draft.getAreaSizeM2() == null || draft.getAreaSizeM2() <= 0
+                || draft.getAreaSizeM2() == null || draft.getAreaSizeM2().compareTo(BigDecimal.ZERO) <= 0
                 || draft.getCropType() == null
                 || draft.getHasCropInsurance() == null
                 || draft.getRequiredDocuments() == null || draft.getRequiredDocuments().isEmpty()) {
