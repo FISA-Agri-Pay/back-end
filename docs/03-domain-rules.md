@@ -69,7 +69,7 @@ K8s 환경에서 Pod 재시작 또는 Scale-out 시 서버 메모리 데이터�
 ### 2.1 Redis Key 및 TTL
 
 ```
-Key: credit:application:draft:{userId}
+Key: credit:application:draft:{sessionId}
 TTL: 1시간
 ```
 

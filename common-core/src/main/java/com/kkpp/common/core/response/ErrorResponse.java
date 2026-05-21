@@ -8,6 +8,6 @@ public record ErrorResponse(
 ) {
 
     public static ErrorResponse from(ErrorCode errorCode) {
-        return new ErrorResponse(errorCode.name(), errorCode.getMessage());
+        return new ErrorResponse(errorCode.getCode(), errorCode.getMessage());
     }
 }
