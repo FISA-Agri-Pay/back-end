@@ -33,8 +33,7 @@ public class GlobalExceptionHandler {
                 request.getMethod(),
                 request.getRequestURI(),
                 errorCode.name(),
-                exception.getMessage(),
-                exception);
+                exception.getMessage());
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -55,8 +54,7 @@ public class GlobalExceptionHandler {
         log.warn("[ValidationException] {} {} fields={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                fieldErrors,
-                exception);
+                fieldErrors);
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -76,8 +74,7 @@ public class GlobalExceptionHandler {
         log.warn("[InvalidRequestException] {} {} message={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                exception.getMessage(),
-                exception);
+                exception.getMessage());
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -101,7 +98,6 @@ public class GlobalExceptionHandler {
     }
 
     private String formatFieldError(FieldError fieldError) {
-        return fieldError.getField() + "=" + fieldError.getRejectedValue()
-                + " (" + fieldError.getDefaultMessage() + ")";
+        return fieldError.getField() + " (" + fieldError.getDefaultMessage() + ")";
     }
 }
