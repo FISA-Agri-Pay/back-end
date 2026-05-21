@@ -39,7 +39,7 @@ public class CreditApplicationService {
     private static final String SESSION_KEY_PREFIX = "credit:application:session:";
     private static final Duration DRAFT_TTL = Duration.ofHours(1);
     private static final Duration SESSION_MARKER_TTL = Duration.ofDays(7);
-    private static final double PYEONG_TO_M2 = 3.30579;
+    private static final double PYEONG_TO_M2 = 3.305785;
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
 

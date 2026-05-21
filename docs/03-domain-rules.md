@@ -29,7 +29,8 @@ auth:phone-code:{phone}
 auth:pin-fail-count:{userId}
 auth:refresh-blacklist:{tokenId}
 
-credit:application:draft:{userId}
+credit:application:draft:{sessionId}
+credit:application:session:{sessionId}
 credit:limit-cache:{userId}
 
 cart:items:{userId}    # 장바구니 원본이 아니라 catalog.cart_items 조회 결과 캐시
