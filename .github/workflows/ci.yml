@@ -12,12 +12,12 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<checkout-full-commit-sha>
         with:
           persist-credentials: false
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@<setup-java-full-commit-sha>
         with:
           java-version: '21'
           distribution: 'temurin'
