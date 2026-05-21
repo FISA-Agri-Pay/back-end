@@ -38,8 +38,10 @@ public class CreditApplicationService {
 
     private static final String DRAFT_KEY_PREFIX = "credit:application:draft:";
     private static final String SESSION_KEY_PREFIX = "credit:application:session:";
+    private static final String SUBMIT_LOCK_KEY_PREFIX = "credit:application:submit-lock:";
     private static final Duration DRAFT_TTL = Duration.ofHours(1);
     private static final Duration SESSION_MARKER_TTL = Duration.ofDays(7);
+    private static final Duration SUBMIT_LOCK_TTL = Duration.ofMinutes(2);
     private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
@@ -107,8 +109,14 @@ public class CreditApplicationService {
         validateFiles(documentFiles);
         validateRequiredDocuments(draft, documentFiles);
 
-        List<UploadedDocument> uploadedDocuments = uploadDocuments(draft.getSessionId(), documentFiles);
+        String lockToken = acquireSubmitLock(userId);
+        List<UploadedDocument> uploadedDocuments = List.of();
         try {
+            if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+                throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
+            }
+
+            uploadedDocuments = uploadDocuments(draft.getSessionId(), documentFiles);
             CreditLimitApplication application = creditSubmitPersistenceService.saveSubmittedApplication(
                     userId,
                     draft,
@@ -120,6 +128,8 @@ public class CreditApplicationService {
         } catch (RuntimeException exception) {
             rollbackUploadedDocuments(uploadedDocuments);
             throw exception;
+        } finally {
+            releaseSubmitLock(userId, lockToken);
         }
     }
 
@@ -282,5 +292,27 @@ public class CreditApplicationService {
     private void deleteDraft(String sessionId) {
         redisTemplate.delete(draftKey(sessionId));
         redisTemplate.delete(sessionKey(sessionId));
+    }
+
+    private String acquireSubmitLock(Long userId) {
+        String lockToken = UUID.randomUUID().toString();
+        Boolean acquired = redisTemplate.opsForValue()
+                .setIfAbsent(submitLockKey(userId), lockToken, SUBMIT_LOCK_TTL);
+        if (!Boolean.TRUE.equals(acquired)) {
+            throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
+        }
+        return lockToken;
+    }
+
+    private void releaseSubmitLock(Long userId, String lockToken) {
+        String lockKey = submitLockKey(userId);
+        Object currentToken = redisTemplate.opsForValue().get(lockKey);
+        if (Objects.equals(currentToken, lockToken)) {
+            redisTemplate.delete(lockKey);
+        }
+    }
+
+    private String submitLockKey(Long userId) {
+        return SUBMIT_LOCK_KEY_PREFIX + userId;
     }
 }
