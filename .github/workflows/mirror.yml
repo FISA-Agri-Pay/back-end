@@ -11,6 +11,10 @@ jobs:
     permissions:
       contents: read
 
+    concurrency:
+      group: mirror-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -22,6 +26,10 @@ jobs:
           git remote remove gitlab || true
           git remote add gitlab "${{ secrets.INTERNAL_GITLAB_URL }}"
           git push gitlab HEAD:${GITHUB_REF_NAME} --force
+
+      - name: Cleanup GitLab remote
+        if: always()
+        run: git remote remove gitlab || true
 
       - name: Deploy to K0s Cluster
         if: github.ref == 'refs/heads/main'
