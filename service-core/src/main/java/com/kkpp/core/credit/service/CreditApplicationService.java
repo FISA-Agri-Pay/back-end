@@ -100,6 +100,8 @@ public class CreditApplicationService {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
+        validateSubmitDraft(draft);
+
         Map<RequiredDocumentType, MultipartFile> documentFiles = normalizeDocumentFiles(files);
         validateFiles(documentFiles);
         validateRequiredDocuments(draft, documentFiles);
@@ -134,6 +136,16 @@ public class CreditApplicationService {
 
     private boolean isUnsupportedRegion(String address) {
         return address.contains("울릉군") || address.contains("백령면") || address.contains("흑산면");
+    }
+
+    private void validateSubmitDraft(CreditApplicationDraft draft) {
+        if (draft.getAddress() == null || draft.getAddress().isBlank()
+                || draft.getAreaSizeM2() == null || draft.getAreaSizeM2() <= 0
+                || draft.getCropType() == null
+                || draft.getHasCropInsurance() == null
+                || draft.getRequiredDocuments() == null || draft.getRequiredDocuments().isEmpty()) {
+            throw new CreditException(CreditErrorCode.APPLICATION_STEP_MISSING, draft.getSessionId());
+        }
     }
 
     private Map<RequiredDocumentType, MultipartFile> normalizeDocumentFiles(Map<String, MultipartFile> files) {

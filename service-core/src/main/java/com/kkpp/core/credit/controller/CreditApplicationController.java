@@ -270,6 +270,13 @@ public class CreditApplicationController {
                                               "errorCode": "DOC-001",
                                               "message": "필수 서류가 누락되었습니다."
                                             }
+                                            """),
+                                    @ExampleObject(name = "APP-002", value = """
+                                            {
+                                              "status": "ERROR",
+                                              "errorCode": "APP-002",
+                                              "message": "신청 단계 정보가 누락되었습니다."
+                                            }
                                             """)
                             }
                     )
