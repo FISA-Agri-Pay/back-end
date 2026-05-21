@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: kkpp-postgres-local
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kkpp
+      POSTGRES_USER: kkpp
+      POSTGRES_PASSWORD: kkpp
+    volumes:
+      - kkpp-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: kkpp-redis-local
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  kkpp-postgres-data:
