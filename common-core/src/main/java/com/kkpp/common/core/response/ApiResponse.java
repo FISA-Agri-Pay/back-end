@@ -10,11 +10,11 @@ import lombok.Getter;
 import java.io.IOException;
 
 @Getter
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
     private final String status;
     private final Object data;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String errorCode;
     private final String message;
 
