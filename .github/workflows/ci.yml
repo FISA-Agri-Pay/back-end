@@ -1,31 +1,25 @@
 name: Java CI with Gradle
 
-# 오직 main과 dev 브랜치로 'PR(Pull Request)'이 열렸을 때만 이 봇이 작동합니다.
 on:
   pull_request:
     branches: [ main, dev ]
 
 jobs:
   test-and-build:
-    # 내부 VM을 쓸 필요 없이, GitHub가 제공하는 무료 클라우드 컴퓨터(Ubuntu)를 빌려서 검사합니다.
     runs-on: ubuntu-latest 
 
     steps:
-      # 1) GitHub 클라우드 컴퓨터로 내 코드를 다운로드합니다.
       - uses: actions/checkout@v4
 
-      # 2) 스프링 부트 구동을 위한 자바 환경을 세팅합니다. (팀 내 자바 버전에 맞게 수정 가능)
-      - name: Set up JDK 17
+      # 👈 자바 버전을 21로 매핑하여 빌드 환경을 일치시킵니다.
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
-      # 3) Gradle 실행 권한을 부여합니다.
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 4) 코드에 버그가 없는지 테스트를 돌리고 빌드(Jar 생성)를 수행합니다.
-      # 만약 코드에 에러가 있으면 이 단계에서 빨간불이 뜨며 PR 머지가 막힙니다.
       - name: Build with Gradle
         run: ./gradlew build
