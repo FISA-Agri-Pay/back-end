@@ -6,10 +6,10 @@ on:
 
 jobs:
   build-and-deploy:
+    runs-on: self-hosted
+
     permissions:
       contents: read
-
-    runs-on: self-hosted
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -17,11 +17,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Push Mirror to GitLab
+      - name: Push current branch to GitLab
         run: |
           git remote remove gitlab || true
           git remote add gitlab "${{ secrets.INTERNAL_GITLAB_URL }}"
-          git push --mirror gitlab
+          git push gitlab HEAD:${GITHUB_REF_NAME} --force
 
       - name: Deploy to K0s Cluster
         if: github.ref == 'refs/heads/main'
