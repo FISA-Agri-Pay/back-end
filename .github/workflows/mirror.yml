@@ -1,0 +1,28 @@
+name: On-Premise Direct Mirror & Deploy
+
+on:
+  push:
+    branches: [ main, dev ]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted  # 👈 내부 Jenkins 서버(Runner)에서 실행
+
+    steps:
+      # 1. 깃허브 최신 코드를 내부 젠킨스 서버로 가져옴
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. 내부망 대역에서 Secrets 변수를 활용해 안전하게 다이렉트 미러링 백업
+      - name: Push Mirror to GitLab
+        run: |
+          git remote remove gitlab || true
+          git remote add gitlab ${{ secrets.INTERNAL_GITLAB_URL }}
+          git push --mirror ${{ secrets.INTERNAL_GITLAB_URL }}
+
+      # 3. main 브랜치 머지 시에만 작동할 배포 뼈대 (나중에 실제 배포 명령어로 수정)
+      - name: Deploy to K0s Cluster
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "GitHub Actions 파이프라인 연동 성공! 배포 단계를 대기 중입니다."
