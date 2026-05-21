@@ -1,8 +1,8 @@
 package com.kkpp.core.credit.dto.response;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record StartSessionResponse(
         String sessionId,
-        LocalDateTime expiresAt
+        Instant expiresAt
 ) {}

@@ -24,7 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,7 @@ public class CreditApplicationService {
         }
 
         String sessionId = "sess_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        LocalDateTime expiresAt = LocalDateTime.now().plus(DRAFT_TTL);
+        Instant expiresAt = Instant.now().plus(DRAFT_TTL);
 
         CreditApplicationDraft draft = new CreditApplicationDraft();
         draft.setSessionId(sessionId);
