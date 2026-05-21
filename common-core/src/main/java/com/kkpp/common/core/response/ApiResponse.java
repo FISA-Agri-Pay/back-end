@@ -1,24 +1,18 @@
 package com.kkpp.common.core.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Getter;
-
-import java.io.IOException;
 
 @Getter
 public class ApiResponse<T> {
 
     private final String status;
-    private final Object data;
+    private final T data;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private final String errorCode;
     private final String message;
 
-    private ApiResponse(String status, Object data, String errorCode, String message) {
+    private ApiResponse(String status, T data, String errorCode, String message) {
         this.status = status;
         this.data = data;
         this.errorCode = errorCode;
@@ -34,7 +28,7 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(T data, String message) {
-        return new ApiResponse<>("SUCCESS", data == null ? NullData.INSTANCE : data, null, message);
+        return new ApiResponse<>("SUCCESS", data, null, message);
     }
 
     public static ApiResponse<Void> fail(ErrorResponse error) {
@@ -43,18 +37,5 @@ public class ApiResponse<T> {
 
     public static ApiResponse<Void> fail(String errorCode, String message) {
         return new ApiResponse<>("ERROR", null, errorCode, message);
-    }
-
-    @JsonSerialize(using = NullDataSerializer.class)
-    private enum NullData {
-        INSTANCE
-    }
-
-    private static class NullDataSerializer extends JsonSerializer<NullData> {
-
-        @Override
-        public void serialize(NullData value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeNull();
-        }
     }
 }
