@@ -37,7 +37,7 @@ public class LocalFileStorageService implements FileStorageService {
             }
 
             String fileUrl = UPLOAD_ROOT_ABSOLUTE.relativize(destination).toString().replace('\\', '/');
-            log.info("[FileStorage] uploaded filename={} url={}", originalFilename, fileUrl);
+            log.info("[FileStorage] uploaded url={}", fileUrl);
             return fileUrl;
         } catch (IOException exception) {
             throw new IllegalStateException("파일 업로드에 실패했습니다.", exception);

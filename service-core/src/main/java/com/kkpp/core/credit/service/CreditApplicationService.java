@@ -230,9 +230,8 @@ public class CreditApplicationService {
                 return;
             }
             String fileUrl = fileStorageService.upload(sessionId, file);
-            log.info("[CreditSubmit] uploaded documentType={} filename={} url={}",
+            log.info("[CreditSubmit] uploaded documentType={} url={}",
                     documentType,
-                    file.getOriginalFilename(),
                     fileUrl);
             uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
         });
