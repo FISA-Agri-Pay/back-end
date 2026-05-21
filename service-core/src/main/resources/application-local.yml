@@ -4,6 +4,8 @@ spring:
     username: ${DB_USERNAME:kkpp}
     password: ${DB_PASSWORD:kkpp}
   jpa:
+    hibernate:
+      ddl-auto: create
     properties:
       hibernate:
         default_schema: core
