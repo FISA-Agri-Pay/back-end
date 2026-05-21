@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -33,6 +34,8 @@ public class CreditLimitApplication extends BaseEntity {
     private LocalDateTime appliedAt;
 
     public static CreditLimitApplication create(Long userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+
         CreditLimitApplication application = new CreditLimitApplication();
         application.publicId = UUID.randomUUID();
         application.userId = userId;
