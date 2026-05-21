@@ -1,5 +1,7 @@
 package com.kkpp.core.global.config;
 
+import com.kkpp.common.core.exception.BusinessException;
+import com.kkpp.common.core.exception.ErrorCode;
 import com.kkpp.common.security.annotation.AuthUser;
 import com.kkpp.common.security.auth.AuthUserInfo;
 import org.springframework.core.MethodParameter;
@@ -25,7 +27,6 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
         if (authentication != null && authentication.getPrincipal() instanceof AuthUserInfo authUserInfo) {
             return authUserInfo;
         }
-        // Temporary local test user until JWT authentication is connected.
-        return new AuthUserInfo(1L, "USER");
+        throw new BusinessException(ErrorCode.UNAUTHORIZED);
     }
 }
