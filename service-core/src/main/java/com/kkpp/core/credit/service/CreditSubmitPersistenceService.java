@@ -78,7 +78,7 @@ public class CreditSubmitPersistenceService {
 
         AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
         try {
-            assScoreRepository.save(AssScore.create(
+            assScoreRepository.saveAndFlush(AssScore.create(
                     application,
                     scoreResult.estimatedIncome(),
                     scoreResult.priceSnapshotDate(),
