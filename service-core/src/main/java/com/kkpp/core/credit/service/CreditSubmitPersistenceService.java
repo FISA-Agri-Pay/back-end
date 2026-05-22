@@ -2,6 +2,7 @@ package com.kkpp.core.credit.service;
 
 import com.kkpp.core.credit.domain.AssScore;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
+import com.kkpp.core.credit.domain.CropType;
 import com.kkpp.core.credit.domain.FarmerDocument;
 import com.kkpp.core.credit.domain.FarmerProfile;
 import com.kkpp.core.credit.dto.AssScoreResult;
@@ -27,7 +28,7 @@ public class CreditSubmitPersistenceService {
     private final FarmerDocumentRepository farmerDocumentRepository;
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final AssScoreRepository assScoreRepository;
-    private final AssScoreCalculator assScoreCalculator;
+    private final AssScoringService assScoringService;
 
     @Transactional
     public CreditLimitApplication saveSubmittedApplication(Long userId, CreditApplicationDraft draft,
@@ -63,16 +64,27 @@ public class CreditSubmitPersistenceService {
                 ))
                 .forEach(farmerDocumentRepository::save);
 
-        AssScoreResult scoreResult = assScoreCalculator.calculate(savedProfile);
-        assScoreRepository.save(AssScore.create(
-                application,
-                scoreResult.fieldAreaScore(),
-                scoreResult.cropScore(),
-                scoreResult.insuranceScore(),
-                scoreResult.farmingCareerScore()
-        ));
+        saveAssScore(application, savedProfile, draft.getCropType());
 
         log.info("[CreditSubmit] persisted applicationId={}", application.getPublicId());
         return application;
+    }
+
+    private void saveAssScore(CreditLimitApplication application, FarmerProfile profile, CropType cropType) {
+        if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+            return;
+        }
+
+        AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
+        assScoreRepository.save(AssScore.create(
+                application,
+                scoreResult.estimatedIncome(),
+                scoreResult.priceSnapshotDate(),
+                scoreResult.incomeScore(),
+                scoreResult.insuranceScore(),
+                scoreResult.farmingCareerScore(),
+                scoreResult.totalScore(),
+                scoreResult.calculatedAt()
+        ));
     }
 }

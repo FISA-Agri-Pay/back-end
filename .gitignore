@@ -20,6 +20,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Local file uploads
+uploads/
+
 # Env
 .env
 *.local.env

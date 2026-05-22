@@ -14,6 +14,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "ass_scores")
 @Getter
@@ -29,10 +33,16 @@ public class AssScore extends BaseTimeEntity {
     private CreditLimitApplication application;
 
     @Column(nullable = false)
-    private int fieldAreaScore;
+    private Long userId;
+
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal estimatedIncome;
 
     @Column(nullable = false)
-    private int cropScore;
+    private LocalDate priceSnapshotDate;
+
+    @Column(nullable = false)
+    private int incomeScore;
 
     @Column(nullable = false)
     private int insuranceScore;
@@ -43,15 +53,22 @@ public class AssScore extends BaseTimeEntity {
     @Column(nullable = false)
     private int totalScore;
 
-    public static AssScore create(CreditLimitApplication application, int fieldAreaScore, int cropScore,
-                                  int insuranceScore, int farmingCareerScore) {
+    @Column(nullable = false)
+    private LocalDateTime calculatedAt;
+
+    public static AssScore create(CreditLimitApplication application, BigDecimal estimatedIncome,
+                                  LocalDate priceSnapshotDate, int incomeScore, int insuranceScore,
+                                  int farmingCareerScore, int totalScore, LocalDateTime calculatedAt) {
         AssScore score = new AssScore();
         score.application = application;
-        score.fieldAreaScore = fieldAreaScore;
-        score.cropScore = cropScore;
+        score.userId = application.getUserId();
+        score.estimatedIncome = estimatedIncome;
+        score.priceSnapshotDate = priceSnapshotDate;
+        score.incomeScore = incomeScore;
         score.insuranceScore = insuranceScore;
         score.farmingCareerScore = farmingCareerScore;
-        score.totalScore = fieldAreaScore + cropScore + insuranceScore + farmingCareerScore;
+        score.totalScore = totalScore;
+        score.calculatedAt = calculatedAt;
         return score;
     }
 }
