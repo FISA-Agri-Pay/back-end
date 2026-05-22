@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS core.ass_scores (
               AND insurance_score BETWEEN 0 AND 25
               AND farming_career_score BETWEEN 0 AND 15
               AND total_score BETWEEN 0 AND 100
-          )
+          ),
+    CONSTRAINT chk_ass_total_score_consistency
+    CHECK (total_score = income_score + insurance_score + farming_career_score)
     );
 

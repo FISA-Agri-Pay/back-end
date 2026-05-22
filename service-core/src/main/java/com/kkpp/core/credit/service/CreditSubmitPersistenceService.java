@@ -14,6 +14,7 @@ import com.kkpp.core.credit.repository.FarmerDocumentRepository;
 import com.kkpp.core.credit.repository.FarmerProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,15 +77,22 @@ public class CreditSubmitPersistenceService {
         }
 
         AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
-        assScoreRepository.save(AssScore.create(
-                application,
-                scoreResult.estimatedIncome(),
-                scoreResult.priceSnapshotDate(),
-                scoreResult.incomeScore(),
-                scoreResult.insuranceScore(),
-                scoreResult.farmingCareerScore(),
-                scoreResult.totalScore(),
-                scoreResult.calculatedAt()
-        ));
+        try {
+            assScoreRepository.save(AssScore.create(
+                    application,
+                    scoreResult.estimatedIncome(),
+                    scoreResult.priceSnapshotDate(),
+                    scoreResult.incomeScore(),
+                    scoreResult.insuranceScore(),
+                    scoreResult.farmingCareerScore(),
+                    scoreResult.totalScore(),
+                    scoreResult.calculatedAt()
+            ));
+        } catch (DataIntegrityViolationException exception) {
+            if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+                return;
+            }
+            throw exception;
+        }
     }
 }
