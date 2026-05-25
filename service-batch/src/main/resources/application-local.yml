@@ -3,9 +3,19 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
     username: ${DB_USERNAME:kkpp}
     password: ${DB_PASSWORD:kkpp}
+    driver-class-name: org.postgresql.Driver
+
   jpa:
+    hibernate:
+      ddl-auto: none
     properties:
       hibernate:
         default_schema: core
+    show-sql: true
+
+  batch:
+    jdbc:
+      initialize-schema: always
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
