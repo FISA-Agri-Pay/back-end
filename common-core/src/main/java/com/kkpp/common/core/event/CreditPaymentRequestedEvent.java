@@ -16,6 +16,9 @@ public record CreditPaymentRequestedEvent(
         List<Item> items,
         String idempotencyKey
 ) {
+    public CreditPaymentRequestedEvent {
+        items = List.copyOf(items);
+    }
 
     public record DeliveryAddress(
             String recipientName,

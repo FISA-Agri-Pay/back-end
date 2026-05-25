@@ -35,14 +35,17 @@ public class CartService {
         User user = getUser(userId);
         Product product = productRepository.findByPublicIdWithCategory(request.productId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다."));
-        validatePurchasable(product, request.quantity());
 
         CartItem cartItem = cartItemRepository.findByUserIdAndProductId(userId, product.getId())
                 .map(existing -> {
+                    validatePurchasable(product, calculateTotalQuantity(existing, request.quantity()));
                     existing.addQuantity(request.quantity());
                     return existing;
                 })
-                .orElseGet(() -> cartItemRepository.save(CartItem.create(user, product, request.quantity())));
+                .orElseGet(() -> {
+                    validatePurchasable(product, request.quantity());
+                    return cartItemRepository.save(CartItem.create(user, product, request.quantity()));
+                });
 
         return CartItemResponse.from(cartItem);
     }
@@ -71,12 +74,28 @@ public class CartService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "장바구니 항목을 찾을 수 없습니다."));
     }
 
-    private void validatePurchasable(Product product, int quantity) {
+    private long calculateTotalQuantity(CartItem cartItem, Integer quantity) {
+        validatePositiveQuantity(quantity);
+        return (long) cartItem.getQuantity() + quantity;
+    }
+
+    private void validatePurchasable(Product product, Integer quantity) {
+        validatePositiveQuantity(quantity);
+        validatePurchasable(product, quantity.longValue());
+    }
+
+    private void validatePurchasable(Product product, long quantity) {
         if (!"ON_SALE".equals(product.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "판매 중인 상품만 장바구니에 담을 수 있습니다.");
         }
         if (product.getStockQuantity() < quantity) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "상품 재고가 부족합니다.");
+        }
+    }
+
+    private void validatePositiveQuantity(Integer quantity) {
+        if (quantity == null || quantity < 1) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "장바구니 수량은 1개 이상이어야 합니다.");
         }
     }
 }

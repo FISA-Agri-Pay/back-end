@@ -22,8 +22,10 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -36,9 +38,17 @@ public class CheckoutService {
     private final CartItemRepository cartItemRepository;
     private final CheckoutRequestRepository checkoutRequestRepository;
     private final CreditPaymentEventProducer creditPaymentEventProducer;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public CheckoutRequestResponse createCheckoutRequest(Long userId, CreateCheckoutRequest request) {
+        try {
+            return transactionTemplate.execute(status -> createCheckoutRequestInTransaction(userId, request));
+        } catch (DataIntegrityViolationException exception) {
+            return recoverIdempotentCheckoutRequest(userId, request.idempotencyKey(), exception);
+        }
+    }
+
+    private CheckoutRequestResponse createCheckoutRequestInTransaction(Long userId, CreateCheckoutRequest request) {
         log.info(
                 "Create checkout request received. userId={}, cartItemIds={}, paymentMethod={}, idempotencyKey={}",
                 userId,
@@ -89,7 +99,7 @@ public class CheckoutService {
         cartItems.forEach(this::validateCartItem);
 
         BigDecimal totalAmount = calculateTotalAmount(cartItems);
-        CheckoutRequest checkoutRequest = checkoutRequestRepository.save(CheckoutRequest.create(
+        CheckoutRequest checkoutRequest = checkoutRequestRepository.saveAndFlush(CheckoutRequest.create(
                 user,
                 totalAmount,
                 request.paymentMethod(),
@@ -110,6 +120,25 @@ public class CheckoutService {
         );
         creditPaymentEventProducer.publish(toEvent(checkoutRequest, user, cartItems, request.deliveryAddress()));
         return CheckoutRequestResponse.from(checkoutRequest);
+    }
+
+    private CheckoutRequestResponse recoverIdempotentCheckoutRequest(
+            Long userId,
+            String idempotencyKey,
+            DataIntegrityViolationException exception
+    ) {
+        return checkoutRequestRepository.findByIdempotencyKeyAndUserId(idempotencyKey, userId)
+                .map(existingRequest -> {
+                    log.info(
+                            "Idempotent checkout request recovered after unique constraint conflict. userId={}, checkoutRequestId={}, idempotencyKey={}, status={}",
+                            userId,
+                            existingRequest.getPublicId(),
+                            idempotencyKey,
+                            existingRequest.getStatus()
+                    );
+                    return CheckoutRequestResponse.from(existingRequest);
+                })
+                .orElseThrow(() -> exception);
     }
 
     @Transactional(readOnly = true)

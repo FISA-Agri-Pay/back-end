@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -19,7 +20,13 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "checkout_requests")
+@Table(
+        name = "checkout_requests",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_checkout_requests_user_id_idempotency_key",
+                columnNames = {"user_id", "idempotency_key"}
+        )
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CheckoutRequest extends BaseEntity {
 
@@ -43,7 +50,7 @@ public class CheckoutRequest extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String status;
 
-    @Column(nullable = false, unique = true, length = 120)
+    @Column(nullable = false, length = 120)
     private String idempotencyKey;
 
     @Column(nullable = false, length = 50)

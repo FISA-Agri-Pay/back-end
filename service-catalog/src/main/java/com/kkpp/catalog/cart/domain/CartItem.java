@@ -3,6 +3,8 @@ package com.kkpp.catalog.cart.domain;
 import com.kkpp.catalog.product.domain.Product;
 import com.kkpp.catalog.user.domain.User;
 import com.kkpp.common.core.domain.BaseEntity;
+import com.kkpp.common.core.exception.BusinessException;
+import com.kkpp.common.core.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -42,6 +44,7 @@ public class CartItem extends BaseEntity {
     private Integer quantity;
 
     private CartItem(User user, Product product, Integer quantity) {
+        validatePositiveQuantity(quantity);
         this.user = user;
         this.product = product;
         this.quantity = quantity;
@@ -52,10 +55,28 @@ public class CartItem extends BaseEntity {
     }
 
     public void addQuantity(Integer quantity) {
-        this.quantity += quantity;
+        validatePositiveQuantity(quantity);
+        validatePositiveQuantity(this.quantity);
+        long totalQuantity = (long) this.quantity + quantity;
+        validatePositiveQuantity(totalQuantity);
+        this.quantity = (int) totalQuantity;
     }
 
     public void changeQuantity(Integer quantity) {
+        validatePositiveQuantity(quantity);
         this.quantity = quantity;
+    }
+
+    private static void validatePositiveQuantity(Integer quantity) {
+        if (quantity == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "장바구니 수량은 1개 이상이어야 합니다.");
+        }
+        validatePositiveQuantity(quantity.longValue());
+    }
+
+    private static void validatePositiveQuantity(long quantity) {
+        if (quantity < 1 || quantity > Integer.MAX_VALUE) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "장바구니 수량은 1개 이상이어야 합니다.");
+        }
     }
 }
