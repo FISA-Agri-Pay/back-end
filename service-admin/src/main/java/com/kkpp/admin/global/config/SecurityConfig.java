@@ -1,0 +1,68 @@
+package com.kkpp.admin.global.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+// local 프로필에서만 적용되는 관리자 서비스 보안 설정
+@Configuration
+@Profile("local")
+public class SecurityConfig {
+
+    // 로컬 개발 환경에서 상품 관리 API를 인증 없이 테스트하기 위한 필터 체인
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                // REST API 테스트 중 CSRF 토큰 없이 POST/PATCH/DELETE를 호출할 수 있게 함
+                .csrf(AbstractHttpConfigurer::disable)
+                // 브라우저 기반 관리자 페이지에서 오는 CORS 요청을 허용함
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .authorizeHttpRequests(auth -> auth
+                        // POST 전 브라우저가 보내는 OPTIONS 프리플라이트 요청을 허용함
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
+                        .requestMatchers(
+                                "/health",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/products/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .build();
+    }
+
+    // 브라우저의 POST/PATCH/DELETE 프리플라이트 요청을 허용하는 CORS 설정
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // 로컬 프론트엔드 포트가 바뀌어도 테스트할 수 있도록 모든 Origin 패턴을 허용함
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        // 관리자 상품 관리에서 사용할 HTTP 메서드 목록
+        configuration.setAllowedMethods(List.of(
+                HttpMethod.GET.name(),
+                HttpMethod.POST.name(),
+                HttpMethod.PATCH.name(),
+                HttpMethod.DELETE.name(),
+                HttpMethod.OPTIONS.name()
+        ));
+        // Authorization, Content-Type 등 테스트에 필요한 요청 헤더를 모두 허용함
+        configuration.setAllowedHeaders(List.of("*"));
+        // 쿠키 기반 인증을 사용하지 않는 테스트 설정이므로 credential은 비활성화함
+        configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
