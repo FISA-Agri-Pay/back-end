@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS core.credit_limits (
     REFERENCES core.crop_repayment_policies(crop_type),
     CONSTRAINT chk_credit_limits_interest_due_day
     CHECK (interest_due_day BETWEEN 1 AND 28),
+    CONSTRAINT chk_credit_limits_interest_rate
+    CHECK (interest_rate >= 0),
     CONSTRAINT chk_credit_limits_used_amount
     CHECK (used_amount <= total_limit)
     );

@@ -38,6 +38,20 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
+        WHERE conname = 'chk_credit_limits_interest_rate'
+          AND conrelid = 'core.credit_limits'::regclass
+    ) THEN
+        ALTER TABLE core.credit_limits
+            ADD CONSTRAINT chk_credit_limits_interest_rate
+            CHECK (interest_rate >= 0);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
         WHERE conname = 'fk_credit_limits_crop_type_snapshot'
           AND conrelid = 'core.credit_limits'::regclass
     ) THEN
