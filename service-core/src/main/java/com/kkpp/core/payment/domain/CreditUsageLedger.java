@@ -19,6 +19,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CreditUsageLedger extends BaseTimeEntity {
 
+    private static final String PURCHASE = "PURCHASE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,12 +40,37 @@ public class CreditUsageLedger extends BaseTimeEntity {
     private LocalDateTime usedAt;
 
     public static CreditUsageLedger purchase(Long creditLimitId, Long orderId, BigDecimal amount, LocalDateTime usedAt) {
+        validateRequiredId(creditLimitId, "creditLimitId");
+        validatePositiveAmount(amount);
+        validateRequiredUsedAt(usedAt);
+
         CreditUsageLedger ledger = new CreditUsageLedger();
         ledger.creditLimitId = creditLimitId;
         ledger.orderId = orderId;
         ledger.amount = amount;
-        ledger.usageType = "PURCHASE";
+        ledger.usageType = PURCHASE;
         ledger.usedAt = usedAt;
         return ledger;
+    }
+
+    private static void validateRequiredId(Long id, String fieldName) {
+        if (id == null) {
+            throw new IllegalArgumentException(fieldName + "는 필수입니다.");
+        }
+    }
+
+    private static void validatePositiveAmount(BigDecimal amount) {
+        if (amount == null) {
+            throw new IllegalArgumentException("사용 원장 금액은 필수입니다.");
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("사용 원장 금액은 0보다 커야 합니다. amount=" + amount);
+        }
+    }
+
+    private static void validateRequiredUsedAt(LocalDateTime usedAt) {
+        if (usedAt == null) {
+            throw new IllegalArgumentException("사용 일시는 필수입니다.");
+        }
     }
 }

@@ -61,6 +61,21 @@ public class CreditPaymentProcessingService {
             return;
         }
 
+        if (message.orderId() != null
+                && creditUsageLedgerRepository.existsByOrderIdAndUsageType(message.orderId(), PURCHASE)) {
+            log.info(
+                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderId={}",
+                    message.eventId(),
+                    message.orderId()
+            );
+            paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
+                    message.eventId(),
+                    message.checkoutRequestId(),
+                    message.idempotencyKey()
+            ));
+            return;
+        }
+
         Long userId = resolveUserId(message);
         CreditLimit creditLimit = creditLimitRepository.findFirstByUserIdAndStatusOrderByIdDesc(userId, ACTIVE)
                 .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userId=" + userId));
@@ -81,20 +96,6 @@ public class CreditPaymentProcessingService {
                             + ", availableAmount=" + creditLimit.availableAmount()
                             + ", requestedAmount=" + message.totalAmount()
             );
-        }
-        if (message.orderId() != null
-                && creditUsageLedgerRepository.existsByOrderIdAndUsageType(message.orderId(), PURCHASE)) {
-            log.info(
-                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderId={}",
-                    message.eventId(),
-                    message.orderId()
-            );
-            paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
-                    message.eventId(),
-                    message.checkoutRequestId(),
-                    message.idempotencyKey()
-            ));
-            return;
         }
 
         LocalDateTime usedAt = Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now());
