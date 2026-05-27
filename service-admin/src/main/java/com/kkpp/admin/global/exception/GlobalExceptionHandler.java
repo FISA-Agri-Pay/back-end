@@ -7,6 +7,7 @@ import com.kkpp.common.core.response.ErrorResponse;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -51,5 +52,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorResponse.from(ErrorCode.INVALID_REQUEST)));
+    }
+
+    // multipart 업로드 크기 제한을 초과한 경우 상품 이미지 업로드에서 이해하기 쉬운 400 응답으로 변환함
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException() {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(new ErrorResponse(
+                        ErrorCode.INVALID_REQUEST.name(),
+                        "상품 이미지는 10MB 이하만 업로드할 수 있습니다."
+                )));
     }
 }

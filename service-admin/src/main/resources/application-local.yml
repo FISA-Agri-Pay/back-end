@@ -3,9 +3,21 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
     username: ${DB_USERNAME:kkpp}
     password: ${DB_PASSWORD:kkpp}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   jpa:
     properties:
       hibernate:
         default_schema: admin
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+admin:
+  upload:
+    # 로컬 개발에서 상품 이미지를 저장하는 디렉터리이다.
+    # 테스트 시 이 경로 아래에 업로드 파일이 생기고, /uploads/products/... URL로 접근한다.
+    # AWS S3 연동 시에는 이 로컬 저장 경로 대신 버킷명, 리전, prefix 같은 설정을 추가하면 된다.
+    product-image-dir: ${PRODUCT_IMAGE_UPLOAD_DIR:./uploads/products}
+    product-image-public-url-prefix: ${PRODUCT_IMAGE_PUBLIC_URL_PREFIX:/uploads/products}
