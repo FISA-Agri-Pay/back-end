@@ -37,9 +37,7 @@ public class LocalProductImageStorage implements ProductImageStorage {
             @Value("${admin.upload.product-image-public-url-prefix:/uploads/products}") String publicUrlPrefix
     ) {
         this.uploadDirectory = Path.of(uploadDirectory).toAbsolutePath().normalize();
-        this.publicUrlPrefix = publicUrlPrefix.endsWith("/")
-                ? publicUrlPrefix.substring(0, publicUrlPrefix.length() - 1)
-                : publicUrlPrefix;
+        this.publicUrlPrefix = normalizePublicUrlPrefix(publicUrlPrefix);
     }
 
     @Override
@@ -67,7 +65,7 @@ public class LocalProductImageStorage implements ProductImageStorage {
         );
     }
 
-    // 업로드 가능한 이미지 파일인지 검증하는 로컬 저장소 공통 규칙
+    // 업로드 가능한 이미지 파일인지 검증하는 로컬 저장소 공통 규칙이다.
     private void validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "업로드할 이미지 파일을 선택해 주세요.");
@@ -86,12 +84,20 @@ public class LocalProductImageStorage implements ProductImageStorage {
         }
     }
 
-    // 원본 파일명에서 확장자를 추출하고 소문자로 정규화
+    // 원본 파일명에서 확장자를 추출하고 소문자로 정규화한다.
     private String extractExtension(String filename) {
         if (!StringUtils.hasText(filename) || !filename.contains(".")) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "확장자가 있는 이미지 파일을 업로드해 주세요.");
         }
 
         return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+    }
+
+    // 업로드 응답 URL과 리소스 핸들러 경로가 같은 prefix를 쓰도록 형식을 정규화한다.
+    private String normalizePublicUrlPrefix(String publicUrlPrefix) {
+        String normalizedPrefix = publicUrlPrefix.startsWith("/") ? publicUrlPrefix : "/" + publicUrlPrefix;
+        return normalizedPrefix.endsWith("/")
+                ? normalizedPrefix.substring(0, normalizedPrefix.length() - 1)
+                : normalizedPrefix;
     }
 }

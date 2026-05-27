@@ -15,11 +15,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class LocalUploadResourceConfig implements WebMvcConfigurer {
 
     private final Path productImageDirectory;
+    private final String publicUrlPrefix;
 
     public LocalUploadResourceConfig(
-            @Value("${admin.upload.product-image-dir:./uploads/products}") String productImageDirectory
+            @Value("${admin.upload.product-image-dir:./uploads/products}") String productImageDirectory,
+            @Value("${admin.upload.product-image-public-url-prefix:/uploads/products}") String publicUrlPrefix
     ) {
         this.productImageDirectory = Path.of(productImageDirectory).toAbsolutePath().normalize();
+        this.publicUrlPrefix = normalizePublicUrlPrefix(publicUrlPrefix);
     }
 
     @Override
@@ -30,7 +33,15 @@ public class LocalUploadResourceConfig implements WebMvcConfigurer {
         }
 
         registry
-                .addResourceHandler("/uploads/products/**")
+                .addResourceHandler(publicUrlPrefix + "/**")
                 .addResourceLocations(resourceLocation);
+    }
+
+    // 업로드 응답 URL prefix와 정적 리소스 핸들러 경로를 같은 형식으로 맞추는 함수이다.
+    private String normalizePublicUrlPrefix(String publicUrlPrefix) {
+        String normalizedPrefix = publicUrlPrefix.startsWith("/") ? publicUrlPrefix : "/" + publicUrlPrefix;
+        return normalizedPrefix.endsWith("/")
+                ? normalizedPrefix.substring(0, normalizedPrefix.length() - 1)
+                : normalizedPrefix;
     }
 }
