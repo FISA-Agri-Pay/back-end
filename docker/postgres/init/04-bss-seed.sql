@@ -24,28 +24,28 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO core.interest_ledger (
-    user_id,
     credit_limit_id,
+    base_principal,
+    due_date,
     interest_amount,
     amount_paid,
     status,
-    due_date,
     paid_at
 )
 SELECT
-    user_id,
     id,
+    base_principal,
+    due_date,
     interest_amount,
     amount_paid,
     status,
-    due_date,
     paid_at
 FROM (
     VALUES
-        (1, 10000::NUMERIC(15, 2), 10000::NUMERIC(15, 2), 'PAID', current_date - 10, now() - interval '9 days'),
-        (2, 10000::NUMERIC(15, 2), 8000::NUMERIC(15, 2), 'PARTIAL', current_date - 10, now() - interval '8 days'),
-        (3, 10000::NUMERIC(15, 2), 5000::NUMERIC(15, 2), 'PARTIAL', current_date - 10, now() - interval '7 days')
-) AS seed(user_id, interest_amount, amount_paid, status, due_date, paid_at)
+        (1, 500000::NUMERIC(15, 2), 10000::NUMERIC(15, 2), 10000::NUMERIC(15, 2), 'PAID', current_date - 10, now() - interval '9 days'),
+        (2, 950000::NUMERIC(15, 2), 10000::NUMERIC(15, 2), 8000::NUMERIC(15, 2), 'PARTIAL', current_date - 10, now() - interval '8 days'),
+        (3, 1000000::NUMERIC(15, 2), 10000::NUMERIC(15, 2), 5000::NUMERIC(15, 2), 'PARTIAL', current_date - 10, now() - interval '7 days')
+) AS seed(user_id, base_principal, interest_amount, amount_paid, status, due_date, paid_at)
 JOIN core.credit_limits cl USING (user_id)
 WHERE NOT EXISTS (
     SELECT 1
@@ -56,21 +56,19 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO core.principal_repayment_ledger (
-    user_id,
     credit_limit_id,
+    due_date,
     principal_amount,
     amount_paid,
     status,
-    due_date,
     paid_at
 )
 SELECT
-    user_id,
     id,
+    due_date,
     principal_amount,
     amount_paid,
     status,
-    due_date,
     paid_at
 FROM (
     VALUES

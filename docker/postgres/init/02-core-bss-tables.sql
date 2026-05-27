@@ -69,33 +69,51 @@ CREATE TABLE IF NOT EXISTS core.credit_limits (
                                                   application_id BIGINT,
                                                   total_limit NUMERIC(15, 2) NOT NULL,
     used_amount NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    interest_rate NUMERIC(6, 4) NOT NULL DEFAULT 0.0350,
+    principal_due_date DATE NOT NULL DEFAULT (current_date + interval '330 days'),
+    expires_at DATE,
     status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_credit_limits_used_amount
+    CHECK (used_amount <= total_limit)
+    );
+
+CREATE TABLE IF NOT EXISTS core.credit_usage_ledger (
+                                                        id BIGSERIAL PRIMARY KEY,
+                                                        credit_limit_id BIGINT NOT NULL,
+                                                        order_id BIGINT,
+                                                        amount NUMERIC(15, 2) NOT NULL,
+    usage_type VARCHAR(20) NOT NULL,
+    used_at TIMESTAMP NOT NULL DEFAULT now(),
+    created_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_credit_usage_ledger_type
+    CHECK (usage_type IN ('PURCHASE', 'CANCEL', 'ADJUSTMENT')),
+    CONSTRAINT chk_credit_usage_ledger_amount
+    CHECK (amount > 0)
     );
 
 CREATE TABLE IF NOT EXISTS core.interest_ledger (
                                                     id BIGSERIAL PRIMARY KEY,
-                                                    user_id BIGINT NOT NULL,
                                                     credit_limit_id BIGINT NOT NULL,
+                                                    base_principal NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    due_date DATE NOT NULL,
                                                     interest_amount NUMERIC(15, 2) NOT NULL,
     amount_paid NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    status VARCHAR(20),
-    due_date DATE,
     paid_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'UPCOMING',
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
     );
 
 CREATE TABLE IF NOT EXISTS core.principal_repayment_ledger (
                                                                id BIGSERIAL PRIMARY KEY,
-                                                               user_id BIGINT NOT NULL,
                                                                credit_limit_id BIGINT NOT NULL,
+                                                               due_date DATE NOT NULL,
                                                                principal_amount NUMERIC(15, 2) NOT NULL,
     amount_paid NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    status VARCHAR(20),
-    due_date DATE,
     paid_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'UPCOMING',
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
     );
@@ -110,6 +128,18 @@ CREATE TABLE IF NOT EXISTS core.loan_overdue_ledger (
     resolved_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
+    );
+
+CREATE TABLE IF NOT EXISTS core.payment_event_process_logs (
+                                                               id BIGSERIAL PRIMARY KEY,
+                                                               event_id VARCHAR(80) NOT NULL,
+    checkout_request_id UUID NOT NULL,
+    idempotency_key VARCHAR(120) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT uk_payment_event_process_logs_event_id UNIQUE (event_id),
+    CONSTRAINT uk_payment_event_process_logs_checkout_request_id UNIQUE (checkout_request_id)
     );
 
 CREATE TABLE IF NOT EXISTS core.bss_scores (
