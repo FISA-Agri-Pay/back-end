@@ -74,8 +74,12 @@ public final class ProductSpecifications {
             return null;
         }
 
-        long number = Long.parseLong(keyword.substring(1));
-        long id = number - PRODUCT_NUMBER_OFFSET;
-        return id > 0 ? id : null;
+        try {
+            long number = Long.parseLong(keyword.substring(1));
+            long id = number - PRODUCT_NUMBER_OFFSET;
+            return id > 0 ? id : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
