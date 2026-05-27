@@ -69,6 +69,25 @@ public class Product extends BaseEntity {
             String imageUrl,
             ProductStatus status
     ) {
+        if (category == null) {
+            throw new IllegalArgumentException("Category must not be null");
+        }
+        if (!category.isActive()) {
+            throw new IllegalArgumentException("Category must be ACTIVE to create product");
+        }
+        if (name == null) {
+            throw new IllegalArgumentException("Product name must not be null");
+        }
+        if (price == null) {
+            throw new IllegalArgumentException("Product price must not be null");
+        }
+        if (stockQuantity == null) {
+            throw new IllegalArgumentException("Product stockQuantity must not be null");
+        }
+        if (unit == null) {
+            throw new IllegalArgumentException("Product unit must not be null");
+        }
+
         Product product = new Product();
         product.publicId = UUID.randomUUID();
         product.category = category;
