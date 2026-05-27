@@ -17,3 +17,6 @@ ON core.bss_scores (user_id, application_id, period_type, period_year)
 WHERE application_id IS NOT NULL
   AND period_type = 'ANNUAL'
   AND period_month IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_interest_ledger_credit_limit_due_date
+ON core.interest_ledger (credit_limit_id, due_date);
