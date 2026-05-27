@@ -17,7 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "farmer_documents")
+@Table(name = "farmer_documents", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class FarmerDocument extends BaseEntity {

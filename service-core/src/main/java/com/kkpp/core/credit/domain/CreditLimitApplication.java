@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "credit_limit_applications")
+@Table(name = "credit_limit_applications", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CreditLimitApplication extends BaseEntity {

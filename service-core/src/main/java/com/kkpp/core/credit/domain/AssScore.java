@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ass_scores")
+@Table(name = "ass_scores", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AssScore extends BaseTimeEntity {

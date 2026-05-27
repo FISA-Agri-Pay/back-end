@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "farmer_profiles")
+@Table(name = "farmer_profiles", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class FarmerProfile extends BaseEntity {
