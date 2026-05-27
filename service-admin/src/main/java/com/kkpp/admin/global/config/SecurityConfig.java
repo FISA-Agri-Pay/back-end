@@ -12,6 +12,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 
 // local 프로필에서만 적용되는 관리자 서비스 보안 설정
 @Configuration
@@ -20,7 +21,12 @@ public class SecurityConfig {
 
     // 로컬 개발 환경에서 상품 관리 API를 인증 없이 테스트하기 위한 필터 체인
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            @Value("${admin.upload.product-image-public-url-prefix:/uploads/products}") String publicUrlPrefix
+    ) throws Exception {
+        String productImageResourcePattern = normalizePublicUrlPrefix(publicUrlPrefix) + "/**";
+
         return http
                 // REST API 테스트 중 CSRF 토큰 없이 POST/PATCH/DELETE를 호출할 수 있게 함
                 .csrf(AbstractHttpConfigurer::disable)
@@ -35,11 +41,20 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
+                                productImageResourcePattern,
                                 "/products/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();
+    }
+
+    // 업로드 이미지 공개 URL prefix를 Spring Security matcher에 사용할 경로 패턴으로 정규화하는 함수이다.
+    private String normalizePublicUrlPrefix(String publicUrlPrefix) {
+        String normalizedPrefix = publicUrlPrefix.startsWith("/") ? publicUrlPrefix : "/" + publicUrlPrefix;
+        return normalizedPrefix.endsWith("/")
+                ? normalizedPrefix.substring(0, normalizedPrefix.length() - 1)
+                : normalizedPrefix;
     }
 
     // 브라우저의 POST/PATCH/DELETE 프리플라이트 요청을 허용하는 CORS 설정
