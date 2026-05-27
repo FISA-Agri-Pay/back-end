@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorResponse.from(ErrorCode.INVALID_REQUEST)));
     }
-
+  
     // multipart 업로드 크기 제한을 초과한 경우 상품 이미지 업로드에서 이해하기 쉬운 400 응답으로 변환함
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException() {
