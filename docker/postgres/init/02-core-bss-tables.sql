@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS core.wallet_transactions (
     description VARCHAR(500),
     transacted_at TIMESTAMP NOT NULL DEFAULT now(),
     created_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT fk_wallet_transactions_wallet_id
+    FOREIGN KEY (wallet_id) REFERENCES core.wallets(id),
     CONSTRAINT chk_wallet_transactions_type
     CHECK (transaction_type IN ('DEPOSIT', 'INTEREST_PAYMENT', 'PRINCIPAL_PAYMENT', 'REFUND', 'ADJUSTMENT')),
     CONSTRAINT chk_wallet_transactions_amount

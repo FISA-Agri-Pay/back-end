@@ -44,6 +44,10 @@ public class LoanOverdueLedger {
 
     // 연체 이력은 삭제하지 않고 해소 시각과 해소 금액만 남긴다.
     public void resolve(LocalDateTime resolvedAt) {
+        if (resolvedAt == null) {
+            throw new IllegalArgumentException("연체 해소 시각은 null일 수 없습니다.");
+        }
+
         this.resolvedAmount = overdueAmount;
         this.resolvedAt = resolvedAt;
         this.updatedAt = resolvedAt;

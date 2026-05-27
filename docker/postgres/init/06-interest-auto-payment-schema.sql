@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS core.wallet_transactions (
     description VARCHAR(500),
     transacted_at TIMESTAMP NOT NULL DEFAULT now(),
     created_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT fk_wallet_transactions_wallet_id
+    FOREIGN KEY (wallet_id) REFERENCES core.wallets(id),
     CONSTRAINT chk_wallet_transactions_type
     CHECK (transaction_type IN ('DEPOSIT', 'INTEREST_PAYMENT', 'PRINCIPAL_PAYMENT', 'REFUND', 'ADJUSTMENT')),
     CONSTRAINT chk_wallet_transactions_amount
@@ -38,8 +40,20 @@ ALTER TABLE core.loan_overdue_ledger
 ALTER TABLE core.loan_overdue_ledger
     ADD COLUMN IF NOT EXISTS resolved_amount NUMERIC(15, 2);
 
-CREATE INDEX IF NOT EXISTS idx_wallets_user_id
-    ON core.wallets(user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_wallet_transactions_wallet_id'
+          AND conrelid = 'core.wallet_transactions'::regclass
+    ) THEN
+        ALTER TABLE core.wallet_transactions
+            ADD CONSTRAINT fk_wallet_transactions_wallet_id
+            FOREIGN KEY (wallet_id)
+            REFERENCES core.wallets(id);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_wallet_id
     ON core.wallet_transactions(wallet_id);

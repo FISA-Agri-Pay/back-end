@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 
 import com.kkpp.batch.interest.domain.InterestLedger;
@@ -30,12 +29,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 public class InterestAutoPaymentJobConfig {
 
     private static final int CHUNK_SIZE = 100;
-    private static final List<String> PAYABLE_STATUSES = List.of(
-            InterestLedger.STATUS_UPCOMING,
-            InterestLedger.STATUS_PARTIAL,
-            InterestLedger.STATUS_OVERDUE
-    );
-
     // 납부일이 도래했거나 지난 미납 이자 원장을 대상으로 지갑 자동 차감을 수행하는 Job이다.
     @Bean
     public Job interestAutoPaymentJob(JobRepository jobRepository, Step interestAutoPaymentStep) {
@@ -73,6 +66,9 @@ public class InterestAutoPaymentJobConfig {
     ) {
         LocalDate today = resolveTargetDate(targetDate, batchClock);
 
+        // status와 amountPaid는 자동 상환 중 바뀌는 값이다.
+        // JpaPagingItemReader는 offset paging을 쓰므로, 바뀌는 컬럼을 조회 조건에 넣으면 다음 페이지에서 일부 원장이 건너뛰어질 수 있다.
+        // 그래서 Reader는 납부 예정일만으로 안정적인 후보 목록을 읽고, 실제 처리 가능 여부는 서비스에서 최신 상태로 다시 판단한다.
         return new JpaPagingItemReaderBuilder<InterestLedger>()
                 .name("interestAutoPaymentReader")
                 .entityManagerFactory(entityManagerFactory)
@@ -80,13 +76,10 @@ public class InterestAutoPaymentJobConfig {
                         SELECT i
                         FROM InterestChargeLedger i
                         WHERE i.dueDate <= :today
-                          AND i.status IN :statuses
-                          AND i.amountPaid < i.interestAmount
                         ORDER BY i.dueDate, i.id
                         """)
                 .parameterValues(Map.of(
-                        "today", today,
-                        "statuses", PAYABLE_STATUSES
+                        "today", today
                 ))
                 .pageSize(CHUNK_SIZE)
                 .build();

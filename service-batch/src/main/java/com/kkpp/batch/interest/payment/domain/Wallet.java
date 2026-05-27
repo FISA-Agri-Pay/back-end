@@ -21,6 +21,7 @@ import lombok.NoArgsConstructor;
 public class Wallet {
 
     private static final int MONEY_SCALE = 2;
+    private static final String STATUS_ACTIVE = "ACTIVE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,6 +45,11 @@ public class Wallet {
 
     // 실제 자동 상환 금액만큼 지갑 잔액을 차감한다.
     public void withdraw(BigDecimal amount, LocalDateTime updatedAt) {
+        if (!STATUS_ACTIVE.equals(status)) {
+            throw new IllegalStateException("활성 상태 지갑만 자동 이자 상환에 사용할 수 있습니다. walletId="
+                    + id + ", status=" + status);
+        }
+
         BigDecimal moneyAmount = toMoney(amount);
         if (moneyAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("지갑 차감 금액은 0보다 커야 합니다.");

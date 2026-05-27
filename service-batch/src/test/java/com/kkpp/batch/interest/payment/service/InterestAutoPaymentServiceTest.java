@@ -1,6 +1,7 @@
 package com.kkpp.batch.interest.payment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -127,6 +128,29 @@ class InterestAutoPaymentServiceTest {
         assertThat(result).isEmpty();
         assertThat(wallet.getBalance()).isEqualByComparingTo("0.00");
         assertThat(ledger.getAmountPaid()).isEqualByComparingTo("0.00");
+        verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
+    }
+
+    @Test
+    void payAutomaticallyFailsWhenWalletIsNotActive() throws Exception {
+        LocalDate today = LocalDate.of(2026, 5, 11);
+        InterestLedger ledger = interestLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                InterestLedger.STATUS_UPCOMING,
+                today,
+                null
+        );
+        Wallet wallet = wallet(100L, 1L, new BigDecimal("30000.00"), "SUSPENDED");
+
+        mockLedgerContext(ledger, creditLimit(10L, 1L), wallet);
+
+        assertThatThrownBy(() -> service.payAutomatically(1L, today, LocalDateTime.of(2026, 5, 11, 1, 0)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("활성 상태 지갑만 자동 이자 상환에 사용할 수 있습니다.");
+
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
     }
 
@@ -267,11 +291,15 @@ class InterestAutoPaymentServiceTest {
     }
 
     private Wallet wallet(Long id, Long userId, BigDecimal balance) throws Exception {
+        return wallet(id, userId, balance, "ACTIVE");
+    }
+
+    private Wallet wallet(Long id, Long userId, BigDecimal balance, String status) throws Exception {
         Wallet wallet = newInstance(Wallet.class);
         setField(wallet, "id", id);
         setField(wallet, "userId", userId);
         setField(wallet, "balance", balance);
-        setField(wallet, "status", "ACTIVE");
+        setField(wallet, "status", status);
         setField(wallet, "updatedAt", LocalDateTime.of(2026, 5, 1, 0, 0));
         return wallet;
     }
