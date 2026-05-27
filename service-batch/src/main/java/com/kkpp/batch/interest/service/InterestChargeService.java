@@ -22,6 +22,7 @@ public class InterestChargeService {
     private static final int DEFAULT_INTEREST_DUE_DAY = 11;
     private static final int MIN_INTEREST_DUE_DAY = 1;
     private static final int MAX_INTEREST_DUE_DAY = 28;
+    private static final String CREDIT_LIMIT_STATUS_ACTIVE = "ACTIVE";
 
     private final InterestLedgerRepository interestLedgerRepository;
 
@@ -34,6 +35,10 @@ public class InterestChargeService {
         validateRequiredInput(creditLimit, targetMonth, createdAt);
 
         // Reader에서도 걸러지지만 서비스 단에서도 방어해 테스트와 재사용 시 안전하게 둔다.
+        if (!CREDIT_LIMIT_STATUS_ACTIVE.equals(creditLimit.getStatus())) {
+            return Optional.empty();
+        }
+
         if (isZeroOrNegative(creditLimit.getUsedAmount())) {
             return Optional.empty();
         }

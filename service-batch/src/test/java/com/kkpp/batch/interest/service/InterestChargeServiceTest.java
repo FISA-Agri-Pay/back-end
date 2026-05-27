@@ -76,6 +76,28 @@ class InterestChargeServiceTest {
     }
 
     @Test
+    void createMonthlyInterestLedgerSkipsInactiveCreditLimit() throws Exception {
+        CreditLimit creditLimit = creditLimit(
+                1L,
+                new BigDecimal("1200000.00"),
+                new BigDecimal("0.1200"),
+                13,
+                LocalDate.of(2026, 12, 31),
+                "SUSPENDED"
+        );
+
+        Optional<InterestLedger> result = service.createMonthlyInterestLedger(
+                creditLimit,
+                YearMonth.of(2026, 5),
+                LocalDateTime.of(2026, 5, 1, 3, 0)
+        );
+
+        assertThat(result).isEmpty();
+        verify(interestLedgerRepository, never())
+                .existsByCreditLimitIdAndDueDate(1L, LocalDate.of(2026, 5, 13));
+    }
+
+    @Test
     void createMonthlyInterestLedgerSkipsDuplicateDueDate() throws Exception {
         CreditLimit creditLimit = creditLimit(
                 1L,
@@ -170,6 +192,17 @@ class InterestChargeServiceTest {
             Integer interestDueDay,
             LocalDate principalDueDate
     ) throws Exception {
+        return creditLimit(id, usedAmount, interestRate, interestDueDay, principalDueDate, "ACTIVE");
+    }
+
+    private CreditLimit creditLimit(
+            Long id,
+            BigDecimal usedAmount,
+            BigDecimal interestRate,
+            Integer interestDueDay,
+            LocalDate principalDueDate,
+            String status
+    ) throws Exception {
         Constructor<CreditLimit> constructor = CreditLimit.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         CreditLimit creditLimit = constructor.newInstance();
@@ -179,7 +212,7 @@ class InterestChargeServiceTest {
         setField(creditLimit, "interestRate", interestRate);
         setField(creditLimit, "interestDueDay", interestDueDay);
         setField(creditLimit, "principalDueDate", principalDueDate);
-        setField(creditLimit, "status", "ACTIVE");
+        setField(creditLimit, "status", status);
         return creditLimit;
     }
 

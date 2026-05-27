@@ -63,18 +63,48 @@ CREATE TABLE IF NOT EXISTS core.farmer_documents (
 -- BSS local test tables
 -- =========================================================
 
+CREATE TABLE IF NOT EXISTS core.crop_repayment_policies (
+                                                            crop_type VARCHAR(30) PRIMARY KEY,
+                                                            crop_name VARCHAR(50) NOT NULL,
+                                                            repayment_month INTEGER NOT NULL,
+                                                            repayment_day INTEGER NOT NULL,
+                                                            created_at TIMESTAMP DEFAULT now(),
+                                                            updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_crop_repayment_month
+    CHECK (repayment_month BETWEEN 1 AND 12),
+    CONSTRAINT chk_crop_repayment_day
+    CHECK (repayment_day BETWEEN 1 AND 31)
+    );
+
+INSERT INTO core.crop_repayment_policies (
+    crop_type,
+    crop_name,
+    repayment_month,
+    repayment_day
+)
+VALUES
+    ('RICE', '쌀', 12, 31)
+ON CONFLICT (crop_type) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS core.credit_limits (
                                                   id BIGSERIAL PRIMARY KEY,
                                                   user_id BIGINT NOT NULL,
                                                   application_id BIGINT,
+                                                  crop_type_snapshot VARCHAR(30) NOT NULL DEFAULT 'RICE',
                                                   total_limit NUMERIC(15, 2) NOT NULL,
     used_amount NUMERIC(15, 2) NOT NULL DEFAULT 0,
     interest_rate NUMERIC(6, 4) NOT NULL DEFAULT 0.0350,
+    interest_due_day INTEGER NOT NULL DEFAULT 11,
     principal_due_date DATE NOT NULL DEFAULT (current_date + interval '330 days'),
     expires_at DATE,
     status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT fk_credit_limits_crop_type_snapshot
+    FOREIGN KEY (crop_type_snapshot)
+    REFERENCES core.crop_repayment_policies(crop_type),
+    CONSTRAINT chk_credit_limits_interest_due_day
+    CHECK (interest_due_day BETWEEN 1 AND 28),
     CONSTRAINT chk_credit_limits_used_amount
     CHECK (used_amount <= total_limit)
     );
