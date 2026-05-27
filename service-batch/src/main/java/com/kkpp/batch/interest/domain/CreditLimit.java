@@ -24,6 +24,9 @@ public class CreditLimit {
     private Long id;
 
     @Column(nullable = false)
+    private Long userId;
+
+    @Column(nullable = false)
     private String cropTypeSnapshot;
 
     @Column(nullable = false)

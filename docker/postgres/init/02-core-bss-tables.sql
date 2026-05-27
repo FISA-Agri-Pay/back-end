@@ -138,6 +138,40 @@ CREATE TABLE IF NOT EXISTS core.interest_ledger (
     updated_at TIMESTAMP DEFAULT now()
     );
 
+CREATE TABLE IF NOT EXISTS core.wallets (
+                                            id BIGSERIAL PRIMARY KEY,
+                                            user_id BIGINT NOT NULL UNIQUE,
+                                            balance NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    deposit_bank_name VARCHAR(50) NOT NULL DEFAULT 'local-bank',
+    deposit_account_number VARCHAR(50) NOT NULL DEFAULT '0000000000',
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_wallets_balance
+    CHECK (balance >= 0),
+    CONSTRAINT chk_wallets_status
+    CHECK (status IN ('ACTIVE', 'SUSPENDED', 'CLOSED'))
+    );
+
+CREATE TABLE IF NOT EXISTS core.wallet_transactions (
+                                                        id BIGSERIAL PRIMARY KEY,
+                                                        wallet_id BIGINT NOT NULL,
+                                                        transaction_type VARCHAR(30) NOT NULL,
+    amount NUMERIC(15, 2) NOT NULL,
+    balance_after NUMERIC(15, 2) NOT NULL,
+    related_type VARCHAR(50),
+    related_id BIGINT,
+    description VARCHAR(500),
+    transacted_at TIMESTAMP NOT NULL DEFAULT now(),
+    created_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT chk_wallet_transactions_type
+    CHECK (transaction_type IN ('DEPOSIT', 'INTEREST_PAYMENT', 'PRINCIPAL_PAYMENT', 'REFUND', 'ADJUSTMENT')),
+    CONSTRAINT chk_wallet_transactions_amount
+    CHECK (amount > 0),
+    CONSTRAINT chk_wallet_transactions_balance_after
+    CHECK (balance_after >= 0)
+    );
+
 CREATE TABLE IF NOT EXISTS core.principal_repayment_ledger (
                                                                id BIGSERIAL PRIMARY KEY,
                                                                credit_limit_id BIGINT NOT NULL,
@@ -154,7 +188,9 @@ CREATE TABLE IF NOT EXISTS core.loan_overdue_ledger (
                                                         id BIGSERIAL PRIMARY KEY,
                                                         user_id BIGINT NOT NULL,
                                                         credit_limit_id BIGINT NOT NULL,
+                                                        interest_ledger_id BIGINT,
                                                         overdue_amount NUMERIC(15, 2) NOT NULL,
+    resolved_amount NUMERIC(15, 2),
     overdue_days INT NOT NULL DEFAULT 0,
     stage VARCHAR(20),
     resolved_at TIMESTAMP,

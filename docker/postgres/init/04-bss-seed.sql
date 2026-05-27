@@ -23,6 +23,29 @@ WHERE NOT EXISTS (
     WHERE cl.user_id = seed.user_id
 );
 
+INSERT INTO core.wallets (
+    user_id,
+    balance,
+    deposit_account_number,
+    status
+)
+SELECT
+    user_id,
+    balance,
+    deposit_account_number,
+    'ACTIVE'
+FROM (
+    VALUES
+        (1, 30000::NUMERIC(15, 2), 'local-0001'),
+        (2, 5000::NUMERIC(15, 2), 'local-0002'),
+        (3, 0::NUMERIC(15, 2), 'local-0003')
+) AS seed(user_id, balance, deposit_account_number)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM core.wallets w
+    WHERE w.user_id = seed.user_id
+);
+
 INSERT INTO core.interest_ledger (
     credit_limit_id,
     base_principal,
