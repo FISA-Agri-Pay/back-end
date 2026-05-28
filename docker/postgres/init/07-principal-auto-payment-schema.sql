@@ -1,0 +1,20 @@
+ALTER TABLE core.loan_overdue_ledger
+    ADD COLUMN IF NOT EXISTS principal_repayment_ledger_id BIGINT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_loan_overdue_principal_repayment_ledger_id'
+          AND conrelid = 'core.loan_overdue_ledger'::regclass
+    ) THEN
+        ALTER TABLE core.loan_overdue_ledger
+            ADD CONSTRAINT fk_loan_overdue_principal_repayment_ledger_id
+            FOREIGN KEY (principal_repayment_ledger_id)
+            REFERENCES core.principal_repayment_ledger(id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_principal_repayment_ledger_id
+    ON core.loan_overdue_ledger(principal_repayment_ledger_id);

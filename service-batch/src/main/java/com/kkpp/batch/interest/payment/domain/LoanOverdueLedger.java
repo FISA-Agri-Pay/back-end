@@ -3,6 +3,7 @@ package com.kkpp.batch.interest.payment.domain;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -17,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "loan_overdue_ledger", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LoanOverdueLedger {
+public class LoanOverdueLedger extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,9 +36,6 @@ public class LoanOverdueLedger {
 
     private LocalDateTime resolvedAt;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     public boolean isUnresolved() {
         return resolvedAt == null;
     }
@@ -50,6 +48,5 @@ public class LoanOverdueLedger {
 
         this.resolvedAmount = overdueAmount;
         this.resolvedAt = resolvedAt;
-        this.updatedAt = resolvedAt;
     }
 }

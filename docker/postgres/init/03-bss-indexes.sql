@@ -26,3 +26,6 @@ ON core.wallet_transactions (wallet_id);
 
 CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_interest_ledger_id
 ON core.loan_overdue_ledger (interest_ledger_id);
+
+CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_principal_repayment_ledger_id
+ON core.loan_overdue_ledger (principal_repayment_ledger_id);

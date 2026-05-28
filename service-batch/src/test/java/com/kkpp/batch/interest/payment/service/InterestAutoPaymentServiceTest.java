@@ -326,8 +326,20 @@ class InterestAutoPaymentServiceTest {
     }
 
     private void setField(Object target, String name, Object value) throws Exception {
-        java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+        java.lang.reflect.Field field = findField(target.getClass(), name);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private java.lang.reflect.Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
     }
 }
