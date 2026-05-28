@@ -131,13 +131,19 @@ FROM (
         (3, 20000::NUMERIC(15, 2), 15, 'IN_PROGRESS', NULL::TIMESTAMP)
 ) AS seed(user_id, overdue_amount, overdue_days, stage, resolved_at)
 JOIN core.credit_limits cl USING (user_id)
-JOIN core.principal_repayment_ledger pr
-  ON pr.credit_limit_id = cl.id
- AND pr.due_date = current_date - 5
+JOIN LATERAL (
+    SELECT pr.id
+    FROM core.principal_repayment_ledger pr
+    WHERE pr.credit_limit_id = cl.id
+      AND pr.due_date = current_date - 5
+    ORDER BY pr.id DESC
+    LIMIT 1
+) pr ON TRUE
 WHERE NOT EXISTS (
     SELECT 1
     FROM core.loan_overdue_ledger lo
     WHERE lo.credit_limit_id = cl.id
+      AND lo.principal_repayment_ledger_id = pr.id
       AND lo.overdue_amount = seed.overdue_amount
       AND lo.overdue_days = seed.overdue_days
       AND lo.stage = seed.stage
