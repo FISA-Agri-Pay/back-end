@@ -10,8 +10,8 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class BssScoreJdbcRepository {
 
-    // bss_scores는 partial unique index를 사용하므로 ON CONFLICT ON CONSTRAINT를 사용할 수 없다.
-    // 월별 BSS는 application_id가 없는 사용자 단위 점수로 저장한다.
+    // bss_scores는 application_id가 NULL인 월별 사용자 점수에 partial unique index를 사용한다.
+    // 그래서 ON CONFLICT ON CONSTRAINT가 아니라 컬럼 목록과 WHERE 조건을 함께 지정한다.
     private static final String UPSERT_MONTHLY_BSS_SQL = """
             INSERT INTO core.bss_scores (
                 user_id,
@@ -45,7 +45,7 @@ public class BssScoreJdbcRepository {
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    // 같은 사용자/연월 점수가 이미 있으면 skip하지 않고 최신 계산값으로 갱신한다.
+    // 같은 사용자와 같은 월의 BSS가 이미 있으면 중복 insert가 아니라 최신 계산값으로 update한다.
     public void upsertMonthly(BssCalculationResult result) {
         namedParameterJdbcTemplate.update(
                 UPSERT_MONTHLY_BSS_SQL,

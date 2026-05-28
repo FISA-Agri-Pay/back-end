@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BssCalculationService {
 
-    // BSS 기준 점수표에서 사용하는 납부율/사용률 경계값이다.
     private static final BigDecimal RATE_95 = new BigDecimal("0.95");
     private static final BigDecimal RATE_90 = new BigDecimal("0.90");
     private static final BigDecimal RATE_80 = new BigDecimal("0.80");
@@ -34,7 +33,8 @@ public class BssCalculationService {
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final LoanOverdueLedgerRepository loanOverdueLedgerRepository;
 
-    // ASS는 BSS 계산에 포함하지 않는다. 승인 이후 행동 데이터만 조립해서 월별 점수를 계산한다.
+    // BSS는 한도 승인 이후의 행동 점수이므로 ASS 산식을 다시 포함하지 않는다.
+    // 이자/원금 납부, 연체 이력, 한도 사용률만 월별 행동 데이터로 계산한다.
     public BssCalculationResult calculate(CreditLimit creditLimit, YearMonth period, LocalDateTime calculatedAt) {
         BssCalculationSource source = buildSource(creditLimit, period);
 
@@ -67,7 +67,8 @@ public class BssCalculationService {
         );
     }
 
-    // 한도 하나에 대해 해당 월의 이자/원금/연체 이력을 모아 계산 입력값으로 만든다.
+    // 한도별 월별 원장 데이터를 모아 BSS 계산 입력값으로 만든다.
+    // 연체는 해당 월에 발생했거나, 해당 월 동안 활성 상태였거나, 해당 월에 해소된 이력을 포함한다.
     private BssCalculationSource buildSource(CreditLimit creditLimit, YearMonth period) {
         LocalDate startDate = period.atDay(1);
         LocalDate endDateExclusive = period.plusMonths(1).atDay(1);
@@ -124,7 +125,7 @@ public class BssCalculationService {
         );
     }
 
-    // 청구 이력이 없으면 불량 행동으로 보지 않고 중립 점수 15점을 부여한다.
+    // 이자 청구가 없으면 아직 평가할 행동이 없는 상태이므로 불량으로 보지 않고 중립 점수 15점을 준다.
     private int calculateInterestPaymentScore(BigDecimal paidAmount, BigDecimal billedAmount) {
         if (isZeroOrNegative(billedAmount)) {
             return 15;
@@ -143,7 +144,7 @@ public class BssCalculationService {
         return 5;
     }
 
-    // 상환 이력이 없으면 불량 행동으로 보지 않고 중립 점수 9점을 부여한다.
+    // 원금 상환 예정이 없으면 아직 원금 상환 행동을 평가할 수 없으므로 중립 점수 9점을 준다.
     private int calculatePrincipalPaymentScore(BigDecimal paidAmount, BigDecimal billedAmount) {
         if (isZeroOrNegative(billedAmount)) {
             return 9;
@@ -162,7 +163,8 @@ public class BssCalculationService {
         return 3;
     }
 
-    // 미해결 연체는 최우선 위험 신호이므로 다른 이력보다 먼저 0점 처리한다.
+    // 미해결 연체는 현재 남아 있는 가장 강한 위험 신호이므로 연체 점수를 0점 처리한다.
+    // 해소된 연체도 삭제하지 않고 이력으로 남기므로 건수와 최대 연체일 기준 감점에 포함한다.
     private int calculateOverdueScore(boolean hasUnresolvedOverdue, long overdueCount, int maxOverdueDays) {
         if (hasUnresolvedOverdue) {
             return 0;
@@ -182,7 +184,7 @@ public class BssCalculationService {
         return 10;
     }
 
-    // 한도 사용률은 보조 리스크 지표라 90% 이하까지는 감점하지 않는다.
+    // 한도 사용률은 상환 능력 자체가 아니라 보조 리스크 지표이므로 20점 범위에서만 반영한다.
     private int calculateUsageScore(BigDecimal usedAmount, BigDecimal totalLimit) {
         if (isZeroOrNegative(totalLimit)) {
             return 0;
