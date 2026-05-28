@@ -2,8 +2,8 @@ package com.kkpp.batch.interest.payment.domain;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 
+import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "wallets", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Wallet {
+public class Wallet extends BaseEntity {
 
     private static final int MONEY_SCALE = 2;
     private static final String STATUS_ACTIVE = "ACTIVE";
@@ -36,15 +36,12 @@ public class Wallet {
     @Column(nullable = false)
     private String status;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     public boolean hasBalance() {
         return balance != null && balance.compareTo(BigDecimal.ZERO) > 0;
     }
 
     // 실제 자동 상환 금액만큼 지갑 잔액을 차감한다.
-    public void withdraw(BigDecimal amount, LocalDateTime updatedAt) {
+    public void withdraw(BigDecimal amount) {
         if (!STATUS_ACTIVE.equals(status)) {
             throw new IllegalStateException("활성 상태 지갑만 자동 이자 상환에 사용할 수 있습니다. walletId="
                     + id + ", status=" + status);
@@ -59,7 +56,6 @@ public class Wallet {
         }
 
         balance = toMoney(balance.subtract(moneyAmount));
-        this.updatedAt = updatedAt;
     }
 
     private BigDecimal toMoney(BigDecimal value) {

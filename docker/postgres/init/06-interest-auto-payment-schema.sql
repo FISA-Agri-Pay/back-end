@@ -38,6 +38,9 @@ ALTER TABLE core.loan_overdue_ledger
     ADD COLUMN IF NOT EXISTS interest_ledger_id BIGINT;
 
 ALTER TABLE core.loan_overdue_ledger
+    ADD COLUMN IF NOT EXISTS principal_repayment_ledger_id BIGINT;
+
+ALTER TABLE core.loan_overdue_ledger
     ADD COLUMN IF NOT EXISTS resolved_amount NUMERIC(15, 2);
 
 DO $$
@@ -55,8 +58,42 @@ BEGIN
     END IF;
 END $$;
 
+DO $$
+BEGIN
+    IF to_regclass('core.principal_repayment_ledger') IS NOT NULL
+       AND NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_loan_overdue_principal_repayment_ledger_id'
+          AND conrelid = 'core.loan_overdue_ledger'::regclass
+    ) THEN
+        ALTER TABLE core.loan_overdue_ledger
+            ADD CONSTRAINT fk_loan_overdue_principal_repayment_ledger_id
+            FOREIGN KEY (principal_repayment_ledger_id)
+            REFERENCES core.principal_repayment_ledger(id);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_loan_overdue_ledger_single_source'
+          AND conrelid = 'core.loan_overdue_ledger'::regclass
+    ) THEN
+        ALTER TABLE core.loan_overdue_ledger
+            ADD CONSTRAINT chk_loan_overdue_ledger_single_source
+            CHECK (num_nonnulls(interest_ledger_id, principal_repayment_ledger_id) = 1)
+            NOT VALID;
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_wallet_id
     ON core.wallet_transactions(wallet_id);
 
 CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_interest_ledger_id
     ON core.loan_overdue_ledger(interest_ledger_id);
+
+CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_principal_repayment_ledger_id
+    ON core.loan_overdue_ledger(principal_repayment_ledger_id);

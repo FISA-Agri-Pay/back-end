@@ -191,13 +191,18 @@ CREATE TABLE IF NOT EXISTS core.loan_overdue_ledger (
                                                         user_id BIGINT NOT NULL,
                                                         credit_limit_id BIGINT NOT NULL,
                                                         interest_ledger_id BIGINT,
+                                                        principal_repayment_ledger_id BIGINT,
                                                         overdue_amount NUMERIC(15, 2) NOT NULL,
     resolved_amount NUMERIC(15, 2),
     overdue_days INT NOT NULL DEFAULT 0,
     stage VARCHAR(20),
     resolved_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT fk_loan_overdue_principal_repayment_ledger_id
+    FOREIGN KEY (principal_repayment_ledger_id) REFERENCES core.principal_repayment_ledger(id),
+    CONSTRAINT chk_loan_overdue_ledger_single_source
+    CHECK (num_nonnulls(interest_ledger_id, principal_repayment_ledger_id) = 1)
     );
 
 CREATE TABLE IF NOT EXISTS core.payment_event_process_logs (

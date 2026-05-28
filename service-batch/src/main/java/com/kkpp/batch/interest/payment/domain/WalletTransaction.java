@@ -21,7 +21,9 @@ import lombok.NoArgsConstructor;
 public class WalletTransaction extends BaseTimeEntity {
 
     public static final String TYPE_INTEREST_PAYMENT = "INTEREST_PAYMENT";
+    public static final String TYPE_PRINCIPAL_PAYMENT = "PRINCIPAL_PAYMENT";
     private static final String RELATED_TYPE_INTEREST_LEDGER = "INTEREST_LEDGER";
+    private static final String RELATED_TYPE_PRINCIPAL_REPAYMENT_LEDGER = "PRINCIPAL_REPAYMENT_LEDGER";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -63,6 +65,25 @@ public class WalletTransaction extends BaseTimeEntity {
         transaction.relatedType = RELATED_TYPE_INTEREST_LEDGER;
         transaction.relatedId = interestLedgerId;
         transaction.description = "이자 자동 상환";
+        transaction.transactedAt = now;
+        return transaction;
+    }
+
+    public static WalletTransaction principalPayment(
+            Long walletId,
+            BigDecimal amount,
+            BigDecimal balanceAfter,
+            Long principalRepaymentLedgerId,
+            LocalDateTime now
+    ) {
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.walletId = walletId;
+        transaction.transactionType = TYPE_PRINCIPAL_PAYMENT;
+        transaction.amount = amount;
+        transaction.balanceAfter = balanceAfter;
+        transaction.relatedType = RELATED_TYPE_PRINCIPAL_REPAYMENT_LEDGER;
+        transaction.relatedId = principalRepaymentLedgerId;
+        transaction.description = "원금 자동 상환";
         transaction.transactedAt = now;
         return transaction;
     }

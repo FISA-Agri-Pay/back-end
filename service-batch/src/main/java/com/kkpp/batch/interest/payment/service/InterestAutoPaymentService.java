@@ -81,7 +81,7 @@ public class InterestAutoPaymentService {
 
         // 아래 세 작업은 같은 트랜잭션에서 처리된다.
         // 중간에 실패하면 지갑 차감, 원장 갱신, 거래 이력이 함께 롤백된다.
-        wallet.withdraw(payableAmount, now);
+        wallet.withdraw(payableAmount);
         interestLedger.applyPayment(payableAmount, today, now);
         walletTransactionRepository.save(WalletTransaction.interestPayment(
                 wallet.getId(),
