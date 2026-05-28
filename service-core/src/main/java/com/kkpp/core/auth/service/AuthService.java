@@ -82,7 +82,13 @@ public class AuthService {
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
-        UserAuth userAuth = userAuthRepository.findByRefreshToken(request.refreshToken())
+        try {
+            jwtTokenProvider.validateRefreshToken(request.refreshToken());
+        } catch (IllegalArgumentException e) {
+            throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        UserAuth userAuth = userAuthRepository.findByRefreshToken(hashToken(request.refreshToken()))
                 .orElseThrow(() -> new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
         return issueTokens(userAuth);
@@ -94,7 +100,7 @@ public class AuthService {
 
         String accessToken = jwtTokenProvider.generateAccessToken(userId, role);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
-        userAuth.updateRefreshToken(refreshToken);
+        userAuth.updateRefreshToken(hashToken(refreshToken));
 
         return new TokenResponse(
                 accessToken,
@@ -119,6 +125,16 @@ public class AuthService {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
                     .digest(residentId.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is unavailable.", e);
+        }
+    }
+
+    private String hashToken(String token) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm is unavailable.", e);

@@ -1,5 +1,7 @@
 package com.kkpp.common.security.jwt;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +15,8 @@ public class JwtTokenProvider {
     private static final long ACCESS_TOKEN_EXPIRY_MS = 60 * 60 * 1000L;
     private static final long REFRESH_TOKEN_EXPIRY_MS = 30L * 24 * 60 * 60 * 1000L;
     private static final String TOKEN_TYPE = "Bearer";
+    private static final String CLAIM_TOKEN_PURPOSE = "purpose";
+    private static final String PURPOSE_REFRESH = "refresh";
 
     private final SecretKey secretKey;
 
@@ -40,10 +44,26 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("userId", userId)
+                .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_REFRESH)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS))
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public void validateRefreshToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            if (!PURPOSE_REFRESH.equals(claims.get(CLAIM_TOKEN_PURPOSE, String.class))) {
+                throw new JwtException("Not a refresh token.");
+            }
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid refresh token: " + e.getMessage(), e);
+        }
     }
 
     public long getAccessTokenExpirySeconds() {
