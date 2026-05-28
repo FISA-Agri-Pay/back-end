@@ -111,6 +111,7 @@ WHERE NOT EXISTS (
 INSERT INTO core.loan_overdue_ledger (
     user_id,
     credit_limit_id,
+    principal_repayment_ledger_id,
     overdue_amount,
     overdue_days,
     stage,
@@ -118,7 +119,8 @@ INSERT INTO core.loan_overdue_ledger (
 )
 SELECT
     user_id,
-    id,
+    cl.id,
+    pr.id,
     overdue_amount,
     overdue_days,
     stage,
@@ -129,6 +131,9 @@ FROM (
         (3, 20000::NUMERIC(15, 2), 15, 'IN_PROGRESS', NULL::TIMESTAMP)
 ) AS seed(user_id, overdue_amount, overdue_days, stage, resolved_at)
 JOIN core.credit_limits cl USING (user_id)
+JOIN core.principal_repayment_ledger pr
+  ON pr.credit_limit_id = cl.id
+ AND pr.due_date = current_date - 5
 WHERE NOT EXISTS (
     SELECT 1
     FROM core.loan_overdue_ledger lo

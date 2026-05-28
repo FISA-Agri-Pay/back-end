@@ -200,7 +200,9 @@ CREATE TABLE IF NOT EXISTS core.loan_overdue_ledger (
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now(),
     CONSTRAINT fk_loan_overdue_principal_repayment_ledger_id
-    FOREIGN KEY (principal_repayment_ledger_id) REFERENCES core.principal_repayment_ledger(id)
+    FOREIGN KEY (principal_repayment_ledger_id) REFERENCES core.principal_repayment_ledger(id),
+    CONSTRAINT chk_loan_overdue_ledger_single_source
+    CHECK (num_nonnulls(interest_ledger_id, principal_repayment_ledger_id) = 1)
     );
 
 CREATE TABLE IF NOT EXISTS core.payment_event_process_logs (
