@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.util.StringUtils;
 
 @Entity
 @Table(name = "user_auth", schema = "core")
@@ -72,6 +73,6 @@ public class UserAuth extends BaseEntity {
     }
 
     public boolean isPinSet() {
-        return pinHash != null;
+        return StringUtils.hasText(pinHash);
     }
 }

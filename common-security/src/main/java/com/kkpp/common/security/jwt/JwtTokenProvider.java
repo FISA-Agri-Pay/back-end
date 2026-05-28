@@ -17,6 +17,9 @@ public class JwtTokenProvider {
     private final SecretKey secretKey;
 
     public JwtTokenProvider(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("JWT secret must not be blank.");
+        }
         this.secretKey = Keys.hmacShaKeyFor(sha256(secret));
     }
 
