@@ -33,7 +33,7 @@ public class CreditReviewController {
     // page와 size는 관리자 화면의 페이지네이션에 사용된다.
     @GetMapping
     public ApiResponse<CreditReviewPageResponse> getReviews(
-            @RequestParam(required = false) CreditReviewStatus status,
+            @RequestParam(defaultValue = "PENDING") CreditReviewStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
