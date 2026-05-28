@@ -11,9 +11,11 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
 @Getter
 @Entity
+@Immutable
 @Table(name = "users", schema = "public")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 관리자 한도 심사에서 신청자 정보를 조회하기 위한 users 테이블 매핑 엔티티

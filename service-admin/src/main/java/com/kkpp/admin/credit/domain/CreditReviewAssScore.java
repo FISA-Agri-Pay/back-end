@@ -16,9 +16,11 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
 @Getter
 @Entity
+@Immutable
 @Table(name = "ass_scores", schema = "public")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 한도 신청 시점에 산정된 ASS 점수를 조회하기 위한 ass_scores 테이블 매핑 엔티티
