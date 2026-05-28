@@ -34,7 +34,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 @Configuration
 public class PrincipalAutoPaymentJobConfig {
 
-    private static final int CHUNK_SIZE = 100;
+    private static final int CHUNK_SIZE = 1;
     private static final List<String> PAYABLE_STATUSES = List.of(
             PrincipalRepaymentLedger.STATUS_UPCOMING,
             PrincipalRepaymentLedger.STATUS_PARTIAL,
@@ -59,6 +59,8 @@ public class PrincipalAutoPaymentJobConfig {
             StepExecutionListener principalAutoPaymentStepLogger
     ) {
         return new StepBuilder("principalAutoPaymentStep", jobRepository)
+                // 원금 자동 상환은 지갑 차감, 원장 갱신, 한도 사용액 감소가 함께 일어나는 금융성 처리다.
+                // 한 건 실패가 다른 원장 처리까지 롤백하지 않도록 원장 1건 단위로 commit/rollback한다.
                 .<PrincipalRepaymentLedger, PrincipalRepaymentLedger>chunk(CHUNK_SIZE, transactionManager)
                 .reader(principalAutoPaymentReader)
                 .processor(principalAutoPaymentProcessor)
