@@ -14,9 +14,11 @@ import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
 @Getter
 @Entity
+@Immutable
 @Table(name = "farmer_profiles", schema = "public")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 신청자가 입력한 농지와 영농 정보를 조회하기 위한 farmer_profiles 테이블 매핑 엔티티

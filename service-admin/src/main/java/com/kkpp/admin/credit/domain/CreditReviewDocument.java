@@ -15,9 +15,11 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
 @Getter
 @Entity
+@Immutable
 @Table(name = "farmer_documents", schema = "public")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 한도 신청에 첨부된 서류 파일 정보를 조회하기 위한 farmer_documents 테이블 매핑 엔티티
