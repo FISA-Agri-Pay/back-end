@@ -9,6 +9,7 @@ import java.time.LocalDate;
 // 관리자가 한도 신청을 최종 승인할 때 보내는 요청 DTO
 // approvedAmount는 필수이며, 이율과 상환/만료일은 생략 시 서비스의 임시 기본 정책값을 사용한다.
 public record ApproveCreditReviewRequest(
+        @NotNull(message = "reviewedBy is required")
         Long reviewedBy,
 
         @NotNull(message = "approvedAmount is required")

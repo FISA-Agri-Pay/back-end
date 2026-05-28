@@ -69,6 +69,12 @@ public class CreditReviewApplication extends BaseEntity {
         if (status != CreditReviewStatus.PENDING) {
             throw new IllegalStateException("Only PENDING applications can be approved.");
         }
+        if (reviewedBy == null) {
+            throw new IllegalArgumentException("Reviewer id is required.");
+        }
+        if (decidedAt == null) {
+            throw new IllegalArgumentException("Decision time is required.");
+        }
         if (approvedAmount == null || approvedAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Approved amount must be positive.");
         }
@@ -84,6 +90,12 @@ public class CreditReviewApplication extends BaseEntity {
     public void reject(Long reviewedBy, String rejectionReason, LocalDateTime decidedAt) {
         if (status != CreditReviewStatus.PENDING) {
             throw new IllegalStateException("Only PENDING applications can be rejected.");
+        }
+        if (reviewedBy == null) {
+            throw new IllegalArgumentException("Reviewer id is required.");
+        }
+        if (decidedAt == null) {
+            throw new IllegalArgumentException("Decision time is required.");
         }
         if (rejectionReason == null || rejectionReason.isBlank()) {
             throw new IllegalArgumentException("Rejection reason must not be blank.");
