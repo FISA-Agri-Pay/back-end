@@ -29,3 +29,13 @@ ON core.loan_overdue_ledger (interest_ledger_id);
 
 CREATE INDEX IF NOT EXISTS idx_loan_overdue_ledger_principal_repayment_ledger_id
 ON core.loan_overdue_ledger (principal_repayment_ledger_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_loan_overdue_active_interest_ledger_id
+ON core.loan_overdue_ledger (interest_ledger_id)
+WHERE interest_ledger_id IS NOT NULL
+  AND resolved_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_loan_overdue_active_principal_repayment_ledger_id
+ON core.loan_overdue_ledger (principal_repayment_ledger_id)
+WHERE principal_repayment_ledger_id IS NOT NULL
+  AND resolved_at IS NULL;
