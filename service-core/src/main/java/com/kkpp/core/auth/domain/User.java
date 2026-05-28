@@ -31,8 +31,11 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
-    @Column(length = 64)
+    @Column(unique = true, length = 67)
     private String residentIdHash;
+
+    @Column(length = 100)
+    private String residentIdEnc;
 
     @Column(nullable = false)
     private String address;
@@ -50,6 +53,7 @@ public class User extends BaseEntity {
             String name,
             String phone,
             String residentIdHash,
+            String residentIdEnc,
             String address,
             String addressDetail,
             String zipCode
@@ -59,6 +63,7 @@ public class User extends BaseEntity {
         user.name = name;
         user.phone = phone;
         user.residentIdHash = residentIdHash;
+        user.residentIdEnc = residentIdEnc;
         user.address = address;
         user.addressDetail = addressDetail;
         user.zipCode = zipCode;
