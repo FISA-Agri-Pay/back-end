@@ -10,7 +10,7 @@ public record RegisterRequest(
         @NotBlank String address,
         String addressDetail,
         @NotBlank @Size(min = 5, max = 10) String zipCode,
-        String residentId,
+        @NotBlank @Pattern(regexp = "^\\d{6}-?\\d{7}$", message = "주민등록번호 형식이 올바르지 않습니다.") String residentId,
         @NotBlank @Size(min = 8, max = 20, message = "비밀번호는 8~20자여야 합니다.") String password
 ) {
 }
