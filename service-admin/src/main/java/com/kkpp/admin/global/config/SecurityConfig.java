@@ -42,7 +42,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 productImageResourcePattern,
-                                "/products/**"
+                                "/products/**",
+                                "/api/v1/admin/credit-reviews/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
