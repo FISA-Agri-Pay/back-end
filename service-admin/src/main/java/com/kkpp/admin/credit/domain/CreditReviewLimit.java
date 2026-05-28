@@ -40,7 +40,7 @@ public class CreditReviewLimit extends BaseEntity {
     private CreditReviewUser user;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false)
+    @JoinColumn(name = "application_id", nullable = false, unique = true)
     private CreditReviewApplication application;
 
     @Column(name = "total_limit", nullable = false, precision = 15, scale = 2)
