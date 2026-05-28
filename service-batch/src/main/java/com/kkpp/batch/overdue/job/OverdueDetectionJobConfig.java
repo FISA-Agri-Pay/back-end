@@ -37,9 +37,15 @@ import org.springframework.transaction.PlatformTransactionManager;
 public class OverdueDetectionJobConfig {
 
     private static final int CHUNK_SIZE = 100;
-    private static final List<String> DETECTION_STATUSES = List.of(
+    private static final List<String> INTEREST_DETECTION_STATUSES = List.of(
             InterestLedger.STATUS_UPCOMING,
-            InterestLedger.STATUS_PARTIAL
+            InterestLedger.STATUS_PARTIAL,
+            InterestLedger.STATUS_OVERDUE
+    );
+    private static final List<String> PRINCIPAL_DETECTION_STATUSES = List.of(
+            PrincipalRepaymentLedger.STATUS_UPCOMING,
+            PrincipalRepaymentLedger.STATUS_PARTIAL,
+            PrincipalRepaymentLedger.STATUS_OVERDUE
     );
 
     @Bean
@@ -115,7 +121,7 @@ public class OverdueDetectionJobConfig {
                         """)
                 .parameterValues(Map.of(
                         "today", today,
-                        "statuses", DETECTION_STATUSES
+                        "statuses", INTEREST_DETECTION_STATUSES
                 ))
                 .build();
     }
@@ -143,7 +149,7 @@ public class OverdueDetectionJobConfig {
                         """)
                 .parameterValues(Map.of(
                         "today", today,
-                        "statuses", DETECTION_STATUSES
+                        "statuses", PRINCIPAL_DETECTION_STATUSES
                 ))
                 .build();
     }

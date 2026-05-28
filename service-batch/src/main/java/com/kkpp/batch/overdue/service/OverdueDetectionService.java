@@ -86,7 +86,7 @@ public class OverdueDetectionService {
         BigDecimal overdueAmount = principalLedger.getUnpaidAmount();
         int overdueDays = calculateOverdueDays(principalLedger.getDueDate(), today);
 
-        principalLedger.markOverdue();
+        principalLedger.markOverdue(now);
         upsertPrincipalOverdueLedger(principalLedger, creditLimit, overdueAmount, overdueDays);
 
         log.info("원금 연체 감지를 처리했습니다. principalLedgerId={}, creditLimitId={}, ledgerStatus={}",

@@ -82,7 +82,10 @@ public class PrincipalRepaymentLedger extends BaseEntity {
     }
 
     // 연체 감지 배치에서 미상환 원금 원장을 OVERDUE 상태로 전환한다.
-    public void markOverdue() {
+    public void markOverdue(LocalDateTime detectedAt) {
+        if (detectedAt == null) {
+            throw new IllegalArgumentException("원금 연체 감지 시각이 없습니다.");
+        }
         status = STATUS_OVERDUE;
     }
 
