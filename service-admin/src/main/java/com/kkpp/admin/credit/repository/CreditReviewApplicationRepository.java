@@ -39,6 +39,7 @@ public interface CreditReviewApplicationRepository extends JpaRepository<CreditR
             left join CreditReviewFarmerProfile profile on profile.user.id = user.id
             left join CreditReviewAssScore score on score.application.id = application.id
             where (:status is null or application.status = :status)
+            order by application.appliedAt desc, application.id desc
             """)
     Page<CreditReviewSummaryResponse> findReviewSummaries(
             @Param("status") CreditReviewStatus status,
