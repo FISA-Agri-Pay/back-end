@@ -29,7 +29,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 @Configuration
 public class InterestAutoPaymentJobConfig {
 
-    private static final int CHUNK_SIZE = 100;
+    private static final int CHUNK_SIZE = 1;
     private static final List<String> PAYABLE_STATUSES = List.of(
             InterestLedger.STATUS_UPCOMING,
             InterestLedger.STATUS_PARTIAL,
@@ -54,7 +54,8 @@ public class InterestAutoPaymentJobConfig {
             ItemWriter<InterestLedger> interestAutoPaymentWriter
     ) {
         return new StepBuilder("interestAutoPaymentStep", jobRepository)
-                // 이자 원장 생성 배치와 동일하게 100건 단위로 처리한다.
+                // 자동 이자 상환은 지갑 차감, 원장 갱신, 거래 이력 저장이 함께 일어나는 금융성 처리다.
+                // 한 건 실패가 다른 원장 처리까지 롤백하지 않도록 이자 원장 1건 단위로 commit/rollback한다.
                 .<InterestLedger, InterestLedger>chunk(CHUNK_SIZE, transactionManager)
                 .reader(interestAutoPaymentReader)
                 .processor(interestAutoPaymentProcessor)
