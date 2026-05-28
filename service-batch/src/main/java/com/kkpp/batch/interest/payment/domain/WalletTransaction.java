@@ -3,6 +3,7 @@ package com.kkpp.batch.interest.payment.domain;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.kkpp.common.core.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -17,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "wallet_transactions", schema = "core")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class WalletTransaction {
+public class WalletTransaction extends BaseTimeEntity {
 
     public static final String TYPE_INTEREST_PAYMENT = "INTEREST_PAYMENT";
     private static final String RELATED_TYPE_INTEREST_LEDGER = "INTEREST_LEDGER";
@@ -47,9 +48,6 @@ public class WalletTransaction {
     @Column(nullable = false)
     private LocalDateTime transactedAt;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
     public static WalletTransaction interestPayment(
             Long walletId,
             BigDecimal amount,
@@ -66,7 +64,6 @@ public class WalletTransaction {
         transaction.relatedId = interestLedgerId;
         transaction.description = "이자 자동 상환";
         transaction.transactedAt = now;
-        transaction.createdAt = now;
         return transaction;
     }
 }

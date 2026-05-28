@@ -16,9 +16,11 @@ import com.kkpp.batch.interest.payment.repository.LoanOverdueLedgerRepository;
 import com.kkpp.batch.interest.payment.repository.WalletRepository;
 import com.kkpp.batch.interest.payment.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InterestAutoPaymentService {
@@ -41,6 +43,10 @@ public class InterestAutoPaymentService {
 
         // 이미 PAID가 되었거나 납부일이 미래인 경우처럼 더 이상 처리할 필요가 없는 원장은 정상 스킵한다.
         if (!interestLedger.isPayableOn(today)) {
+            log.debug("자동 이자 상환 대상이 아니어서 스킵합니다. interestLedgerId={}, status={}, dueDate={}",
+                    interestLedger.getId(),
+                    interestLedger.getStatus(),
+                    interestLedger.getDueDate());
             return Optional.empty();
         }
 
@@ -56,6 +62,10 @@ public class InterestAutoPaymentService {
 
         // 잔액이 없으면 원장/지갑/거래 이력 모두 변경하지 않는다.
         if (!wallet.hasBalance()) {
+            log.info("지갑 잔액이 없어 자동 이자 상환을 스킵합니다. interestLedgerId={}, creditLimitId={}, walletId={}",
+                    interestLedger.getId(),
+                    creditLimit.getId(),
+                    wallet.getId());
             return Optional.empty();
         }
 
@@ -80,11 +90,17 @@ public class InterestAutoPaymentService {
                 interestLedger.getId(),
                 now
         ));
+        log.info("자동 이자 상환을 처리했습니다. interestLedgerId={}, creditLimitId={}, walletId={}, ledgerStatus={}",
+                interestLedger.getId(),
+                creditLimit.getId(),
+                wallet.getId(),
+                interestLedger.getStatus());
 
         // 연체 이력은 삭제하지 않는다.
         // 전액 상환으로 미납이 사라진 경우 해소 시각과 해소 금액만 남겨 BSS 평가 이력을 보존한다.
         if (wasOverdue && interestLedger.isPaid()) {
             resolveInterestOverdues(interestLedger.getId(), now);
+            log.info("자동 이자 상환으로 연체 이력을 해소했습니다. interestLedgerId={}", interestLedger.getId());
         }
 
         return Optional.of(interestLedger);
