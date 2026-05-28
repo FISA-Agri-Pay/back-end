@@ -120,7 +120,7 @@ public class AuthService {
     private TokenResponse issueTokens(UserAuth userAuth) {
         Long userId = userAuth.getUser().getId();
 
-        String accessToken = jwtTokenProvider.generateAccessToken(userId, "USER");
+        String accessToken = jwtTokenProvider.generateUserAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
         userAuth.updateRefreshToken(hashToken(refreshToken));
 

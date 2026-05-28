@@ -27,6 +27,10 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(sha256(secret));
     }
 
+    public String generateUserAccessToken(Long userId) {
+        return generateAccessToken(userId, "USER");
+    }
+
     public String generateAccessToken(Long userId, String role) {
         Date now = new Date();
         return Jwts.builder()
