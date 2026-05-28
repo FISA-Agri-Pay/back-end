@@ -74,6 +74,21 @@ public class PrincipalRepaymentLedger extends BaseEntity {
         return STATUS_OVERDUE.equals(status);
     }
 
+    // 연체 감지 배치 기준으로, 원금 상환일이 지났고 아직 미상환 원금이 남아 있는지 확인한다.
+    public boolean isOverdueDetectionTarget(LocalDate today) {
+        return dueDate.isBefore(today)
+                && isOverdueDetectionStatus()
+                && getUnpaidAmount().compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    // 연체 감지 배치에서 미상환 원금 원장을 OVERDUE 상태로 전환한다.
+    public void markOverdue(LocalDateTime detectedAt) {
+        if (detectedAt == null) {
+            throw new IllegalArgumentException("원금 연체 감지 시각이 없습니다.");
+        }
+        status = STATUS_OVERDUE;
+    }
+
     // 실제 지갑에서 차감된 금액만큼 원금 상환 원장에 반영하고 상태를 갱신한다.
     public void applyPayment(BigDecimal paymentAmount, LocalDate today, LocalDateTime paidAt) {
         BigDecimal moneyPaymentAmount = toMoney(paymentAmount);
@@ -97,6 +112,12 @@ public class PrincipalRepaymentLedger extends BaseEntity {
     }
 
     private boolean isPayableStatus() {
+        return STATUS_UPCOMING.equals(status)
+                || STATUS_PARTIAL.equals(status)
+                || STATUS_OVERDUE.equals(status);
+    }
+
+    private boolean isOverdueDetectionStatus() {
         return STATUS_UPCOMING.equals(status)
                 || STATUS_PARTIAL.equals(status)
                 || STATUS_OVERDUE.equals(status);

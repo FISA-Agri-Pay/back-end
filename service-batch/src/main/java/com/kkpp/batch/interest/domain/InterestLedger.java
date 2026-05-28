@@ -104,6 +104,22 @@ public class InterestLedger {
         return STATUS_OVERDUE.equals(status);
     }
 
+    // 연체 감지 배치 기준으로, 납부 예정일이 지났고 아직 미납 이자가 남아 있는지 확인한다.
+    public boolean isOverdueDetectionTarget(LocalDate today) {
+        return dueDate.isBefore(today)
+                && isOverdueDetectionStatus()
+                && getUnpaidAmount().compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    // 연체 감지 배치에서 미납 이자 원장을 OVERDUE 상태로 전환한다.
+    public void markOverdue(LocalDateTime detectedAt) {
+        if (detectedAt == null) {
+            throw new IllegalArgumentException("이자 연체 감지 시각이 없습니다.");
+        }
+        status = STATUS_OVERDUE;
+        updatedAt = detectedAt;
+    }
+
     // 실제 차감된 금액만큼 납부 금액을 증가시키고 원장 상태를 갱신한다.
     // 전액 납부되면 PAID가 되고, 일부 납부만 된 경우에는 납부 시점과 기존 연체 여부에 따라 상태를 나눈다.
     public void applyPayment(BigDecimal paymentAmount, LocalDate today, LocalDateTime paidAt) {
@@ -133,6 +149,12 @@ public class InterestLedger {
     }
 
     private boolean isPayableStatus() {
+        return STATUS_UPCOMING.equals(status)
+                || STATUS_PARTIAL.equals(status)
+                || STATUS_OVERDUE.equals(status);
+    }
+
+    private boolean isOverdueDetectionStatus() {
         return STATUS_UPCOMING.equals(status)
                 || STATUS_PARTIAL.equals(status)
                 || STATUS_OVERDUE.equals(status);
