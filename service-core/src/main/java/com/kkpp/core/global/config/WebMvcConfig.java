@@ -1,5 +1,6 @@
 package com.kkpp.core.global.config;
 
+import com.kkpp.common.security.auth.AuthUserArgumentResolver;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

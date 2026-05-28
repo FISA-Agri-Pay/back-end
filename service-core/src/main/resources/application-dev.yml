@@ -23,3 +23,7 @@ core:
     payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-core-payment}
   payment:
     interest-due-days: ${PAYMENT_INTEREST_DUE_DAYS:30}
+    
+resident-id:
+  hmac-key: ${RESIDENT_ID_HMAC_KEY}
+  encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY}

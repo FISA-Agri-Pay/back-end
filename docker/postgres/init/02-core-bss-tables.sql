@@ -1,23 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE SCHEMA IF NOT EXISTS core;
 
 -- =========================================================
--- Local core base tables for service-core / service-batch tests
+-- core 스키마 비즈니스 테이블 (users/user_auth는 01-auth-tables.sql 참조)
 -- =========================================================
-
-CREATE TABLE IF NOT EXISTS core.users (
-                                          id BIGSERIAL PRIMARY KEY,
-                                          public_id UUID NOT NULL DEFAULT gen_random_uuid(),
-    name VARCHAR(50) NOT NULL DEFAULT '테스트사용자',
-    phone VARCHAR(20) NOT NULL DEFAULT '01000000000',
-    resident_id_hash VARCHAR(255) NOT NULL DEFAULT 'local-hash',
-    address VARCHAR(255) NOT NULL DEFAULT 'local-address',
-    address_detail VARCHAR(255),
-    zip_code VARCHAR(10) NOT NULL DEFAULT '00000',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
-    );
 
 CREATE TABLE IF NOT EXISTS core.credit_limit_applications (
                                                               id BIGSERIAL PRIMARY KEY,

@@ -9,3 +9,7 @@ server:
 
 jwt:
   secret: ${JWT_SECRET:local-development-secret-key}
+
+resident-id:
+  hmac-key: ${RESIDENT_ID_HMAC_KEY:local-development-hmac-key}
+  encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY:local-development-encryption-key}
