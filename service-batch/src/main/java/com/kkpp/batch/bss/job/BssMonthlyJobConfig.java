@@ -1,6 +1,7 @@
 package com.kkpp.batch.bss.job;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.YearMonth;
@@ -152,8 +153,8 @@ public class BssMonthlyJobConfig {
 
         try {
             return YearMonth.of(Integer.parseInt(periodYear), Integer.parseInt(periodMonth));
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("BSS 산출 기준 연도와 월은 숫자여야 합니다.", ex);
+        } catch (NumberFormatException | DateTimeException ex) {
+            throw new IllegalArgumentException("BSS 산출 기준 연도와 월은 유효한 숫자 범위여야 합니다.", ex);
         }
     }
 }

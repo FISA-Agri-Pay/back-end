@@ -52,5 +52,6 @@ class BssScoreJdbcRepositoryTest {
         assertThat(params.getValue("periodMonth")).isEqualTo(5);
         assertThat(params.getValue("monthlyScore")).isEqualTo(84);
         assertThat(params.getValue("totalScore")).isEqualTo(84);
+        assertThat(params.getValue("calculatedAt")).isEqualTo(LocalDateTime.of(2026, 6, 1, 1, 0));
     }
 }
