@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 // 관리자 한도 심사 기능의 비즈니스 로직을 담당하는 서비스
@@ -58,12 +60,23 @@ public class CreditReviewService {
     // Repository에서 바로 요약 DTO로 조회해 불필요한 엔티티 로딩을 줄인다.
     @Transactional(readOnly = true)
     public CreditReviewPageResponse getReviews(CreditReviewStatus status, int page, int size) {
+        log.debug("한도 심사 목록 조회 요청: status={}, page={}, size={}", status, page, size);
+
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 normalizePageSize(size),
                 Sort.by(Sort.Direction.DESC, "appliedAt")
         );
         Page<CreditReviewSummaryResponse> result = applicationRepository.findReviewSummaries(status, pageable);
+
+        log.debug(
+                "한도 심사 목록 조회 완료: status={}, page={}, size={}, totalElements={}, totalPages={}",
+                status,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
 
         return new CreditReviewPageResponse(
                 result.getContent(),
@@ -80,12 +93,22 @@ public class CreditReviewService {
     // 신청 자체는 필수이고, 농지/ASS/서류 데이터는 없는 경우도 화면에서 처리할 수 있도록 null 또는 빈 목록으로 내려준다.
     @Transactional(readOnly = true)
     public CreditReviewDetailResponse getReview(UUID publicId) {
+        log.debug("한도 심사 상세 조회 요청: applicationPublicId={}", publicId);
+
         CreditReviewApplication application = getApplication(publicId);
         CreditReviewFarmerProfile profile = farmerProfileRepository.findByUser_Id(application.getUser().getId())
                 .orElse(null);
         CreditReviewAssScore assScore = assScoreRepository.findByApplication_Id(application.getId())
                 .orElse(null);
         List<CreditReviewDocument> documents = documentRepository.findAllByApplication_IdOrderByIdAsc(application.getId());
+
+        log.debug(
+                "한도 심사 상세 조회 완료: applicationPublicId={}, hasFarmProfile={}, hasAssScore={}, documentCount={}",
+                application.getPublicId(),
+                profile != null,
+                assScore != null,
+                documents.size()
+        );
 
         return toDetailResponse(application, profile, assScore, documents);
     }
@@ -94,11 +117,24 @@ public class CreditReviewService {
     // 같은 신청에 대해 중복 승인되는 일을 막기 위해 신청 row를 비관적 락으로 조회하고, 이미 발급된 한도가 있는지 한 번 더 확인한다.
     @Transactional
     public CreditReviewDecisionResponse approve(UUID publicId, ApproveCreditReviewRequest request) {
+        log.info("한도 승인 요청 수신: applicationPublicId={}, reviewedBy={}", publicId, request.reviewedBy());
+
         CreditReviewApplication application = getApplicationForUpdate(publicId);
         if (application.getStatus() != CreditReviewStatus.PENDING) {
+            log.warn(
+                    "한도 승인 요청 거부: applicationPublicId={}, reviewedBy={}, currentStatus={}",
+                    publicId,
+                    request.reviewedBy(),
+                    application.getStatus()
+            );
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "PENDING 상태의 한도 신청만 승인할 수 있습니다.");
         }
         if (limitRepository.existsByApplication_Id(application.getId())) {
+            log.warn(
+                    "한도 승인 요청 거부: applicationPublicId={}, reviewedBy={}, reason=이미 발급된 한도 존재",
+                    publicId,
+                    request.reviewedBy()
+            );
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "이미 한도가 발급된 신청입니다.");
         }
 
@@ -114,6 +150,14 @@ public class CreditReviewService {
         );
         CreditReviewLimit savedLimit = limitRepository.save(limit);
 
+        log.info(
+                "한도 승인 처리 완료: applicationPublicId={}, reviewedBy={}, approvedAmount={}, limitPublicId={}",
+                application.getPublicId(),
+                request.reviewedBy(),
+                application.getApprovedAmount(),
+                savedLimit.getPublicId()
+        );
+
         return new CreditReviewDecisionResponse(
                 application.getPublicId(),
                 application.getStatus(),
@@ -128,13 +172,28 @@ public class CreditReviewService {
     // 승인과 마찬가지로 신청 row를 잠근 뒤 PENDING 상태에서만 반려할 수 있도록 검증한다.
     @Transactional
     public CreditReviewDecisionResponse reject(UUID publicId, RejectCreditReviewRequest request) {
+        log.info("한도 반려 요청 수신: applicationPublicId={}, reviewedBy={}", publicId, request.reviewedBy());
+
         CreditReviewApplication application = getApplicationForUpdate(publicId);
         if (application.getStatus() != CreditReviewStatus.PENDING) {
+            log.warn(
+                    "한도 반려 요청 거부: applicationPublicId={}, reviewedBy={}, currentStatus={}",
+                    publicId,
+                    request.reviewedBy(),
+                    application.getStatus()
+            );
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "PENDING 상태의 한도 신청만 반려할 수 있습니다.");
         }
 
         String rejectionReason = buildRejectionReason(request);
         application.reject(request.reviewedBy(), rejectionReason, LocalDateTime.now());
+
+        log.info(
+                "한도 반려 처리 완료: applicationPublicId={}, reviewedBy={}, reasonCode={}",
+                application.getPublicId(),
+                request.reviewedBy(),
+                request.reasonCode()
+        );
 
         return new CreditReviewDecisionResponse(
                 application.getPublicId(),
