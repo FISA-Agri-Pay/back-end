@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "interest_ledger")
+@Table(name = "interest_ledger", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class InterestLedger extends BaseEntity {
 
