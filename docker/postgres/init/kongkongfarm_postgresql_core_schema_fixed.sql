@@ -138,7 +138,7 @@ CREATE TABLE user_auth (
     user_public_id UUID NOT NULL UNIQUE
         REFERENCES users(public_id),
 
-    pin_hash VARCHAR(255) NOT NULL,
+    pin_hash VARCHAR(255),
     password_hash VARCHAR(255),
     refresh_token VARCHAR(500),
 
