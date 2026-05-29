@@ -4,6 +4,7 @@ import com.kkpp.catalog.cart.domain.CartItem;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,26 +16,26 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
             from CartItem ci
             join fetch ci.product p
             join fetch p.category
-            where ci.user.id = :userId
+            where ci.userPublicId = :userPublicId
             order by ci.id desc
             """)
-    List<CartItem> findAllByUserIdWithProduct(@Param("userId") Long userId);
+    List<CartItem> findAllByUserPublicIdWithProduct(@Param("userPublicId") UUID userPublicId);
 
-    Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId);
+    Optional<CartItem> findByUserPublicIdAndProductPublicId(UUID userPublicId, UUID productPublicId);
 
-    Optional<CartItem> findByIdAndUserId(Long id, Long userId);
+    Optional<CartItem> findByIdAndUserPublicId(Long id, UUID userPublicId);
 
     @Query("""
             select ci
             from CartItem ci
             join fetch ci.product p
             join fetch p.category
-            where ci.user.id = :userId
+            where ci.userPublicId = :userPublicId
               and ci.id in :cartItemIds
             order by ci.id
             """)
-    List<CartItem> findAllByUserIdAndIdInWithProduct(
-            @Param("userId") Long userId,
+    List<CartItem> findAllByUserPublicIdAndIdInWithProduct(
+            @Param("userPublicId") UUID userPublicId,
             @Param("cartItemIds") Collection<Long> cartItemIds
     );
 }
