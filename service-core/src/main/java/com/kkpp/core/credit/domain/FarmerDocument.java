@@ -16,6 +16,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "farmer_documents", schema = "core")
 @Getter
@@ -26,20 +28,24 @@ public class FarmerDocument extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "document_type", nullable = false)
     private RequiredDocumentType documentType;
 
-    @Column(nullable = false)
+    @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "application_public_id", referencedColumnName = "public_id")
     private CreditLimitApplication application;
 
     public static FarmerDocument create(RequiredDocumentType documentType, String fileUrl,
                                         CreditLimitApplication application) {
         FarmerDocument document = new FarmerDocument();
+        document.userPublicId = application.getUserPublicId();
         document.documentType = documentType;
         document.fileUrl = fileUrl;
         document.application = application;

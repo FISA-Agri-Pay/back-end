@@ -14,6 +14,8 @@ public record CreditPaymentRequestedMessage(
         Long userId,
         UUID userPublicId,
         Long orderId,
+        UUID orderPublicId,
+        UUID paymentRequestPublicId,
         BigDecimal totalAmount,
         String idempotencyKey
 ) {

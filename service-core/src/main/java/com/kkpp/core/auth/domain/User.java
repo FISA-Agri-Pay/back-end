@@ -31,19 +31,19 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
-    @Column(unique = true, length = 67)
+    @Column(name = "resident_id_hash", unique = true, length = 67)
     private String residentIdHash;
 
-    @Column(length = 100)
+    @Column(name = "resident_id_enc", length = 100)
     private String residentIdEnc;
 
     @Column(nullable = false)
     private String address;
 
-    @Column
+    @Column(name = "address_detail")
     private String addressDetail;
 
-    @Column(nullable = false, length = 10)
+    @Column(name = "zip_code", nullable = false, length = 10)
     private String zipCode;
 
     @Column(nullable = false, length = 20)

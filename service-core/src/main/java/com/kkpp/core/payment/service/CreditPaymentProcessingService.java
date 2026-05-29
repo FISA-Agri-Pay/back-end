@@ -2,25 +2,22 @@ package com.kkpp.core.payment.service;
 
 import com.kkpp.core.payment.domain.CreditLimit;
 import com.kkpp.core.payment.domain.CreditUsageLedger;
-import com.kkpp.core.payment.domain.InterestLedger;
 import com.kkpp.core.payment.domain.PaymentEventProcessLog;
 import com.kkpp.core.payment.domain.PrincipalRepaymentLedger;
 import com.kkpp.core.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.core.payment.exception.PaymentProcessingException;
 import com.kkpp.core.payment.repository.CreditLimitRepository;
 import com.kkpp.core.payment.repository.CreditUsageLedgerRepository;
-import com.kkpp.core.payment.repository.InterestLedgerRepository;
 import com.kkpp.core.payment.repository.PaymentEventProcessLogRepository;
-import com.kkpp.core.payment.repository.PrincipalRepaymentLedgerRepository;
 import com.kkpp.core.payment.repository.PaymentUserRepository;
+import com.kkpp.core.payment.repository.PrincipalRepaymentLedgerRepository;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,17 +29,12 @@ public class CreditPaymentProcessingService {
 
     private static final String ACTIVE = "ACTIVE";
     private static final String PURCHASE = "PURCHASE";
-    private static final int MONTHS_IN_YEAR = 12;
 
     private final PaymentUserRepository userRepository;
     private final CreditLimitRepository creditLimitRepository;
     private final CreditUsageLedgerRepository creditUsageLedgerRepository;
-    private final InterestLedgerRepository interestLedgerRepository;
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final PaymentEventProcessLogRepository paymentEventProcessLogRepository;
-
-    @Value("${core.payment.interest-due-days:30}")
-    private int interestDueDays;
 
     @Transactional
     public void process(CreditPaymentRequestedMessage message) {
@@ -53,7 +45,7 @@ public class CreditPaymentProcessingService {
                 message.checkoutRequestId()
         )) {
             log.info(
-                    "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, checkoutRequestId={}, idempotencyKey={}",
+                    "Credit payment event already processed. eventId={}, checkoutRequestId={}, idempotencyKey={}",
                     message.eventId(),
                     message.checkoutRequestId(),
                     message.idempotencyKey()
@@ -61,12 +53,11 @@ public class CreditPaymentProcessingService {
             return;
         }
 
-        if (message.orderId() != null
-                && creditUsageLedgerRepository.existsByOrderIdAndUsageType(message.orderId(), PURCHASE)) {
+        if (creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(message.orderPublicId(), PURCHASE)) {
             log.info(
-                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderId={}",
+                    "Credit usage ledger already exists for order. eventId={}, orderPublicId={}",
                     message.eventId(),
-                    message.orderId()
+                    message.orderPublicId()
             );
             paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
                     message.eventId(),
@@ -76,23 +67,23 @@ public class CreditPaymentProcessingService {
             return;
         }
 
-        Long userId = resolveUserId(message);
-        CreditLimit creditLimit = creditLimitRepository.findFirstByUserIdAndStatusOrderByIdDesc(userId, ACTIVE)
-                .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userId=" + userId));
+        UUID userPublicId = resolveUserPublicId(message);
+        CreditLimit creditLimit = creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(userPublicId, ACTIVE)
+                .orElseThrow(() -> new PaymentProcessingException("Active credit limit not found. userPublicId=" + userPublicId));
 
         LocalDate today = LocalDate.now();
         if (!creditLimit.isActive(today)) {
             throw new PaymentProcessingException(
-                    "사용할 수 없는 한도 상태입니다. userId=" + userId
-                            + ", creditLimitId=" + creditLimit.getId()
+                    "Credit limit is not usable. userPublicId=" + userPublicId
+                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", status=" + creditLimit.getStatus()
                             + ", expiresAt=" + creditLimit.getExpiresAt()
             );
         }
         if (!creditLimit.canUse(message.totalAmount())) {
             throw new PaymentProcessingException(
-                    "사용 가능 한도가 부족합니다. userId=" + userId
-                            + ", creditLimitId=" + creditLimit.getId()
+                    "Credit limit is insufficient. userPublicId=" + userPublicId
+                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", availableAmount=" + creditLimit.availableAmount()
                             + ", requestedAmount=" + message.totalAmount()
             );
@@ -101,19 +92,16 @@ public class CreditPaymentProcessingService {
         LocalDateTime usedAt = Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now());
         creditLimit.use(message.totalAmount());
         creditUsageLedgerRepository.save(CreditUsageLedger.purchase(
-                creditLimit.getId(),
-                message.orderId(),
+                creditLimit.getPublicId(),
+                message.orderPublicId(),
+                message.paymentRequestPublicId(),
                 message.totalAmount(),
                 usedAt
         ));
-        interestLedgerRepository.save(InterestLedger.upcoming(
-                creditLimit.getId(),
-                message.totalAmount(),
-                today.plusDays(interestDueDays),
-                calculateMonthlyInterest(message.totalAmount(), creditLimit.getInterestRate())
-        ));
         principalRepaymentLedgerRepository.save(PrincipalRepaymentLedger.upcoming(
-                creditLimit.getId(),
+                creditLimit.getPublicId(),
+                message.orderPublicId(),
+                message.paymentRequestPublicId(),
                 creditLimit.getPrincipalDueDate(),
                 message.totalAmount()
         ));
@@ -124,48 +112,46 @@ public class CreditPaymentProcessingService {
         ));
 
         log.info(
-                "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, checkoutRequestId={}, userId={}, creditLimitId={}, amount={}",
+                "Credit payment event processed. eventId={}, checkoutRequestId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
                 message.eventId(),
                 message.checkoutRequestId(),
-                userId,
-                creditLimit.getId(),
+                userPublicId,
+                creditLimit.getPublicId(),
                 message.totalAmount()
         );
     }
 
     private void validateMessage(CreditPaymentRequestedMessage message) {
         if (message == null) {
-            throw new PaymentProcessingException("결제 요청 메시지가 비어 있습니다.");
+            throw new PaymentProcessingException("Payment request message is empty.");
         }
         if (message.eventId() == null || message.eventId().isBlank()) {
-            throw new PaymentProcessingException("결제 요청 메시지 eventId가 비어 있습니다.");
+            throw new PaymentProcessingException("Payment request eventId is empty.");
         }
         if (message.checkoutRequestId() == null) {
-            throw new PaymentProcessingException("결제 요청 메시지 checkoutRequestId가 비어 있습니다.");
+            throw new PaymentProcessingException("Payment request checkoutRequestId is empty.");
         }
         if (message.idempotencyKey() == null || message.idempotencyKey().isBlank()) {
-            throw new PaymentProcessingException("결제 요청 메시지 idempotencyKey가 비어 있습니다.");
+            throw new PaymentProcessingException("Payment request idempotencyKey is empty.");
         }
         if (message.userId() == null && message.userPublicId() == null) {
-            throw new PaymentProcessingException("결제 요청 메시지 사용자 식별자가 비어 있습니다.");
+            throw new PaymentProcessingException("Payment request user identifier is empty.");
+        }
+        if (message.orderPublicId() == null) {
+            throw new PaymentProcessingException("Payment request orderPublicId is empty.");
         }
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
+            throw new PaymentProcessingException("Payment request amount is invalid. amount=" + message.totalAmount());
         }
     }
 
-    private Long resolveUserId(CreditPaymentRequestedMessage message) {
-        if (message.userId() != null) {
-            return message.userId();
+    private UUID resolveUserPublicId(CreditPaymentRequestedMessage message) {
+        if (message.userPublicId() != null) {
+            return message.userPublicId();
         }
-        return userRepository.findByPublicId(message.userPublicId())
-                .orElseThrow(() -> new PaymentProcessingException("사용자를 찾을 수 없습니다. userPublicId=" + message.userPublicId()))
-                .getId();
-    }
-
-    private BigDecimal calculateMonthlyInterest(BigDecimal principal, BigDecimal annualInterestRate) {
-        return principal.multiply(annualInterestRate)
-                .divide(BigDecimal.valueOf(MONTHS_IN_YEAR), 2, RoundingMode.HALF_UP);
+        return userRepository.findById(message.userId())
+                .orElseThrow(() -> new PaymentProcessingException("User not found. userId=" + message.userId()))
+                .getPublicId();
     }
 
     public boolean isDuplicateKeyFailure(Exception exception) {

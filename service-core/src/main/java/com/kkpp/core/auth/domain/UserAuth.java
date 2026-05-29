@@ -27,22 +27,22 @@ public class UserAuth extends BaseEntity {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "public_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_public_id", referencedColumnName = "public_id", nullable = false, unique = true)
     private User user;
 
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column
+    @Column(name = "pin_hash")
     private String pinHash;
 
-    @Column
+    @Column(name = "refresh_token")
     private String refreshToken;
 
-    @Column
+    @Column(name = "pin_changed_at")
     private LocalDateTime pinChangedAt;
 
-    @Column
+    @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
     public static UserAuth create(User user, String passwordHash) {
