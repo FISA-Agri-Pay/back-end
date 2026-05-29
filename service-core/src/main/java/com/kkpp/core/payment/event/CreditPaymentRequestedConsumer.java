@@ -30,13 +30,13 @@ public class CreditPaymentRequestedConsumer {
                     CreditPaymentRequestedMessage.class
             );
             log.info(
-                    "외상 결제 요청 Kafka 메시지를 수신했습니다. topic={}, partition={}, offset={}, key={}, eventId={}, checkoutRequestId={}",
+                    "외상 결제 요청 Kafka 메시지를 수신했습니다. topic={}, partition={}, offset={}, key={}, eventId={}, paymentRequestPublicId={}",
                     record.topic(),
                     record.partition(),
                     record.offset(),
                     record.key(),
                     message.eventId(),
-                    message.checkoutRequestId()
+                    message.paymentRequestPublicId()
             );
             creditPaymentProcessingService.process(message);
         } catch (JsonProcessingException exception) {

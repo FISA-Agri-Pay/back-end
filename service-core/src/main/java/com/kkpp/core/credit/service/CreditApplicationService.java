@@ -47,6 +47,10 @@ public class CreditApplicationService {
     private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
+    private static final List<ApplicationStatus> IN_PROGRESS_STATUSES = List.of(
+            ApplicationStatus.REQUESTED,
+            ApplicationStatus.PENDING
+    );
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final UserRepository userRepository;
@@ -56,7 +60,7 @@ public class CreditApplicationService {
 
     public StartSessionResponse startSession(Long userId) {
         UUID userPublicId = resolveUserPublicId(userId);
-        if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
+        if (hasInProgressApplication(userPublicId)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -104,7 +108,7 @@ public class CreditApplicationService {
         CreditApplicationDraft draft = getDraft(userId, sessionId, sessionId);
         UUID userPublicId = resolveUserPublicId(userId);
 
-        if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
+        if (hasInProgressApplication(userPublicId)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -117,7 +121,7 @@ public class CreditApplicationService {
         String lockToken = acquireSubmitLock(userId);
         List<UploadedDocument> uploadedDocuments = List.of();
         try {
-            if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
+            if (hasInProgressApplication(userPublicId)) {
                 throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
             }
 
@@ -338,5 +342,12 @@ public class CreditApplicationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CreditException(CreditErrorCode.APPLICATION_STEP_MISSING, userId));
         return user.getPublicId();
+    }
+
+    private boolean hasInProgressApplication(UUID userPublicId) {
+        return creditLimitApplicationRepository.existsByUserPublicIdAndStatusIn(
+                userPublicId,
+                IN_PROGRESS_STATUSES
+        );
     }
 }

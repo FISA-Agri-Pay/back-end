@@ -40,9 +40,12 @@ public class FarmerDocument extends BaseEntity {
     @Column(nullable = false)
     private String fileUrl;
 
-    public static FarmerDocument create(UUID userPublicId, UUID applicationPublicId,
-                                        RequiredDocumentType documentType, String fileUrl,
-                                        CreditLimitApplication application) {
+    public static FarmerDocument create(
+            UUID userPublicId,
+            UUID applicationPublicId,
+            RequiredDocumentType documentType,
+            String fileUrl
+    ) {
         FarmerDocument document = new FarmerDocument();
         document.publicId = UUID.randomUUID();
         document.userPublicId = userPublicId;

@@ -9,7 +9,6 @@ import com.kkpp.core.payment.exception.PaymentProcessingException;
 import com.kkpp.core.payment.repository.CreditLimitRepository;
 import com.kkpp.core.payment.repository.CreditUsageLedgerRepository;
 import com.kkpp.core.payment.repository.PaymentEventProcessLogRepository;
-import com.kkpp.core.payment.repository.PaymentUserRepository;
 import com.kkpp.core.payment.repository.PrincipalRepaymentLedgerRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,7 +29,6 @@ public class CreditPaymentProcessingService {
     private static final String ACTIVE = "ACTIVE";
     private static final String PURCHASE = "PURCHASE";
 
-    private final PaymentUserRepository userRepository;
     private final CreditLimitRepository creditLimitRepository;
     private final CreditUsageLedgerRepository creditUsageLedgerRepository;
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
@@ -45,18 +43,17 @@ public class CreditPaymentProcessingService {
         if (paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(eventId, paymentRequestPublicId)) {
             log.info(
                     "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, paymentRequestPublicId={}, idempotencyKey={}",
-                    message.eventId(),
+                    eventId,
                     paymentRequestPublicId,
                     message.idempotencyKey()
             );
             return;
         }
 
-        if (message.orderPublicId() != null
-                && creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(message.orderPublicId(), PURCHASE)) {
+        if (creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(message.orderPublicId(), PURCHASE)) {
             log.info(
                     "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderPublicId={}",
-                    message.eventId(),
+                    eventId,
                     message.orderPublicId()
             );
             paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
@@ -67,7 +64,7 @@ public class CreditPaymentProcessingService {
             return;
         }
 
-        UUID userPublicId = resolveUserPublicId(message);
+        UUID userPublicId = message.userPublicId();
         CreditLimit creditLimit = creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(userPublicId, ACTIVE)
                 .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userPublicId=" + userPublicId));
 
@@ -113,7 +110,7 @@ public class CreditPaymentProcessingService {
 
         log.info(
                 "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, paymentRequestPublicId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
-                message.eventId(),
+                eventId,
                 paymentRequestPublicId,
                 userPublicId,
                 creditLimit.getPublicId(),
@@ -134,8 +131,8 @@ public class CreditPaymentProcessingService {
         if (message.idempotencyKey() == null || message.idempotencyKey().isBlank()) {
             throw new PaymentProcessingException("결제 요청 메시지 idempotencyKey가 비어 있습니다.");
         }
-        if (message.userId() == null && message.userPublicId() == null) {
-            throw new PaymentProcessingException("결제 요청 메시지 사용자 식별자가 비어 있습니다.");
+        if (message.userPublicId() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 userPublicId가 비어 있습니다.");
         }
         if (message.orderPublicId() == null) {
             throw new PaymentProcessingException("결제 요청 메시지 orderPublicId가 비어 있습니다.");
@@ -143,15 +140,6 @@ public class CreditPaymentProcessingService {
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
         }
-    }
-
-    private UUID resolveUserPublicId(CreditPaymentRequestedMessage message) {
-        if (message.userPublicId() != null) {
-            return message.userPublicId();
-        }
-        return userRepository.findById(message.userId())
-                .orElseThrow(() -> new PaymentProcessingException("사용자를 찾을 수 없습니다. userId=" + message.userId()))
-                .getPublicId();
     }
 
     private UUID parseEventId(String eventId) {

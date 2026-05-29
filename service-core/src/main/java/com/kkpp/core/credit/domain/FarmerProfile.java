@@ -54,19 +54,34 @@ public class FarmerProfile extends BaseEntity {
     @Column(nullable = false)
     private Integer farmingSince;
 
-    public static FarmerProfile create(UUID userPublicId, String farmAddress, BigDecimal fieldAreaM2,
-                                       CropType mainCrop, Boolean hasCropInsurance) {
+    public static FarmerProfile create(
+            UUID userPublicId,
+            String farmAddress,
+            String farmAddressDetail,
+            String farmZipCode,
+            BigDecimal fieldAreaM2,
+            CropType mainCrop,
+            Boolean hasCropInsurance
+    ) {
         FarmerProfile profile = new FarmerProfile();
         profile.publicId = UUID.randomUUID();
         profile.userPublicId = userPublicId;
-        profile.farmZipCode = "";
         profile.farmingSince = 1;
-        profile.update(farmAddress, fieldAreaM2, mainCrop, hasCropInsurance);
+        profile.update(farmAddress, farmAddressDetail, farmZipCode, fieldAreaM2, mainCrop, hasCropInsurance);
         return profile;
     }
 
-    public void update(String farmAddress, BigDecimal fieldAreaM2, CropType mainCrop, Boolean hasCropInsurance) {
+    public void update(
+            String farmAddress,
+            String farmAddressDetail,
+            String farmZipCode,
+            BigDecimal fieldAreaM2,
+            CropType mainCrop,
+            Boolean hasCropInsurance
+    ) {
         this.farmAddress = farmAddress;
+        this.farmAddressDetail = farmAddressDetail;
+        this.farmZipCode = farmZipCode;
         this.fieldAreaM2 = fieldAreaM2;
         this.mainCrop = mainCrop;
         this.hasCropInsurance = hasCropInsurance;

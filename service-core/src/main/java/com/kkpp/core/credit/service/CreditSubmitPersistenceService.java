@@ -1,8 +1,9 @@
 package com.kkpp.core.credit.service;
 
+import com.kkpp.core.auth.domain.User;
+import com.kkpp.core.auth.repository.UserRepository;
 import com.kkpp.core.credit.domain.AssScore;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
-import com.kkpp.core.credit.domain.CropType;
 import com.kkpp.core.credit.domain.FarmerDocument;
 import com.kkpp.core.credit.domain.FarmerProfile;
 import com.kkpp.core.credit.dto.AssScoreResult;
@@ -12,15 +13,14 @@ import com.kkpp.core.credit.repository.AssScoreRepository;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
 import com.kkpp.core.credit.repository.FarmerDocumentRepository;
 import com.kkpp.core.credit.repository.FarmerProfileRepository;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -32,14 +32,23 @@ public class CreditSubmitPersistenceService {
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final AssScoreRepository assScoreRepository;
     private final AssScoringService assScoringService;
+    private final UserRepository userRepository;
 
     @Transactional
-    public CreditLimitApplication saveSubmittedApplication(UUID userPublicId, CreditApplicationDraft draft,
-                                                           List<UploadedDocument> uploadedDocuments) {
+    public CreditLimitApplication saveSubmittedApplication(
+            UUID userPublicId,
+            CreditApplicationDraft draft,
+            List<UploadedDocument> uploadedDocuments
+    ) {
+        User user = userRepository.findByPublicId(userPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("user not found. userPublicId=" + userPublicId));
+
         FarmerProfile profile = farmerProfileRepository.findByUserPublicId(userPublicId)
                 .map(existing -> {
                     existing.update(
                             draft.getAddress(),
+                            user.getAddressDetail(),
+                            user.getZipCode(),
                             draft.getAreaSizeM2(),
                             draft.getCropType(),
                             draft.getHasCropInsurance()
@@ -49,14 +58,17 @@ public class CreditSubmitPersistenceService {
                 .orElseGet(() -> FarmerProfile.create(
                         userPublicId,
                         draft.getAddress(),
+                        user.getAddressDetail(),
+                        user.getZipCode(),
                         draft.getAreaSizeM2(),
                         draft.getCropType(),
                         draft.getHasCropInsurance()
                 ));
         FarmerProfile savedProfile = farmerProfileRepository.save(profile);
+        AssScoreResult scoreResult = assScoringService.calculate(savedProfile, draft.getCropType());
 
         CreditLimitApplication application = creditLimitApplicationRepository.save(
-                CreditLimitApplication.create(userPublicId, requestedAmount(savedProfile, draft.getCropType()))
+                CreditLimitApplication.create(userPublicId, requestedAmount(scoreResult))
         );
 
         uploadedDocuments.stream()
@@ -64,23 +76,21 @@ public class CreditSubmitPersistenceService {
                         userPublicId,
                         application.getPublicId(),
                         uploaded.documentType(),
-                        uploaded.fileUrl(),
-                        application
+                        uploaded.fileUrl()
                 ))
                 .forEach(farmerDocumentRepository::save);
 
-        saveAssScore(application, savedProfile, draft.getCropType());
+        saveAssScore(application, scoreResult);
 
         log.info("[CreditSubmit] persisted applicationId={}", application.getPublicId());
         return application;
     }
 
-    private void saveAssScore(CreditLimitApplication application, FarmerProfile profile, CropType cropType) {
+    private void saveAssScore(CreditLimitApplication application, AssScoreResult scoreResult) {
         if (assScoreRepository.findByApplicationPublicId(application.getPublicId()).isPresent()) {
             return;
         }
 
-        AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
         try {
             assScoreRepository.saveAndFlush(AssScore.create(
                     application,
@@ -100,8 +110,7 @@ public class CreditSubmitPersistenceService {
         }
     }
 
-    private BigDecimal requestedAmount(FarmerProfile profile, CropType cropType) {
-        AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
+    private BigDecimal requestedAmount(AssScoreResult scoreResult) {
         return scoreResult.estimatedIncome().max(BigDecimal.ONE);
     }
 }
