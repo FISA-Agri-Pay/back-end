@@ -1,7 +1,8 @@
-package com.kkpp.core.payment.domain;
+package com.kkpp.catalog.checkout.domain;
 
+import com.kkpp.catalog.cart.domain.CartItem;
+import com.kkpp.catalog.product.domain.Product;
 import com.kkpp.common.core.domain.BaseTimeEntity;
-import com.kkpp.core.payment.dto.CreditPaymentRequestedMessage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,17 +20,17 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "order_items", schema = "core")
+@Table(name = "bnpl_payment_request_items", schema = "catalog")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrderItem extends BaseTimeEntity {
+public class BnplPaymentRequestItem extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_public_id", referencedColumnName = "public_id", nullable = false)
-    private Order order;
+    @JoinColumn(name = "payment_request_public_id", referencedColumnName = "public_id", nullable = false)
+    private BnplPaymentRequest paymentRequest;
 
     @Column(name = "product_public_id", nullable = false)
     private UUID productPublicId;
@@ -46,23 +47,16 @@ public class OrderItem extends BaseTimeEntity {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal totalPrice;
 
-    static OrderItem from(Order order, CreditPaymentRequestedMessage.Item item) {
-        validateRequired(order, "order");
-        validateRequired(item, "item");
+    static BnplPaymentRequestItem from(BnplPaymentRequest paymentRequest, CartItem cartItem) {
+        Product product = cartItem.getProduct();
 
-        OrderItem orderItem = new OrderItem();
-        orderItem.order = order;
-        orderItem.productPublicId = item.productPublicId();
-        orderItem.productNameSnapshot = item.productNameSnapshot();
-        orderItem.unitPriceSnapshot = item.unitPriceSnapshot();
-        orderItem.quantity = item.quantity();
-        orderItem.totalPrice = item.totalPrice();
-        return orderItem;
-    }
-
-    private static void validateRequired(Object value, String fieldName) {
-        if (value == null) {
-            throw new IllegalArgumentException(fieldName + "는 필수입니다.");
-        }
+        BnplPaymentRequestItem item = new BnplPaymentRequestItem();
+        item.paymentRequest = paymentRequest;
+        item.productPublicId = product.getPublicId();
+        item.productNameSnapshot = product.getName();
+        item.unitPriceSnapshot = product.getPrice();
+        item.quantity = cartItem.getQuantity();
+        item.totalPrice = product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+        return item;
     }
 }

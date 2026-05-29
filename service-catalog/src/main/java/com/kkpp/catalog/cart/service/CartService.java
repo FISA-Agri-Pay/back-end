@@ -8,11 +8,10 @@ import com.kkpp.catalog.cart.dto.response.CartResponse;
 import com.kkpp.catalog.cart.repository.CartItemRepository;
 import com.kkpp.catalog.product.domain.Product;
 import com.kkpp.catalog.product.repository.ProductRepository;
-import com.kkpp.catalog.user.domain.User;
-import com.kkpp.catalog.user.repository.UserRepository;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,20 +22,18 @@ public class CartService {
 
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
-    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public CartResponse getCart(Long userId) {
-        return CartResponse.from(cartItemRepository.findAllByUserIdWithProduct(userId));
+    public CartResponse getCart(UUID userPublicId) {
+        return CartResponse.from(cartItemRepository.findAllByUserPublicIdWithProduct(userPublicId));
     }
 
     @Transactional
-    public CartItemResponse addCartItem(Long userId, AddCartItemRequest request) {
-        User user = getUser(userId);
+    public CartItemResponse addCartItem(UUID userPublicId, AddCartItemRequest request) {
         Product product = productRepository.findByPublicIdWithCategory(request.productId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다."));
 
-        CartItem cartItem = cartItemRepository.findByUserIdAndProductId(userId, product.getId())
+        CartItem cartItem = cartItemRepository.findByUserPublicIdAndProductPublicId(userPublicId, product.getPublicId())
                 .map(existing -> {
                     validatePurchasable(product, calculateTotalQuantity(existing, request.quantity()));
                     existing.addQuantity(request.quantity());
@@ -44,33 +41,28 @@ public class CartService {
                 })
                 .orElseGet(() -> {
                     validatePurchasable(product, request.quantity());
-                    return cartItemRepository.save(CartItem.create(user, product, request.quantity()));
+                    return cartItemRepository.save(CartItem.create(userPublicId, product, request.quantity()));
                 });
 
         return CartItemResponse.from(cartItem);
     }
 
     @Transactional
-    public CartItemResponse updateQuantity(Long userId, Long cartItemId, UpdateCartItemQuantityRequest request) {
-        CartItem cartItem = getCartItem(userId, cartItemId);
+    public CartItemResponse updateQuantity(UUID userPublicId, Long cartItemId, UpdateCartItemQuantityRequest request) {
+        CartItem cartItem = getCartItem(userPublicId, cartItemId);
         validatePurchasable(cartItem.getProduct(), request.quantity());
         cartItem.changeQuantity(request.quantity());
         return CartItemResponse.from(cartItem);
     }
 
     @Transactional
-    public void deleteCartItem(Long userId, Long cartItemId) {
-        CartItem cartItem = getCartItem(userId, cartItemId);
+    public void deleteCartItem(UUID userPublicId, Long cartItemId) {
+        CartItem cartItem = getCartItem(userPublicId, cartItemId);
         cartItemRepository.delete(cartItem);
     }
 
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "사용자를 찾을 수 없습니다."));
-    }
-
-    private CartItem getCartItem(Long userId, Long cartItemId) {
-        return cartItemRepository.findByIdAndUserId(cartItemId, userId)
+    private CartItem getCartItem(UUID userPublicId, Long cartItemId) {
+        return cartItemRepository.findByIdAndUserPublicId(cartItemId, userPublicId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "장바구니 항목을 찾을 수 없습니다."));
     }
 

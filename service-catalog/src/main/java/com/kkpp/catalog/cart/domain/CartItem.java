@@ -1,7 +1,6 @@
 package com.kkpp.catalog.cart.domain;
 
 import com.kkpp.catalog.product.domain.Product;
-import com.kkpp.catalog.user.domain.User;
 import com.kkpp.common.core.domain.BaseEntity;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
@@ -15,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,7 +23,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "cart_items",
-        uniqueConstraints = @UniqueConstraint(name = "uk_cart_items_user_product", columnNames = {"user_id", "product_id"})
+        schema = "catalog",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_cart_items_user_product",
+                columnNames = {"user_public_id", "product_public_id"}
+        )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItem extends BaseEntity {
@@ -32,26 +36,29 @@ public class CartItem extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "public_id", nullable = false, unique = true)
+    private UUID publicId;
+
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_public_id", referencedColumnName = "public_id", nullable = false)
     private Product product;
 
     @Column(nullable = false)
     private Integer quantity;
 
-    private CartItem(User user, Product product, Integer quantity) {
+    private CartItem(UUID userPublicId, Product product, Integer quantity) {
         validatePositiveQuantity(quantity);
-        this.user = user;
+        this.publicId = UUID.randomUUID();
+        this.userPublicId = userPublicId;
         this.product = product;
         this.quantity = quantity;
     }
 
-    public static CartItem create(User user, Product product, Integer quantity) {
-        return new CartItem(user, product, quantity);
+    public static CartItem create(UUID userPublicId, Product product, Integer quantity) {
+        return new CartItem(userPublicId, product, quantity);
     }
 
     public void addQuantity(Integer quantity) {

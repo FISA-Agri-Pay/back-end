@@ -9,8 +9,9 @@ public record CreditPaymentRequestedEvent(
         String eventId,
         String eventType,
         LocalDateTime occurredAt,
-        UUID checkoutRequestId,
+        UUID paymentRequestPublicId,
         UUID userPublicId,
+        UUID orderPublicId,
         BigDecimal totalAmount,
         DeliveryAddress deliveryAddress,
         List<Item> items,
@@ -30,9 +31,9 @@ public record CreditPaymentRequestedEvent(
     }
 
     public record Item(
-            UUID productId,
-            String productName,
-            BigDecimal unitPrice,
+            UUID productPublicId,
+            String productNameSnapshot,
+            BigDecimal unitPriceSnapshot,
             Integer quantity,
             BigDecimal totalPrice
     ) {

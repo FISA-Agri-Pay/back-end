@@ -12,6 +12,7 @@ public record CreditPaymentRequestedMessage(
         String eventId,
         String eventType,
         LocalDateTime occurredAt,
+        // 과거 checkoutRequestId 필드로 발행된 이벤트 호환용 alias
         @JsonAlias("checkoutRequestId")
         UUID paymentRequestPublicId,
         UUID userPublicId,
@@ -31,9 +32,9 @@ public record CreditPaymentRequestedMessage(
     }
 
     public record Item(
-            UUID productId,
-            String productName,
-            BigDecimal unitPrice,
+            UUID productPublicId,
+            String productNameSnapshot,
+            BigDecimal unitPriceSnapshot,
             Integer quantity,
             BigDecimal totalPrice
     ) {
