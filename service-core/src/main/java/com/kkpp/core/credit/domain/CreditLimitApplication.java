@@ -53,8 +53,8 @@ public class CreditLimitApplication extends BaseEntity {
     private String rejectionReason;
 
     public static CreditLimitApplication create(UUID userPublicId, BigDecimal requestedAmount) {
-        Objects.requireNonNull(userPublicId, "userPublicId must not be null");
-        Objects.requireNonNull(requestedAmount, "requestedAmount must not be null");
+        Objects.requireNonNull(userPublicId, "userPublicId는 필수입니다.");
+        Objects.requireNonNull(requestedAmount, "requestedAmount는 필수입니다.");
 
         CreditLimitApplication application = new CreditLimitApplication();
         application.publicId = UUID.randomUUID();

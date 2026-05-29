@@ -9,6 +9,8 @@ import com.kkpp.core.credit.domain.FarmerProfile;
 import com.kkpp.core.credit.dto.AssScoreResult;
 import com.kkpp.core.credit.dto.CreditApplicationDraft;
 import com.kkpp.core.credit.dto.UploadedDocument;
+import com.kkpp.core.credit.exception.CreditErrorCode;
+import com.kkpp.core.credit.exception.CreditException;
 import com.kkpp.core.credit.repository.AssScoreRepository;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
 import com.kkpp.core.credit.repository.FarmerDocumentRepository;
@@ -41,7 +43,7 @@ public class CreditSubmitPersistenceService {
             List<UploadedDocument> uploadedDocuments
     ) {
         User user = userRepository.findByPublicId(userPublicId)
-                .orElseThrow(() -> new IllegalArgumentException("user not found. userPublicId=" + userPublicId));
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. userPublicId=" + userPublicId));
 
         FarmerProfile profile = farmerProfileRepository.findByUserPublicId(userPublicId)
                 .map(existing -> {
@@ -67,9 +69,14 @@ public class CreditSubmitPersistenceService {
         FarmerProfile savedProfile = farmerProfileRepository.save(profile);
         AssScoreResult scoreResult = assScoringService.calculate(savedProfile, draft.getCropType());
 
-        CreditLimitApplication application = creditLimitApplicationRepository.save(
-                CreditLimitApplication.create(userPublicId, requestedAmount(scoreResult))
-        );
+        CreditLimitApplication application;
+        try {
+            application = creditLimitApplicationRepository.save(
+                    CreditLimitApplication.create(userPublicId, requestedAmount(scoreResult))
+            );
+        } catch (DataIntegrityViolationException exception) {
+            throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userPublicId);
+        }
 
         uploadedDocuments.stream()
                 .map(uploaded -> FarmerDocument.create(
@@ -82,7 +89,7 @@ public class CreditSubmitPersistenceService {
 
         saveAssScore(application, scoreResult);
 
-        log.info("[CreditSubmit] persisted applicationId={}", application.getPublicId());
+        log.info("한도 심사 신청과 평가 점수 저장을 완료했습니다. applicationPublicId={}", application.getPublicId());
         return application;
     }
 

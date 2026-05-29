@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,6 +44,12 @@ public class PaymentEventProcessLog extends BaseEntity {
     private String status;
 
     public static PaymentEventProcessLog processed(UUID eventId, UUID paymentRequestPublicId, String idempotencyKey) {
+        Objects.requireNonNull(eventId, "eventId는 필수입니다.");
+        Objects.requireNonNull(paymentRequestPublicId, "paymentRequestPublicId는 필수입니다.");
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new IllegalArgumentException("idempotencyKey는 필수입니다.");
+        }
+
         PaymentEventProcessLog log = new PaymentEventProcessLog();
         log.eventId = eventId;
         log.paymentRequestPublicId = paymentRequestPublicId;

@@ -37,7 +37,7 @@ public class LocalFileStorageService implements FileStorageService {
             }
 
             String fileUrl = UPLOAD_ROOT_ABSOLUTE.relativize(destination).toString().replace('\\', '/');
-            log.info("[FileStorage] uploaded url={}", fileUrl);
+            log.info("파일 업로드를 완료했습니다. url={}", fileUrl);
             return fileUrl;
         } catch (IOException exception) {
             throw new IllegalStateException("파일 업로드에 실패했습니다.", exception);
@@ -50,15 +50,15 @@ public class LocalFileStorageService implements FileStorageService {
             Path target = resolveStoredFile(fileUrl);
             Files.deleteIfExists(target);
         } catch (IOException exception) {
-            log.error("[FileStorage] rollback delete failed url={}", fileUrl, exception);
+            log.error("파일 롤백 삭제에 실패했습니다. url={}", fileUrl, exception);
         } catch (IllegalArgumentException exception) {
-            log.warn("[FileStorage] rejected unsafe rollback delete url={}", fileUrl);
+            log.warn("안전하지 않은 파일 롤백 삭제 요청을 거부했습니다. url={}", fileUrl);
         }
     }
 
     private String sanitizeDirectory(String directory) {
         if (directory == null || !SAFE_DIRECTORY_PATTERN.matcher(directory).matches()) {
-            throw new IllegalArgumentException("Invalid upload directory.");
+            throw new IllegalArgumentException("업로드 디렉터리 형식이 올바르지 않습니다.");
         }
         return directory;
     }
@@ -68,14 +68,14 @@ public class LocalFileStorageService implements FileStorageService {
         String normalized = candidate.replace('\\', '/');
         String lastSegment = normalized.substring(normalized.lastIndexOf('/') + 1);
         if (lastSegment.isBlank() || lastSegment.equals(".") || lastSegment.equals("..")) {
-            throw new IllegalArgumentException("Invalid upload filename.");
+            throw new IllegalArgumentException("업로드 파일명이 올바르지 않습니다.");
         }
         return lastSegment;
     }
 
     private Path resolveStoredFile(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
-            throw new IllegalArgumentException("Invalid file URL.");
+            throw new IllegalArgumentException("파일 URL이 올바르지 않습니다.");
         }
 
         Path rawPath = Path.of(fileUrl);
@@ -88,7 +88,7 @@ public class LocalFileStorageService implements FileStorageService {
 
     private void validateUnderUploadRoot(Path path) {
         if (!path.normalize().startsWith(UPLOAD_ROOT_ABSOLUTE)) {
-            throw new IllegalArgumentException("Path escapes upload root.");
+            throw new IllegalArgumentException("파일 경로가 업로드 루트를 벗어났습니다.");
         }
     }
 }

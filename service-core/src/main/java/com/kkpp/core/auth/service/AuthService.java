@@ -131,7 +131,7 @@ public class AuthService {
                     .digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            log.error("[Auth] SHA-256 알고리즘을 사용할 수 없습니다", e);
+            log.error("SHA-256 알고리즘을 사용할 수 없습니다.", e);
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }
     }

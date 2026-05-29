@@ -132,7 +132,7 @@ public class CreditApplicationService {
                     uploadedDocuments
             );
             deleteDraft(draft.getSessionId());
-            log.info("[CreditSubmit] completed applicationId={}", application.getPublicId());
+            log.info("한도 심사 신청 저장을 완료했습니다. applicationPublicId={}", application.getPublicId());
             return new SubmitResponse(application.getPublicId().toString(), "UNDER_REVIEW", "1~3일");
         } catch (RuntimeException exception) {
             rollbackUploadedDocuments(uploadedDocuments);
@@ -242,7 +242,7 @@ public class CreditApplicationService {
                     continue;
                 }
                 String fileUrl = fileStorageService.upload(sessionId, file);
-                log.info("[CreditSubmit] uploaded documentType={} url={}",
+                log.info("한도 심사 서류 업로드를 완료했습니다. documentType={}, url={}",
                         documentType,
                         fileUrl);
                 uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
@@ -257,12 +257,12 @@ public class CreditApplicationService {
     private void rollbackUploadedDocuments(List<UploadedDocument> uploadedDocuments) {
         uploadedDocuments.forEach(uploadedDocument -> {
             try {
-                log.error("[CreditSubmit] rolling back uploaded file documentType={} url={}",
+                log.error("한도 심사 서류 업로드를 롤백합니다. documentType={}, url={}",
                         uploadedDocument.documentType(),
                         uploadedDocument.fileUrl());
                 fileStorageService.delete(uploadedDocument.fileUrl());
             } catch (RuntimeException rollbackException) {
-                log.error("[CreditSubmit] rollback delete failed documentType={} url={}",
+                log.error("한도 심사 서류 롤백 삭제에 실패했습니다. documentType={}, url={}",
                         uploadedDocument.documentType(),
                         uploadedDocument.fileUrl(),
                         rollbackException);
@@ -340,7 +340,7 @@ public class CreditApplicationService {
 
     private UUID resolveUserPublicId(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CreditException(CreditErrorCode.APPLICATION_STEP_MISSING, userId));
+                .orElseThrow(() -> new CreditException(CreditErrorCode.USER_NOT_FOUND, userId));
         return user.getPublicId();
     }
 

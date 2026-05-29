@@ -92,19 +92,18 @@ DELETE /api/v1/orders/{publicId}   # 삭제/취소
 ```json
 // 성공
 {
-  "success": true,
+  "status": "SUCCESS",
   "data": { },
-  "error": null
+  "errorCode": null,
+  "message": "요청이 성공적으로 처리되었습니다."
 }
 
 // 실패
 {
-  "success": false,
+  "status": "ERROR",
   "data": null,
-  "error": {
-    "code": "USER_NOT_FOUND",
-    "message": "존재하지 않는 사용자입니다."
-  }
+  "errorCode": "USER_NOT_FOUND",
+  "message": "존재하지 않는 사용자입니다."
 }
 ```
 

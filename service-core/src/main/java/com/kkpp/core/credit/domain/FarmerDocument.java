@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -46,6 +47,12 @@ public class FarmerDocument extends BaseEntity {
             RequiredDocumentType documentType,
             String fileUrl
     ) {
+        Objects.requireNonNull(userPublicId, "userPublicId는 필수입니다.");
+        Objects.requireNonNull(documentType, "documentType은 필수입니다.");
+        if (fileUrl == null || fileUrl.isBlank()) {
+            throw new IllegalArgumentException("fileUrl은 필수입니다.");
+        }
+
         FarmerDocument document = new FarmerDocument();
         document.publicId = UUID.randomUUID();
         document.userPublicId = userPublicId;

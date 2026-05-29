@@ -786,6 +786,10 @@ CREATE INDEX IF NOT EXISTS idx_core_farmer_documents_application_public_id
 CREATE INDEX IF NOT EXISTS idx_core_credit_limit_applications_user_public_id
     ON core.credit_limit_applications(user_public_id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_core_credit_limit_applications_user_in_progress
+    ON core.credit_limit_applications(user_public_id)
+    WHERE status IN ('REQUESTED', 'PENDING');
+
 CREATE INDEX IF NOT EXISTS idx_core_ass_scores_user_public_id
     ON core.ass_scores(user_public_id);
 
