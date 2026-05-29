@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "credit_usage_ledger")
+@Table(name = "credit_usage_ledger", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CreditUsageLedger extends BaseTimeEntity {
 

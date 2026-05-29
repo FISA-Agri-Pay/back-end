@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "credit_limits")
+@Table(name = "credit_limits", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CreditLimit extends BaseEntity {
 

@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "payment_event_process_logs",
+        schema = "core",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_payment_event_process_logs_event_id", columnNames = "event_id"),
                 @UniqueConstraint(name = "uk_payment_event_process_logs_checkout_request_id", columnNames = "checkout_request_id")
