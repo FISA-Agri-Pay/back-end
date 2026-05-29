@@ -8,6 +8,7 @@ import com.kkpp.core.payment.service.CreditPaymentProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -30,13 +31,13 @@ public class CreditPaymentRequestedConsumer {
                     CreditPaymentRequestedMessage.class
             );
             log.info(
-                    "외상 결제 요청 Kafka 메시지를 수신했습니다. topic={}, partition={}, offset={}, key={}, eventId={}, checkoutRequestId={}",
+                    "외상 결제 요청 Kafka 메시지를 수신했습니다. topic={}, partition={}, offset={}, key={}, eventId={}, paymentRequestPublicId={}",
                     record.topic(),
                     record.partition(),
                     record.offset(),
                     record.key(),
                     message.eventId(),
-                    message.checkoutRequestId()
+                    message.paymentRequestPublicId()
             );
             creditPaymentProcessingService.process(message);
         } catch (JsonProcessingException exception) {
@@ -56,6 +57,18 @@ public class CreditPaymentRequestedConsumer {
                     exception.getMessage(),
                     exception
             );
+            throw exception;
+        } catch (DataIntegrityViolationException exception) {
+            if (creditPaymentProcessingService.isDuplicateKeyFailure(exception)) {
+                log.info(
+                        "중복 결제 요청 Kafka 메시지를 정상 처리로 간주합니다. topic={}, partition={}, offset={}, key={}",
+                        record.topic(),
+                        record.partition(),
+                        record.offset(),
+                        record.key()
+                );
+                return;
+            }
             throw exception;
         }
     }

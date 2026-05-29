@@ -30,4 +30,3 @@ uploads/
 # Local Docker overrides
 docker-compose.override.yml
 
-docs/

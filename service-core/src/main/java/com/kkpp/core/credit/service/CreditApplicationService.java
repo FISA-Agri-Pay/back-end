@@ -1,5 +1,7 @@
 package com.kkpp.core.credit.service;
 
+import com.kkpp.core.auth.domain.User;
+import com.kkpp.core.auth.repository.UserRepository;
 import com.kkpp.core.credit.domain.ApplicationStatus;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
 import com.kkpp.core.credit.domain.CropType;
@@ -45,14 +47,20 @@ public class CreditApplicationService {
     private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
+    private static final List<ApplicationStatus> IN_PROGRESS_STATUSES = List.of(
+            ApplicationStatus.REQUESTED,
+            ApplicationStatus.PENDING
+    );
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final UserRepository userRepository;
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final FileStorageService fileStorageService;
     private final CreditSubmitPersistenceService creditSubmitPersistenceService;
 
     public StartSessionResponse startSession(Long userId) {
-        if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+        UUID userPublicId = resolveUserPublicId(userId);
+        if (hasInProgressApplication(userPublicId)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -98,8 +106,9 @@ public class CreditApplicationService {
 
     public SubmitResponse submit(Long userId, String sessionId, Map<String, MultipartFile> files) {
         CreditApplicationDraft draft = getDraft(userId, sessionId, sessionId);
+        UUID userPublicId = resolveUserPublicId(userId);
 
-        if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+        if (hasInProgressApplication(userPublicId)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -112,18 +121,18 @@ public class CreditApplicationService {
         String lockToken = acquireSubmitLock(userId);
         List<UploadedDocument> uploadedDocuments = List.of();
         try {
-            if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+            if (hasInProgressApplication(userPublicId)) {
                 throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
             }
 
             uploadedDocuments = uploadDocuments(draft.getSessionId(), documentFiles);
             CreditLimitApplication application = creditSubmitPersistenceService.saveSubmittedApplication(
-                    userId,
+                    userPublicId,
                     draft,
                     uploadedDocuments
             );
             deleteDraft(draft.getSessionId());
-            log.info("[CreditSubmit] completed applicationId={}", application.getPublicId());
+            log.info("한도 심사 신청 저장을 완료했습니다. applicationPublicId={}", application.getPublicId());
             return new SubmitResponse(application.getPublicId().toString(), "UNDER_REVIEW", "1~3일");
         } catch (RuntimeException exception) {
             rollbackUploadedDocuments(uploadedDocuments);
@@ -233,7 +242,7 @@ public class CreditApplicationService {
                     continue;
                 }
                 String fileUrl = fileStorageService.upload(sessionId, file);
-                log.info("[CreditSubmit] uploaded documentType={} url={}",
+                log.info("한도 심사 서류 업로드를 완료했습니다. documentType={}, url={}",
                         documentType,
                         fileUrl);
                 uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
@@ -248,12 +257,12 @@ public class CreditApplicationService {
     private void rollbackUploadedDocuments(List<UploadedDocument> uploadedDocuments) {
         uploadedDocuments.forEach(uploadedDocument -> {
             try {
-                log.error("[CreditSubmit] rolling back uploaded file documentType={} url={}",
+                log.error("한도 심사 서류 업로드를 롤백합니다. documentType={}, url={}",
                         uploadedDocument.documentType(),
                         uploadedDocument.fileUrl());
                 fileStorageService.delete(uploadedDocument.fileUrl());
             } catch (RuntimeException rollbackException) {
-                log.error("[CreditSubmit] rollback delete failed documentType={} url={}",
+                log.error("한도 심사 서류 롤백 삭제에 실패했습니다. documentType={}, url={}",
                         uploadedDocument.documentType(),
                         uploadedDocument.fileUrl(),
                         rollbackException);
@@ -327,5 +336,18 @@ public class CreditApplicationService {
 
     private String submitLockKey(Long userId) {
         return SUBMIT_LOCK_KEY_PREFIX + userId;
+    }
+
+    private UUID resolveUserPublicId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CreditException(CreditErrorCode.USER_NOT_FOUND, userId));
+        return user.getPublicId();
+    }
+
+    private boolean hasInProgressApplication(UUID userPublicId) {
+        return creditLimitApplicationRepository.existsByUserPublicIdAndStatusIn(
+                userPublicId,
+                IN_PROGRESS_STATUSES
+        );
     }
 }

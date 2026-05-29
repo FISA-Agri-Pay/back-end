@@ -17,7 +17,7 @@ public class AuthExceptionHandler {
             HttpServletRequest request
     ) {
         AuthErrorCode errorCode = exception.getErrorCode();
-        log.warn("[AuthException] {} {} code={}",
+        log.warn("인증 요청 처리 중 예외가 발생했습니다. method={}, uri={}, code={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 errorCode.getCode());

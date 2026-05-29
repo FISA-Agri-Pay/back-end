@@ -2,25 +2,25 @@ package com.kkpp.core.payment.service;
 
 import com.kkpp.core.payment.domain.CreditLimit;
 import com.kkpp.core.payment.domain.CreditUsageLedger;
-import com.kkpp.core.payment.domain.InterestLedger;
+import com.kkpp.core.payment.domain.Order;
 import com.kkpp.core.payment.domain.PaymentEventProcessLog;
 import com.kkpp.core.payment.domain.PrincipalRepaymentLedger;
 import com.kkpp.core.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.core.payment.exception.PaymentProcessingException;
 import com.kkpp.core.payment.repository.CreditLimitRepository;
 import com.kkpp.core.payment.repository.CreditUsageLedgerRepository;
-import com.kkpp.core.payment.repository.InterestLedgerRepository;
+import com.kkpp.core.payment.repository.OrderRepository;
 import com.kkpp.core.payment.repository.PaymentEventProcessLogRepository;
 import com.kkpp.core.payment.repository.PrincipalRepaymentLedgerRepository;
-import com.kkpp.core.payment.repository.PaymentUserRepository;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,67 +32,80 @@ public class CreditPaymentProcessingService {
 
     private static final String ACTIVE = "ACTIVE";
     private static final String PURCHASE = "PURCHASE";
-    private static final int MONTHS_IN_YEAR = 12;
+    private static final Set<String> IDEMPOTENCY_UNIQUE_CONSTRAINTS = Set.of(
+            "payment_event_process_logs_event_id_key",
+            "payment_event_process_logs_payment_request_public_id_key",
+            "uk_payment_event_process_logs_event_id",
+            "uk_payment_event_process_logs_payment_request_public_id"
+    );
 
-    private final PaymentUserRepository userRepository;
     private final CreditLimitRepository creditLimitRepository;
+    private final OrderRepository orderRepository;
     private final CreditUsageLedgerRepository creditUsageLedgerRepository;
-    private final InterestLedgerRepository interestLedgerRepository;
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final PaymentEventProcessLogRepository paymentEventProcessLogRepository;
-
-    @Value("${core.payment.interest-due-days:30}")
-    private int interestDueDays;
 
     @Transactional
     public void process(CreditPaymentRequestedMessage message) {
         validateMessage(message);
 
-        if (paymentEventProcessLogRepository.existsByEventIdOrCheckoutRequestId(
-                message.eventId(),
-                message.checkoutRequestId()
-        )) {
+        UUID eventId = parseEventId(message.eventId());
+        UUID paymentRequestPublicId = message.paymentRequestPublicId();
+        if (paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(eventId, paymentRequestPublicId)) {
             log.info(
-                    "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, checkoutRequestId={}, idempotencyKey={}",
-                    message.eventId(),
-                    message.checkoutRequestId(),
+                    "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, paymentRequestPublicId={}, idempotencyKey={}",
+                    eventId,
+                    paymentRequestPublicId,
                     message.idempotencyKey()
             );
             return;
         }
 
-        if (message.orderId() != null
-                && creditUsageLedgerRepository.existsByOrderIdAndUsageType(message.orderId(), PURCHASE)) {
+        Order order = orderRepository.findByPaymentRequestPublicId(paymentRequestPublicId)
+                .orElse(null);
+        if (order != null && creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(order.getPublicId(), PURCHASE)) {
             log.info(
-                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderId={}",
-                    message.eventId(),
-                    message.orderId()
+                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderPublicId={}",
+                    eventId,
+                    order.getPublicId()
             );
             paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
-                    message.eventId(),
-                    message.checkoutRequestId(),
+                    eventId,
+                    paymentRequestPublicId,
                     message.idempotencyKey()
             ));
             return;
         }
 
-        Long userId = resolveUserId(message);
-        CreditLimit creditLimit = creditLimitRepository.findFirstByUserIdAndStatusOrderByIdDesc(userId, ACTIVE)
-                .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userId=" + userId));
+        UUID orderPublicId = message.orderPublicId();
+        UUID userPublicId = message.userPublicId();
+        if (order == null) {
+            order = orderRepository.save(Order.confirmed(
+                    orderPublicId,
+                    userPublicId,
+                    paymentRequestPublicId,
+                    message.totalAmount(),
+                    message.deliveryAddress(),
+                    message.items(),
+                    Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now())
+            ));
+        }
+        CreditLimit creditLimit = creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(userPublicId, ACTIVE)
+                .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userPublicId=" + userPublicId));
 
         LocalDate today = LocalDate.now();
         if (!creditLimit.isActive(today)) {
             throw new PaymentProcessingException(
-                    "사용할 수 없는 한도 상태입니다. userId=" + userId
-                            + ", creditLimitId=" + creditLimit.getId()
+                    "사용할 수 없는 한도 상태입니다. userPublicId=" + userPublicId
+                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", status=" + creditLimit.getStatus()
                             + ", expiresAt=" + creditLimit.getExpiresAt()
             );
         }
         if (!creditLimit.canUse(message.totalAmount())) {
             throw new PaymentProcessingException(
-                    "사용 가능 한도가 부족합니다. userId=" + userId
-                            + ", creditLimitId=" + creditLimit.getId()
+                    "사용 가능 한도가 부족합니다. userPublicId=" + userPublicId
+                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", availableAmount=" + creditLimit.availableAmount()
                             + ", requestedAmount=" + message.totalAmount()
             );
@@ -101,34 +114,31 @@ public class CreditPaymentProcessingService {
         LocalDateTime usedAt = Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now());
         creditLimit.use(message.totalAmount());
         creditUsageLedgerRepository.save(CreditUsageLedger.purchase(
-                creditLimit.getId(),
-                message.orderId(),
+                creditLimit.getPublicId(),
+                order.getPublicId(),
+                paymentRequestPublicId,
                 message.totalAmount(),
                 usedAt
         ));
-        interestLedgerRepository.save(InterestLedger.upcoming(
-                creditLimit.getId(),
-                message.totalAmount(),
-                today.plusDays(interestDueDays),
-                calculateMonthlyInterest(message.totalAmount(), creditLimit.getInterestRate())
-        ));
         principalRepaymentLedgerRepository.save(PrincipalRepaymentLedger.upcoming(
-                creditLimit.getId(),
+                creditLimit.getPublicId(),
+                order.getPublicId(),
+                paymentRequestPublicId,
                 creditLimit.getPrincipalDueDate(),
                 message.totalAmount()
         ));
         paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
-                message.eventId(),
-                message.checkoutRequestId(),
+                eventId,
+                paymentRequestPublicId,
                 message.idempotencyKey()
         ));
 
         log.info(
-                "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, checkoutRequestId={}, userId={}, creditLimitId={}, amount={}",
-                message.eventId(),
-                message.checkoutRequestId(),
-                userId,
-                creditLimit.getId(),
+                "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, paymentRequestPublicId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
+                eventId,
+                paymentRequestPublicId,
+                userPublicId,
+                creditLimit.getPublicId(),
                 message.totalAmount()
         );
     }
@@ -140,35 +150,82 @@ public class CreditPaymentProcessingService {
         if (message.eventId() == null || message.eventId().isBlank()) {
             throw new PaymentProcessingException("결제 요청 메시지 eventId가 비어 있습니다.");
         }
-        if (message.checkoutRequestId() == null) {
-            throw new PaymentProcessingException("결제 요청 메시지 checkoutRequestId가 비어 있습니다.");
+        if (message.paymentRequestPublicId() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 paymentRequestPublicId가 비어 있습니다.");
         }
         if (message.idempotencyKey() == null || message.idempotencyKey().isBlank()) {
             throw new PaymentProcessingException("결제 요청 메시지 idempotencyKey가 비어 있습니다.");
         }
-        if (message.userId() == null && message.userPublicId() == null) {
-            throw new PaymentProcessingException("결제 요청 메시지 사용자 식별자가 비어 있습니다.");
+        if (message.userPublicId() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 userPublicId가 비어 있습니다.");
         }
+        if (message.orderPublicId() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 orderPublicId가 비어 있습니다.");
+        }
+        if (message.deliveryAddress() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 deliveryAddress가 비어 있습니다.");
+        }
+        validateDeliveryAddress(message.deliveryAddress());
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
         }
     }
 
-    private Long resolveUserId(CreditPaymentRequestedMessage message) {
-        if (message.userId() != null) {
-            return message.userId();
+    private void validateDeliveryAddress(CreditPaymentRequestedMessage.DeliveryAddress deliveryAddress) {
+        if (isBlank(deliveryAddress.recipientName())) {
+            throw new PaymentProcessingException("결제 요청 배송지 recipientName이 비어 있습니다.");
         }
-        return userRepository.findByPublicId(message.userPublicId())
-                .orElseThrow(() -> new PaymentProcessingException("사용자를 찾을 수 없습니다. userPublicId=" + message.userPublicId()))
-                .getId();
+        if (isBlank(deliveryAddress.recipientPhone())) {
+            throw new PaymentProcessingException("결제 요청 배송지 recipientPhone이 비어 있습니다.");
+        }
+        if (isBlank(deliveryAddress.address())) {
+            throw new PaymentProcessingException("결제 요청 배송지 address가 비어 있습니다.");
+        }
+        if (isBlank(deliveryAddress.zipCode())) {
+            throw new PaymentProcessingException("결제 요청 배송지 zipCode가 비어 있습니다.");
+        }
     }
 
-    private BigDecimal calculateMonthlyInterest(BigDecimal principal, BigDecimal annualInterestRate) {
-        return principal.multiply(annualInterestRate)
-                .divide(BigDecimal.valueOf(MONTHS_IN_YEAR), 2, RoundingMode.HALF_UP);
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private UUID parseEventId(String eventId) {
+        try {
+            return UUID.fromString(eventId);
+        } catch (IllegalArgumentException exception) {
+            throw new PaymentProcessingException("결제 요청 메시지 eventId가 UUID 형식이 아닙니다. eventId=" + eventId, exception);
+        }
     }
 
     public boolean isDuplicateKeyFailure(Exception exception) {
-        return exception instanceof DataIntegrityViolationException;
+        if (!(exception instanceof DataIntegrityViolationException)) {
+            return false;
+        }
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof SQLException sqlException && "23505".equals(sqlException.getSQLState())) {
+                return IDEMPOTENCY_UNIQUE_CONSTRAINTS.contains(extractConstraintName(sqlException));
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private String extractConstraintName(SQLException sqlException) {
+        try {
+            Object serverErrorMessage = sqlException.getClass()
+                    .getMethod("getServerErrorMessage")
+                    .invoke(sqlException);
+            if (serverErrorMessage == null) {
+                return null;
+            }
+            Object constraint = serverErrorMessage.getClass()
+                    .getMethod("getConstraint")
+                    .invoke(serverErrorMessage);
+            return constraint instanceof String constraintName ? constraintName : null;
+        } catch (ReflectiveOperationException exception) {
+            return null;
+        }
     }
 }

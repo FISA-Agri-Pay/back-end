@@ -5,13 +5,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +25,15 @@ public class FarmerDocument extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "public_id", nullable = false, unique = true)
+    private UUID publicId;
+
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "application_public_id")
+    private UUID applicationPublicId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RequiredDocumentType documentType;
@@ -33,16 +41,24 @@ public class FarmerDocument extends BaseEntity {
     @Column(nullable = false)
     private String fileUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false)
-    private CreditLimitApplication application;
+    public static FarmerDocument create(
+            UUID userPublicId,
+            UUID applicationPublicId,
+            RequiredDocumentType documentType,
+            String fileUrl
+    ) {
+        Objects.requireNonNull(userPublicId, "userPublicId는 필수입니다.");
+        Objects.requireNonNull(documentType, "documentType은 필수입니다.");
+        if (fileUrl == null || fileUrl.isBlank()) {
+            throw new IllegalArgumentException("fileUrl은 필수입니다.");
+        }
 
-    public static FarmerDocument create(RequiredDocumentType documentType, String fileUrl,
-                                        CreditLimitApplication application) {
         FarmerDocument document = new FarmerDocument();
+        document.publicId = UUID.randomUUID();
+        document.userPublicId = userPublicId;
+        document.applicationPublicId = applicationPublicId;
         document.documentType = documentType;
         document.fileUrl = fileUrl;
-        document.application = application;
         return document;
     }
 }

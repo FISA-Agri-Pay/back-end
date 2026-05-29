@@ -3,12 +3,9 @@ package com.kkpp.core.credit.domain;
 import com.kkpp.common.core.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,6 +14,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "ass_scores", schema = "core")
@@ -28,12 +26,14 @@ public class AssScore extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false)
-    private CreditLimitApplication application;
+    @Column(name = "public_id", nullable = false, unique = true)
+    private UUID publicId;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "application_public_id", nullable = false, unique = true)
+    private UUID applicationPublicId;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal estimatedIncome;
@@ -60,8 +60,9 @@ public class AssScore extends BaseTimeEntity {
                                   LocalDate priceSnapshotDate, int incomeScore, int insuranceScore,
                                   int farmingCareerScore, int totalScore, LocalDateTime calculatedAt) {
         AssScore score = new AssScore();
-        score.application = application;
-        score.userId = application.getUserId();
+        score.publicId = UUID.randomUUID();
+        score.userPublicId = application.getUserPublicId();
+        score.applicationPublicId = application.getPublicId();
         score.estimatedIncome = estimatedIncome;
         score.priceSnapshotDate = priceSnapshotDate;
         score.incomeScore = incomeScore;

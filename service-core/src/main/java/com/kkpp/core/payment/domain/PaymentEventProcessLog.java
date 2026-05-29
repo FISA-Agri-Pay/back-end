@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,7 +21,7 @@ import lombok.NoArgsConstructor;
         schema = "core",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_payment_event_process_logs_event_id", columnNames = "event_id"),
-                @UniqueConstraint(name = "uk_payment_event_process_logs_checkout_request_id", columnNames = "checkout_request_id")
+                @UniqueConstraint(name = "uk_payment_event_process_logs_payment_request_public_id", columnNames = "payment_request_public_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,11 +31,11 @@ public class PaymentEventProcessLog extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 80)
-    private String eventId;
-
     @Column(nullable = false)
-    private UUID checkoutRequestId;
+    private UUID eventId;
+
+    @Column(name = "payment_request_public_id", nullable = false)
+    private UUID paymentRequestPublicId;
 
     @Column(nullable = false, length = 120)
     private String idempotencyKey;
@@ -42,10 +43,16 @@ public class PaymentEventProcessLog extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String status;
 
-    public static PaymentEventProcessLog processed(String eventId, UUID checkoutRequestId, String idempotencyKey) {
+    public static PaymentEventProcessLog processed(UUID eventId, UUID paymentRequestPublicId, String idempotencyKey) {
+        Objects.requireNonNull(eventId, "eventId는 필수입니다.");
+        Objects.requireNonNull(paymentRequestPublicId, "paymentRequestPublicId는 필수입니다.");
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new IllegalArgumentException("idempotencyKey는 필수입니다.");
+        }
+
         PaymentEventProcessLog log = new PaymentEventProcessLog();
         log.eventId = eventId;
-        log.checkoutRequestId = checkoutRequestId;
+        log.paymentRequestPublicId = paymentRequestPublicId;
         log.idempotencyKey = idempotencyKey;
         log.status = "PROCESSED";
         return log;

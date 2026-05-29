@@ -25,16 +25,16 @@ public class User extends BaseEntity {
     @Column(name = "public_id", nullable = false, unique = true)
     private UUID publicId;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, unique = true, length = 30)
     private String phone;
 
-    @Column(unique = true, length = 67)
+    @Column(nullable = false, length = 255)
     private String residentIdHash;
 
-    @Column(length = 100)
+    @Column(length = 500)
     private String residentIdEnc;
 
     @Column(nullable = false)
@@ -43,7 +43,7 @@ public class User extends BaseEntity {
     @Column
     private String addressDetail;
 
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private String zipCode;
 
     @Column(nullable = false, length = 20)

@@ -22,7 +22,8 @@ public enum CreditErrorCode {
     DOCUMENT_UNSUPPORTED_TYPE(415, "DOC-003", "지원하지 않는 파일 형식입니다."),
 
     APPLICATION_DUPLICATE(409, "APP-001", "이미 접수된 심사 내역이 존재합니다."),
-    APPLICATION_STEP_MISSING(400, "APP-002", "신청 단계 정보가 누락되었습니다.");
+    APPLICATION_STEP_MISSING(400, "APP-002", "신청 단계 정보가 누락되었습니다."),
+    USER_NOT_FOUND(404, "USR-002", "사용자를 찾을 수 없습니다.");
 
     private final int status;
     private final String code;

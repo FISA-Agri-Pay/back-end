@@ -17,7 +17,7 @@ public class CreditExceptionHandler {
             HttpServletRequest request
     ) {
         CreditErrorCode errorCode = exception.getErrorCode();
-        log.warn("[CreditException] {} {} code={}",
+        log.warn("한도 심사 요청 처리 중 예외가 발생했습니다. method={}, uri={}, code={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 errorCode.getCode());

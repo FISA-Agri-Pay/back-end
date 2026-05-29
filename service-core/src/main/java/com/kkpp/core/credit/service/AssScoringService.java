@@ -82,7 +82,7 @@ public class AssScoringService {
             return 7;
         }
 
-        long farmingYears = ChronoUnit.YEARS.between(profile.getFarmingSince(), LocalDate.now());
+        long farmingYears = profile.getFarmingSince();
         if (farmingYears >= 5) {
             return 15;
         }

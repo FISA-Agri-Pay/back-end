@@ -27,10 +27,10 @@ public class UserAuth extends BaseEntity {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "public_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_public_id", referencedColumnName = "public_id", nullable = false, unique = true)
     private User user;
 
-    @Column(nullable = false)
+    @Column
     private String passwordHash;
 
     @Column

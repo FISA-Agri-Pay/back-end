@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         ErrorCode errorCode = exception.getErrorCode();
-        log.warn("[BusinessException] {} {} code={} message={}",
+        log.warn("비즈니스 예외가 발생했습니다. method={}, uri={}, code={}, message={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 errorCode.name(),
@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
                 .map(this::formatFieldError)
                 .collect(Collectors.joining(", "));
 
-        log.warn("[ValidationException] {} {} fields={}",
+        log.warn("요청 값 검증에 실패했습니다. method={}, uri={}, fields={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 fieldErrors);
@@ -71,7 +71,7 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        log.warn("[InvalidRequestException] {} {} message={}",
+        log.warn("잘못된 요청입니다. method={}, uri={}, message={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 exception.getMessage());
@@ -86,7 +86,7 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        log.error("[UnhandledException] {} {} message={}",
+        log.error("처리되지 않은 예외가 발생했습니다. method={}, uri={}, message={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 exception.getMessage(),

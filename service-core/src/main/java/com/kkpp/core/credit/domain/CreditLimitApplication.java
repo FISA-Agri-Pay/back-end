@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -23,8 +24,20 @@ public class CreditLimitApplication extends BaseEntity {
     @Column(nullable = false, unique = true)
     private UUID publicId;
 
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "reviewed_by_admin_public_id")
+    private UUID reviewedByAdminPublicId;
+
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal requestedAmount;
+
+    @Column(precision = 15, scale = 2)
+    private BigDecimal approvedAmount;
+
     @Column(nullable = false)
-    private Long userId;
+    private Boolean isReapplication;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -33,13 +46,22 @@ public class CreditLimitApplication extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime appliedAt;
 
-    public static CreditLimitApplication create(Long userId) {
-        Objects.requireNonNull(userId, "userId must not be null");
+    @Column
+    private LocalDateTime decidedAt;
+
+    @Column
+    private String rejectionReason;
+
+    public static CreditLimitApplication create(UUID userPublicId, BigDecimal requestedAmount) {
+        Objects.requireNonNull(userPublicId, "userPublicId는 필수입니다.");
+        Objects.requireNonNull(requestedAmount, "requestedAmount는 필수입니다.");
 
         CreditLimitApplication application = new CreditLimitApplication();
         application.publicId = UUID.randomUUID();
-        application.userId = userId;
-        application.status = ApplicationStatus.PENDING;
+        application.userPublicId = userPublicId;
+        application.requestedAmount = requestedAmount;
+        application.isReapplication = false;
+        application.status = ApplicationStatus.REQUESTED;
         application.appliedAt = LocalDateTime.now();
         return application;
     }

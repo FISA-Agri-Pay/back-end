@@ -51,7 +51,7 @@ public class ResidentCryptoService {
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
             return "v2$" + Base64.getEncoder().encodeToString(combined);
         } catch (GeneralSecurityException e) {
-            log.error("[ResidentCrypto] 주민번호 암호화 실패", e);
+            log.error("주민번호 암호화에 실패했습니다.", e);
             throw new IllegalStateException("주민번호 암호화에 실패했습니다.", e);
         }
     }
@@ -62,7 +62,7 @@ public class ResidentCryptoService {
             return null;
         }
         if (!encrypted.startsWith("v2$")) {
-            log.warn("[ResidentCrypto] 알 수 없는 주민번호 암호화 형식 encrypted={}", encrypted);
+            log.warn("알 수 없는 주민번호 암호화 형식입니다. encrypted={}", encrypted);
             throw new IllegalArgumentException("알 수 없는 주민번호 암호화 형식입니다.");
         }
         try {
@@ -74,7 +74,7 @@ public class ResidentCryptoService {
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
-            log.error("[ResidentCrypto] 주민번호 복호화 실패", e);
+            log.error("주민번호 복호화에 실패했습니다.", e);
             throw new IllegalStateException("주민번호 복호화에 실패했습니다.", e);
         }
     }
@@ -89,7 +89,7 @@ public class ResidentCryptoService {
             byte[] hash = mac.doFinal(residentId.getBytes(StandardCharsets.UTF_8));
             return "v2$" + HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            log.error("[ResidentCrypto] HmacSHA256 알고리즘을 사용할 수 없습니다", e);
+            log.error("HmacSHA256 알고리즘을 사용할 수 없습니다.", e);
             throw new IllegalStateException("HmacSHA256 알고리즘을 사용할 수 없습니다.", e);
         }
     }
