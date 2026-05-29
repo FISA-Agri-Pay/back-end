@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -30,4 +31,11 @@ public class Category extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String status;
+
+    @PrePersist
+    private void prePersist() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID();
+        }
+    }
 }

@@ -1,7 +1,6 @@
 package com.kkpp.core.payment.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,8 +11,6 @@ public record CreditPaymentRequestedMessage(
         String eventId,
         String eventType,
         LocalDateTime occurredAt,
-        // 과거 checkoutRequestId 필드로 발행된 이벤트 호환용 alias
-        @JsonAlias("checkoutRequestId")
         UUID paymentRequestPublicId,
         UUID userPublicId,
         UUID orderPublicId,

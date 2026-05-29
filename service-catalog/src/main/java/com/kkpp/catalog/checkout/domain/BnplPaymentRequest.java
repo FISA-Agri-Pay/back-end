@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -61,14 +62,27 @@ public class BnplPaymentRequest extends BaseEntity {
             BigDecimal totalAmount,
             List<CartItem> cartItems
     ) {
+        Objects.requireNonNull(paymentRequestPublicId, "paymentRequestPublicId는 필수입니다.");
+        Objects.requireNonNull(userPublicId, "userPublicId는 필수입니다.");
+        Objects.requireNonNull(totalAmount, "totalAmount는 필수입니다.");
+        if (cartItems == null || cartItems.isEmpty()) {
+            throw new IllegalArgumentException("결제요청 상품 항목은 필수입니다.");
+        }
+
         BnplPaymentRequest request = new BnplPaymentRequest();
         request.publicId = paymentRequestPublicId;
         request.userPublicId = userPublicId;
-        request.totalAmount = totalAmount;
         request.requestStatus = REQUESTED;
         request.requestedAt = LocalDateTime.now();
 
         cartItems.forEach(cartItem -> request.items.add(BnplPaymentRequestItem.from(request, cartItem)));
+        BigDecimal calculatedTotalAmount = request.items.stream()
+                .map(BnplPaymentRequestItem::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (calculatedTotalAmount.compareTo(totalAmount) != 0) {
+            throw new IllegalArgumentException("totalAmount와 아이템 합계가 일치해야 합니다.");
+        }
+        request.totalAmount = calculatedTotalAmount;
         return request;
     }
 }
