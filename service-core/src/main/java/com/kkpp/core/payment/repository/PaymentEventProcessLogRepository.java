@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentEventProcessLogRepository extends JpaRepository<PaymentEventProcessLog, Long> {
 
-    boolean existsByEventIdOrCheckoutRequestId(String eventId, UUID checkoutRequestId);
+    boolean existsByEventIdOrPaymentRequestPublicId(UUID eventId, UUID paymentRequestPublicId);
 }

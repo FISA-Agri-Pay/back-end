@@ -18,7 +18,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -32,9 +34,9 @@ public class CreditSubmitPersistenceService {
     private final AssScoringService assScoringService;
 
     @Transactional
-    public CreditLimitApplication saveSubmittedApplication(Long userId, CreditApplicationDraft draft,
+    public CreditLimitApplication saveSubmittedApplication(UUID userPublicId, CreditApplicationDraft draft,
                                                            List<UploadedDocument> uploadedDocuments) {
-        FarmerProfile profile = farmerProfileRepository.findByUserId(userId)
+        FarmerProfile profile = farmerProfileRepository.findByUserPublicId(userPublicId)
                 .map(existing -> {
                     existing.update(
                             draft.getAddress(),
@@ -45,7 +47,7 @@ public class CreditSubmitPersistenceService {
                     return existing;
                 })
                 .orElseGet(() -> FarmerProfile.create(
-                        userId,
+                        userPublicId,
                         draft.getAddress(),
                         draft.getAreaSizeM2(),
                         draft.getCropType(),
@@ -54,11 +56,13 @@ public class CreditSubmitPersistenceService {
         FarmerProfile savedProfile = farmerProfileRepository.save(profile);
 
         CreditLimitApplication application = creditLimitApplicationRepository.save(
-                CreditLimitApplication.create(userId)
+                CreditLimitApplication.create(userPublicId, requestedAmount(savedProfile, draft.getCropType()))
         );
 
         uploadedDocuments.stream()
                 .map(uploaded -> FarmerDocument.create(
+                        userPublicId,
+                        application.getPublicId(),
                         uploaded.documentType(),
                         uploaded.fileUrl(),
                         application
@@ -72,7 +76,7 @@ public class CreditSubmitPersistenceService {
     }
 
     private void saveAssScore(CreditLimitApplication application, FarmerProfile profile, CropType cropType) {
-        if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+        if (assScoreRepository.findByApplicationPublicId(application.getPublicId()).isPresent()) {
             return;
         }
 
@@ -89,10 +93,15 @@ public class CreditSubmitPersistenceService {
                     scoreResult.calculatedAt()
             ));
         } catch (DataIntegrityViolationException exception) {
-            if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+            if (assScoreRepository.findByApplicationPublicId(application.getPublicId()).isPresent()) {
                 return;
             }
             throw exception;
         }
+    }
+
+    private BigDecimal requestedAmount(FarmerProfile profile, CropType cropType) {
+        AssScoreResult scoreResult = assScoringService.calculate(profile, cropType);
+        return scoreResult.estimatedIncome().max(BigDecimal.ONE);
     }
 }

@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,8 +26,17 @@ public class CreditLimit extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Column(name = "public_id", nullable = false, unique = true)
+    private UUID publicId;
+
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "application_public_id", nullable = false, unique = true)
+    private UUID applicationPublicId;
+
+    @Column(nullable = false, length = 30)
+    private String cropTypeSnapshot;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal totalLimit;
@@ -36,6 +46,9 @@ public class CreditLimit extends BaseEntity {
 
     @Column(nullable = false, precision = 6, scale = 4)
     private BigDecimal interestRate;
+
+    @Column(nullable = false)
+    private Integer interestDueDay;
 
     @Column(nullable = false)
     private LocalDate principalDueDate;

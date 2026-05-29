@@ -1,5 +1,7 @@
 package com.kkpp.core.credit.service;
 
+import com.kkpp.core.auth.domain.User;
+import com.kkpp.core.auth.repository.UserRepository;
 import com.kkpp.core.credit.domain.ApplicationStatus;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
 import com.kkpp.core.credit.domain.CropType;
@@ -47,12 +49,14 @@ public class CreditApplicationService {
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final UserRepository userRepository;
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final FileStorageService fileStorageService;
     private final CreditSubmitPersistenceService creditSubmitPersistenceService;
 
     public StartSessionResponse startSession(Long userId) {
-        if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+        UUID userPublicId = resolveUserPublicId(userId);
+        if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -98,8 +102,9 @@ public class CreditApplicationService {
 
     public SubmitResponse submit(Long userId, String sessionId, Map<String, MultipartFile> files) {
         CreditApplicationDraft draft = getDraft(userId, sessionId, sessionId);
+        UUID userPublicId = resolveUserPublicId(userId);
 
-        if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+        if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
         }
 
@@ -112,13 +117,13 @@ public class CreditApplicationService {
         String lockToken = acquireSubmitLock(userId);
         List<UploadedDocument> uploadedDocuments = List.of();
         try {
-            if (creditLimitApplicationRepository.existsByUserIdAndStatus(userId, ApplicationStatus.PENDING)) {
+            if (creditLimitApplicationRepository.existsByUserPublicIdAndStatus(userPublicId, ApplicationStatus.PENDING)) {
                 throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
             }
 
             uploadedDocuments = uploadDocuments(draft.getSessionId(), documentFiles);
             CreditLimitApplication application = creditSubmitPersistenceService.saveSubmittedApplication(
-                    userId,
+                    userPublicId,
                     draft,
                     uploadedDocuments
             );
@@ -327,5 +332,11 @@ public class CreditApplicationService {
 
     private String submitLockKey(Long userId) {
         return SUBMIT_LOCK_KEY_PREFIX + userId;
+    }
+
+    private UUID resolveUserPublicId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CreditException(CreditErrorCode.APPLICATION_STEP_MISSING, userId));
+        return user.getPublicId();
     }
 }
