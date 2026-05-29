@@ -17,6 +17,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,12 @@ public class CreditPaymentProcessingService {
 
     private static final String ACTIVE = "ACTIVE";
     private static final String PURCHASE = "PURCHASE";
+    private static final Set<String> IDEMPOTENCY_UNIQUE_CONSTRAINTS = Set.of(
+            "payment_event_process_logs_event_id_key",
+            "payment_event_process_logs_payment_request_public_id_key",
+            "uk_payment_event_process_logs_event_id",
+            "uk_payment_event_process_logs_payment_request_public_id"
+    );
 
     private final CreditLimitRepository creditLimitRepository;
     private final OrderRepository orderRepository;
@@ -70,9 +77,11 @@ public class CreditPaymentProcessingService {
             return;
         }
 
+        UUID orderPublicId = message.orderPublicId();
         UUID userPublicId = message.userPublicId();
         if (order == null) {
             order = orderRepository.save(Order.confirmed(
+                    orderPublicId,
                     userPublicId,
                     paymentRequestPublicId,
                     message.totalAmount(),
@@ -150,12 +159,35 @@ public class CreditPaymentProcessingService {
         if (message.userPublicId() == null) {
             throw new PaymentProcessingException("결제 요청 메시지 userPublicId가 비어 있습니다.");
         }
+        if (message.orderPublicId() == null) {
+            throw new PaymentProcessingException("결제 요청 메시지 orderPublicId가 비어 있습니다.");
+        }
         if (message.deliveryAddress() == null) {
             throw new PaymentProcessingException("결제 요청 메시지 deliveryAddress가 비어 있습니다.");
         }
+        validateDeliveryAddress(message.deliveryAddress());
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
         }
+    }
+
+    private void validateDeliveryAddress(CreditPaymentRequestedMessage.DeliveryAddress deliveryAddress) {
+        if (isBlank(deliveryAddress.recipientName())) {
+            throw new PaymentProcessingException("결제 요청 배송지 recipientName이 비어 있습니다.");
+        }
+        if (isBlank(deliveryAddress.recipientPhone())) {
+            throw new PaymentProcessingException("결제 요청 배송지 recipientPhone이 비어 있습니다.");
+        }
+        if (isBlank(deliveryAddress.address())) {
+            throw new PaymentProcessingException("결제 요청 배송지 address가 비어 있습니다.");
+        }
+        if (isBlank(deliveryAddress.zipCode())) {
+            throw new PaymentProcessingException("결제 요청 배송지 zipCode가 비어 있습니다.");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private UUID parseEventId(String eventId) {
@@ -173,10 +205,27 @@ public class CreditPaymentProcessingService {
         Throwable cause = exception;
         while (cause != null) {
             if (cause instanceof SQLException sqlException && "23505".equals(sqlException.getSQLState())) {
-                return true;
+                return IDEMPOTENCY_UNIQUE_CONSTRAINTS.contains(extractConstraintName(sqlException));
             }
             cause = cause.getCause();
         }
         return false;
+    }
+
+    private String extractConstraintName(SQLException sqlException) {
+        try {
+            Object serverErrorMessage = sqlException.getClass()
+                    .getMethod("getServerErrorMessage")
+                    .invoke(sqlException);
+            if (serverErrorMessage == null) {
+                return null;
+            }
+            Object constraint = serverErrorMessage.getClass()
+                    .getMethod("getConstraint")
+                    .invoke(serverErrorMessage);
+            return constraint instanceof String constraintName ? constraintName : null;
+        } catch (ReflectiveOperationException exception) {
+            return null;
+        }
     }
 }

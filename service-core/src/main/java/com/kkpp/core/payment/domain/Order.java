@@ -78,6 +78,7 @@ public class Order extends BaseEntity {
     private final List<OrderItem> orderItems = new ArrayList<>();
 
     public static Order confirmed(
+            UUID orderPublicId,
             UUID userPublicId,
             UUID paymentRequestPublicId,
             BigDecimal totalAmount,
@@ -85,6 +86,7 @@ public class Order extends BaseEntity {
             List<CreditPaymentRequestedMessage.Item> items,
             LocalDateTime orderedAt
     ) {
+        validateRequired(orderPublicId, "orderPublicId");
         validateRequired(userPublicId, "userPublicId");
         validateRequired(paymentRequestPublicId, "paymentRequestPublicId");
         validateRequired(totalAmount, "totalAmount");
@@ -92,7 +94,7 @@ public class Order extends BaseEntity {
         validateRequired(orderedAt, "orderedAt");
 
         Order order = new Order();
-        order.publicId = UUID.randomUUID();
+        order.publicId = orderPublicId;
         order.userPublicId = userPublicId;
         order.paymentRequestPublicId = paymentRequestPublicId;
         order.totalAmount = totalAmount;
