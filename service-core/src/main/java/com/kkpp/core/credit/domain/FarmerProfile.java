@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "farmer_profiles", schema = "core")
@@ -26,28 +27,38 @@ public class FarmerProfile extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private Long userId;
+    @Column(name = "user_public_id", nullable = false, unique = true)
+    private UUID userPublicId;
 
-    @Column(nullable = false)
+    @Column(name = "farm_address", nullable = false)
     private String farmAddress;
 
-    @Column(nullable = false)
+    @Column(name = "farm_address_detail")
+    private String farmAddressDetail;
+
+    @Column(name = "farm_zip_code", nullable = false, length = 10)
+    private String farmZipCode;
+
+    @Column(name = "field_area_m2", nullable = false)
     private BigDecimal fieldAreaM2;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "main_crop", nullable = false)
     private CropType mainCrop;
 
-    @Column(nullable = false)
+    @Column(name = "has_crop_insurance", nullable = false)
     private Boolean hasCropInsurance;
 
-    private LocalDate farmingSince;
+    @Column(name = "farming_since", nullable = false)
+    private Integer farmingSince;
 
-    public static FarmerProfile create(Long userId, String farmAddress, BigDecimal fieldAreaM2,
+    public static FarmerProfile create(UUID userPublicId, String farmAddress, BigDecimal fieldAreaM2,
                                        CropType mainCrop, Boolean hasCropInsurance) {
         FarmerProfile profile = new FarmerProfile();
-        profile.userId = userId;
+        profile.userPublicId = userPublicId;
+        profile.farmAddressDetail = "";
+        profile.farmZipCode = "00000";
+        profile.farmingSince = LocalDate.now().getYear();
         profile.update(farmAddress, fieldAreaM2, mainCrop, hasCropInsurance);
         return profile;
     }

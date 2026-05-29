@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -20,25 +21,42 @@ public class CreditLimitApplication extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "public_id", nullable = false, unique = true)
     private UUID publicId;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "requested_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal requestedAmount;
+
+    @Column(name = "approved_amount", precision = 15, scale = 2)
+    private BigDecimal approvedAmount;
+
+    @Column(name = "is_reapplication", nullable = false)
+    private Boolean isReapplication;
+
+    @Column(name = "reviewed_by_admin_public_id")
+    private UUID reviewedByAdminPublicId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ApplicationStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "applied_at", nullable = false)
     private LocalDateTime appliedAt;
 
-    public static CreditLimitApplication create(Long userId) {
-        Objects.requireNonNull(userId, "userId must not be null");
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
+    public static CreditLimitApplication create(UUID userPublicId) {
+        Objects.requireNonNull(userPublicId, "userPublicId must not be null");
 
         CreditLimitApplication application = new CreditLimitApplication();
         application.publicId = UUID.randomUUID();
-        application.userId = userId;
+        application.userPublicId = userPublicId;
+        application.requestedAmount = BigDecimal.ONE;
+        application.isReapplication = Boolean.FALSE;
         application.status = ApplicationStatus.PENDING;
         application.appliedAt = LocalDateTime.now();
         return application;

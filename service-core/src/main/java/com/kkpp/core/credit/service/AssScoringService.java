@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 @Service
@@ -82,7 +81,7 @@ public class AssScoringService {
             return 7;
         }
 
-        long farmingYears = ChronoUnit.YEARS.between(profile.getFarmingSince(), LocalDate.now());
+        long farmingYears = LocalDate.now().getYear() - profile.getFarmingSince();
         if (farmingYears >= 5) {
             return 15;
         }

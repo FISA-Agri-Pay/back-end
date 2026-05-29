@@ -12,6 +12,8 @@ import com.kkpp.core.credit.repository.AssScoreRepository;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
 import com.kkpp.core.credit.repository.FarmerDocumentRepository;
 import com.kkpp.core.credit.repository.FarmerProfileRepository;
+import com.kkpp.core.auth.exception.UserNotFoundException;
+import com.kkpp.core.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -30,11 +33,16 @@ public class CreditSubmitPersistenceService {
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final AssScoreRepository assScoreRepository;
     private final AssScoringService assScoringService;
+    private final UserRepository userRepository;
 
     @Transactional
     public CreditLimitApplication saveSubmittedApplication(Long userId, CreditApplicationDraft draft,
                                                            List<UploadedDocument> uploadedDocuments) {
-        FarmerProfile profile = farmerProfileRepository.findByUserId(userId)
+        UUID userPublicId = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new)
+                .getPublicId();
+
+        FarmerProfile profile = farmerProfileRepository.findByUserPublicId(userPublicId)
                 .map(existing -> {
                     existing.update(
                             draft.getAddress(),
@@ -45,7 +53,7 @@ public class CreditSubmitPersistenceService {
                     return existing;
                 })
                 .orElseGet(() -> FarmerProfile.create(
-                        userId,
+                        userPublicId,
                         draft.getAddress(),
                         draft.getAreaSizeM2(),
                         draft.getCropType(),
@@ -54,7 +62,7 @@ public class CreditSubmitPersistenceService {
         FarmerProfile savedProfile = farmerProfileRepository.save(profile);
 
         CreditLimitApplication application = creditLimitApplicationRepository.save(
-                CreditLimitApplication.create(userId)
+                CreditLimitApplication.create(userPublicId)
         );
 
         uploadedDocuments.stream()
@@ -72,7 +80,7 @@ public class CreditSubmitPersistenceService {
     }
 
     private void saveAssScore(CreditLimitApplication application, FarmerProfile profile, CropType cropType) {
-        if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+        if (assScoreRepository.findByApplication_PublicId(application.getPublicId()).isPresent()) {
             return;
         }
 
@@ -89,7 +97,7 @@ public class CreditSubmitPersistenceService {
                     scoreResult.calculatedAt()
             ));
         } catch (DataIntegrityViolationException exception) {
-            if (assScoreRepository.findByApplication_Id(application.getId()).isPresent()) {
+            if (assScoreRepository.findByApplication_PublicId(application.getPublicId()).isPresent()) {
                 return;
             }
             throw exception;

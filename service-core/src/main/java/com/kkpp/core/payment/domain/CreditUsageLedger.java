@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,35 +26,47 @@ public class CreditUsageLedger extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long creditLimitId;
+    @Column(name = "credit_limit_public_id", nullable = false)
+    private UUID creditLimitPublicId;
 
-    private Long orderId;
+    @Column(name = "order_public_id")
+    private UUID orderPublicId;
+
+    @Column(name = "payment_request_public_id")
+    private UUID paymentRequestPublicId;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = 20)
+    @Column(name = "usage_type", nullable = false, length = 20)
     private String usageType;
 
-    @Column(nullable = false)
+    @Column(name = "used_at", nullable = false)
     private LocalDateTime usedAt;
 
-    public static CreditUsageLedger purchase(Long creditLimitId, Long orderId, BigDecimal amount, LocalDateTime usedAt) {
-        validateRequiredId(creditLimitId, "creditLimitId");
+    public static CreditUsageLedger purchase(
+            UUID creditLimitPublicId,
+            UUID orderPublicId,
+            UUID paymentRequestPublicId,
+            BigDecimal amount,
+            LocalDateTime usedAt
+    ) {
+        validateRequiredId(creditLimitPublicId, "creditLimitPublicId");
+        validateRequiredId(orderPublicId, "orderPublicId");
         validatePositiveAmount(amount);
         validateRequiredUsedAt(usedAt);
 
         CreditUsageLedger ledger = new CreditUsageLedger();
-        ledger.creditLimitId = creditLimitId;
-        ledger.orderId = orderId;
+        ledger.creditLimitPublicId = creditLimitPublicId;
+        ledger.orderPublicId = orderPublicId;
+        ledger.paymentRequestPublicId = paymentRequestPublicId;
         ledger.amount = amount;
         ledger.usageType = PURCHASE;
         ledger.usedAt = usedAt;
         return ledger;
     }
 
-    private static void validateRequiredId(Long id, String fieldName) {
+    private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
             throw new IllegalArgumentException(fieldName + "는 필수입니다.");
         }

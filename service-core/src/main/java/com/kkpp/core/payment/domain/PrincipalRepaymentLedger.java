@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,30 +25,46 @@ public class PrincipalRepaymentLedger extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long creditLimitId;
+    @Column(name = "credit_limit_public_id", nullable = false)
+    private UUID creditLimitPublicId;
 
-    @Column(nullable = false)
+    @Column(name = "order_public_id", nullable = false, unique = true)
+    private UUID orderPublicId;
+
+    @Column(name = "payment_request_public_id")
+    private UUID paymentRequestPublicId;
+
+    @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "principal_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal principalAmount;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountPaid;
 
+    @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
     @Column(nullable = false, length = 20)
     private String status;
 
-    public static PrincipalRepaymentLedger upcoming(Long creditLimitId, LocalDate dueDate, BigDecimal principalAmount) {
-        validateRequiredId(creditLimitId, "creditLimitId");
+    public static PrincipalRepaymentLedger upcoming(
+            UUID creditLimitPublicId,
+            UUID orderPublicId,
+            UUID paymentRequestPublicId,
+            LocalDate dueDate,
+            BigDecimal principalAmount
+    ) {
+        validateRequiredId(creditLimitPublicId, "creditLimitPublicId");
+        validateRequiredId(orderPublicId, "orderPublicId");
         validateRequiredDueDate(dueDate);
         validatePositiveAmount(principalAmount);
 
         PrincipalRepaymentLedger ledger = new PrincipalRepaymentLedger();
-        ledger.creditLimitId = creditLimitId;
+        ledger.creditLimitPublicId = creditLimitPublicId;
+        ledger.orderPublicId = orderPublicId;
+        ledger.paymentRequestPublicId = paymentRequestPublicId;
         ledger.dueDate = dueDate;
         ledger.principalAmount = principalAmount;
         ledger.amountPaid = BigDecimal.ZERO;
@@ -55,7 +72,7 @@ public class PrincipalRepaymentLedger extends BaseEntity {
         return ledger;
     }
 
-    private static void validateRequiredId(Long id, String fieldName) {
+    private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
             throw new IllegalArgumentException(fieldName + "는 필수입니다.");
         }

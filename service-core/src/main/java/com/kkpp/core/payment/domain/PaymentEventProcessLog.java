@@ -30,13 +30,13 @@ public class PaymentEventProcessLog extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 80)
+    @Column(name = "event_id", nullable = false, length = 80)
     private String eventId;
 
-    @Column(nullable = false)
+    @Column(name = "checkout_request_id", nullable = false)
     private UUID checkoutRequestId;
 
-    @Column(nullable = false, length = 120)
+    @Column(name = "idempotency_key", nullable = false, length = 120)
     private String idempotencyKey;
 
     @Column(nullable = false, length = 20)

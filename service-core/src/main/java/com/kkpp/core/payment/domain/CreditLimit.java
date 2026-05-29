@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,21 +26,34 @@ public class CreditLimit extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Column(name = "public_id", nullable = false, unique = true)
+    private UUID publicId;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "user_public_id", nullable = false)
+    private UUID userPublicId;
+
+    @Column(name = "application_public_id", nullable = false, unique = true)
+    private UUID applicationPublicId;
+
+    @Column(name = "crop_type_snapshot", nullable = false, length = 30)
+    private String cropTypeSnapshot;
+
+    @Column(name = "total_limit", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalLimit;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "used_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal usedAmount;
 
-    @Column(nullable = false, precision = 6, scale = 4)
+    @Column(name = "interest_rate", nullable = false, precision = 6, scale = 4)
     private BigDecimal interestRate;
 
-    @Column(nullable = false)
+    @Column(name = "interest_due_day", nullable = false)
+    private Integer interestDueDay;
+
+    @Column(name = "principal_due_date", nullable = false)
     private LocalDate principalDueDate;
 
+    @Column(name = "expires_at")
     private LocalDate expiresAt;
 
     @Column(nullable = false, length = 20)

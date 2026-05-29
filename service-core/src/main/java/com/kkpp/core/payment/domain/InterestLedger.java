@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,39 +25,40 @@ public class InterestLedger extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long creditLimitId;
+    @Column(name = "credit_limit_public_id", nullable = false)
+    private UUID creditLimitPublicId;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "base_principal", nullable = false, precision = 15, scale = 2)
     private BigDecimal basePrincipal;
 
-    @Column(nullable = false)
+    @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "interest_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal interestAmount;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "amount_paid", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountPaid;
 
+    @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
     @Column(nullable = false, length = 20)
     private String status;
 
     public static InterestLedger upcoming(
-            Long creditLimitId,
+            UUID creditLimitPublicId,
             BigDecimal basePrincipal,
             LocalDate dueDate,
             BigDecimal interestAmount
     ) {
-        validateRequiredId(creditLimitId, "creditLimitId");
+        validateRequiredId(creditLimitPublicId, "creditLimitPublicId");
         validatePositiveAmount(basePrincipal, "이자 기준 원금");
         validateNonNegativeAmount(interestAmount, "이자 금액");
         validateRequiredDueDate(dueDate);
 
         InterestLedger ledger = new InterestLedger();
-        ledger.creditLimitId = creditLimitId;
+        ledger.creditLimitPublicId = creditLimitPublicId;
         ledger.basePrincipal = basePrincipal;
         ledger.dueDate = dueDate;
         ledger.interestAmount = interestAmount;
@@ -65,7 +67,7 @@ public class InterestLedger extends BaseEntity {
         return ledger;
     }
 
-    private static void validateRequiredId(Long id, String fieldName) {
+    private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
             throw new IllegalArgumentException(fieldName + "는 필수입니다.");
         }
