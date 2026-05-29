@@ -12,7 +12,7 @@ import com.kkpp.core.payment.repository.CreditUsageLedgerRepository;
 import com.kkpp.core.payment.repository.InterestLedgerRepository;
 import com.kkpp.core.payment.repository.PaymentEventProcessLogRepository;
 import com.kkpp.core.payment.repository.PrincipalRepaymentLedgerRepository;
-import com.kkpp.core.payment.repository.UserRepository;
+import com.kkpp.core.payment.repository.PaymentUserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -34,7 +34,7 @@ public class CreditPaymentProcessingService {
     private static final String PURCHASE = "PURCHASE";
     private static final int MONTHS_IN_YEAR = 12;
 
-    private final UserRepository userRepository;
+    private final PaymentUserRepository userRepository;
     private final CreditLimitRepository creditLimitRepository;
     private final CreditUsageLedgerRepository creditUsageLedgerRepository;
     private final InterestLedgerRepository interestLedgerRepository;
