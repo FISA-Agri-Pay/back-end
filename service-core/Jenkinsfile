@@ -1,0 +1,85 @@
+﻿pipeline {
+    agent any
+
+    environment {
+        // HARBOR_REGISTRY, HARBOR_PROJECT, GITOPS_REPO_URL 은
+        // Jenkins > Manage Jenkins > System > Global Properties 에서 등록
+
+        // 실제 생성될 이미지명
+        SERVICE = 'service-core'
+    }
+
+    stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    env.IMAGE_TAG = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                    echo "Image tag: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh './gradlew :service-core:bootJar'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                // Harbor Access Token
+                withCredentials([usernamePassword(
+                    credentialsId: 'harbor-credentials',
+                    usernameVariable: 'HARBOR_USER',
+                    passwordVariable: 'HARBOR_PASS'
+                )]) {
+                    sh """
+                        echo \${HARBOR_PASS} | docker login ${env.HARBOR_REGISTRY} -u \${HARBOR_USER} --password-stdin
+                        docker build -t ${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.SERVICE}:${env.IMAGE_TAG} \\
+                            -f ${env.SERVICE}/Dockerfile ${env.SERVICE}/
+                        docker push ${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.SERVICE}:${env.IMAGE_TAG}
+                        docker logout ${env.HARBOR_REGISTRY}
+                        docker rmi ${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.SERVICE}:${env.IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('Update GitOps') {
+            when {
+                expression { env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev' }
+            }
+            steps {
+                // GitLab Access Token
+                withCredentials([usernamePassword(
+                    credentialsId: 'gitlab-credentials',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_PASS'
+                )]) {
+                    sh """
+                        rm -rf gitops
+
+                        git clone http://\${GIT_USER}:\${GIT_PASS}@${env.GITOPS_REPO_URL.replaceFirst('https?://', '')} gitops
+
+                        cd gitops
+
+                        sed -i "s|${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.SERVICE}:.*|${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.SERVICE}:${env.IMAGE_TAG}|" on-prem/${env.SERVICE}/deployment.yaml
+
+                        git config user.email "jenkins@kkpp.com"
+                        git config user.name "Jenkins"
+                        git add .
+                        git diff --staged --quiet || git commit -m "ci: update ${env.SERVICE} image tag to ${env.IMAGE_TAG}"
+                        git push origin main
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -rf gitops'
+            cleanWs()
+        }
+    }
+}
