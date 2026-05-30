@@ -47,7 +47,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -70,6 +73,7 @@ public class BnplAdminService {
     private final BnplAuditLogRepository auditLogRepository;
     private final BnplAdminUserRepository adminUserRepository;
     private final BnplUserRepository userRepository;
+    private final PlatformTransactionManager transactionManager;
 
     // API 1 — 이용 현황 KPI 조회
     // 총 이용 잔액 / 당월 회수 예정액 / 연체 금액 세 가지 수치를 한 번에 산정한다.
@@ -251,7 +255,6 @@ public class BnplAdminService {
 
     // API 6 — 연체 알림 일괄 발송
     // userPublicIds 미입력 시 전체 미해소 연체자 대상, 발송 성공/실패 모두 기록한다.
-    @Transactional
     public OverdueAlertResponse sendOverdueAlerts(OverdueAlertRequest request, AuthUserInfo authUser, String clientIp) {
         log.info("연체 알림 일괄 발송 요청: channel={}, targetCount={}",
                 request.channel(),
@@ -265,7 +268,13 @@ public class BnplAdminService {
         List<OverdueAlertItemResponse> results = new ArrayList<>();
 
         for (UUID userPublicId : targetUserPublicIds) {
-            OverdueAlertItemResponse item = sendSingleOverdueAlert(userPublicId, channel, content, adminUserPublicId, clientIp);
+            OverdueAlertItemResponse item = sendSingleOverdueAlertInNewTransaction(
+                    userPublicId,
+                    channel,
+                    content,
+                    adminUserPublicId,
+                    clientIp
+            );
             results.add(item);
         }
 
@@ -280,6 +289,26 @@ public class BnplAdminService {
 
     // 사용자 1명에게 연체 알림을 발송하고 결과를 반환한다.
     // 개별 실패가 전체 트랜잭션을 롤백하지 않도록 예외를 잡아서 FAIL 결과로 처리한다.
+    private OverdueAlertItemResponse sendSingleOverdueAlertInNewTransaction(
+            UUID userPublicId,
+            NotificationChannel channel,
+            String content,
+            UUID adminUserPublicId,
+            String clientIp
+    ) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        try {
+            return transactionTemplate.execute(status ->
+                    sendSingleOverdueAlert(userPublicId, channel, content, adminUserPublicId, clientIp)
+            );
+        } catch (Exception e) {
+            log.warn("연체 알림 발송 트랜잭션 실패: userPublicId={}, reason={}", userPublicId, e.getMessage());
+            return new OverdueAlertItemResponse(userPublicId.toString(), "FAIL", null, e.getMessage());
+        }
+    }
+
     private OverdueAlertItemResponse sendSingleOverdueAlert(
             UUID userPublicId,
             NotificationChannel channel,
