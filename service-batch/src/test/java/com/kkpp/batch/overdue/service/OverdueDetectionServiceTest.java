@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.domain.InterestLedger;
 import com.kkpp.batch.overdue.domain.LoanOverdueLedger;
@@ -25,6 +26,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class OverdueDetectionServiceTest {
+
+    private static final UUID USER_PUBLIC_ID = UUID.fromString("11111111-1111-4111-8111-111111111148");
+    private static final UUID CREDIT_LIMIT_PUBLIC_ID = UUID.fromString("33333333-3333-4333-8333-333333333348");
+    private static final UUID INTEREST_LEDGER_PUBLIC_ID = UUID.fromString("77777777-7777-4777-8777-777777777748");
+    private static final UUID PRINCIPAL_REPAYMENT_PUBLIC_ID = UUID.fromString("88888888-8888-4888-8888-888888888848");
+    private static final UUID ORDER_PUBLIC_ID = UUID.fromString("55555555-5555-4555-8555-555555555548");
+    private static final UUID PAYMENT_REQUEST_PUBLIC_ID = UUID.fromString("66666666-6666-4666-8666-666666666648");
 
     private final OverdueInterestLedgerRepository interestLedgerRepository =
             Mockito.mock(OverdueInterestLedgerRepository.class);
@@ -57,8 +65,8 @@ class OverdueDetectionServiceTest {
         CreditLimit creditLimit = creditLimit(10L, 100L);
 
         when(interestLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(interestLedger));
-        when(creditLimitRepository.findById(10L)).thenReturn(Optional.of(creditLimit));
-        when(loanOverdueLedgerRepository.findByInterestLedgerIdAndResolvedAtIsNull(1L))
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.of(creditLimit));
+        when(loanOverdueLedgerRepository.findByInterestLedgerPublicIdAndResolvedAtIsNull(INTEREST_LEDGER_PUBLIC_ID))
                 .thenReturn(Optional.empty());
 
         Optional<InterestLedger> result = service.detectInterestOverdue(1L, today, now);
@@ -68,8 +76,10 @@ class OverdueDetectionServiceTest {
 
         ArgumentCaptor<LoanOverdueLedger> captor = ArgumentCaptor.forClass(LoanOverdueLedger.class);
         verify(loanOverdueLedgerRepository).save(captor.capture());
-        assertThat(captor.getValue().getInterestLedgerId()).isEqualTo(1L);
-        assertThat(captor.getValue().getPrincipalRepaymentLedgerId()).isNull();
+        assertThat(captor.getValue().getInterestLedgerPublicId()).isEqualTo(INTEREST_LEDGER_PUBLIC_ID);
+        assertThat(captor.getValue().getPrincipalRepaymentPublicId()).isNull();
+        assertThat(captor.getValue().getUserPublicId()).isEqualTo(USER_PUBLIC_ID);
+        assertThat(captor.getValue().getCreditLimitPublicId()).isEqualTo(CREDIT_LIMIT_PUBLIC_ID);
         assertThat(captor.getValue().getOverdueAmount()).isEqualByComparingTo("10000.00");
         assertThat(captor.getValue().getOverdueDays()).isEqualTo(1);
         assertThat(captor.getValue().getStage()).isEqualTo(LoanOverdueLedger.STAGE_ACTIVE);
@@ -89,16 +99,16 @@ class OverdueDetectionServiceTest {
         );
         CreditLimit creditLimit = creditLimit(10L, 100L);
         LoanOverdueLedger existingOverdue = LoanOverdueLedger.interestOverdue(
-                100L,
-                10L,
-                1L,
+                USER_PUBLIC_ID,
+                CREDIT_LIMIT_PUBLIC_ID,
+                INTEREST_LEDGER_PUBLIC_ID,
                 new BigDecimal("8000.00"),
                 1
         );
 
         when(interestLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(interestLedger));
-        when(creditLimitRepository.findById(10L)).thenReturn(Optional.of(creditLimit));
-        when(loanOverdueLedgerRepository.findByInterestLedgerIdAndResolvedAtIsNull(1L))
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.of(creditLimit));
+        when(loanOverdueLedgerRepository.findByInterestLedgerPublicIdAndResolvedAtIsNull(INTEREST_LEDGER_PUBLIC_ID))
                 .thenReturn(Optional.of(existingOverdue));
 
         service.detectInterestOverdue(1L, today, now);
@@ -124,8 +134,8 @@ class OverdueDetectionServiceTest {
         CreditLimit creditLimit = creditLimit(20L, 200L);
 
         when(principalRepaymentLedgerRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(principalLedger));
-        when(creditLimitRepository.findById(20L)).thenReturn(Optional.of(creditLimit));
-        when(loanOverdueLedgerRepository.findByPrincipalRepaymentLedgerIdAndResolvedAtIsNull(2L))
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.of(creditLimit));
+        when(loanOverdueLedgerRepository.findByPrincipalRepaymentPublicIdAndResolvedAtIsNull(PRINCIPAL_REPAYMENT_PUBLIC_ID))
                 .thenReturn(Optional.empty());
 
         Optional<PrincipalRepaymentLedger> result = service.detectPrincipalOverdue(2L, today, now);
@@ -135,8 +145,10 @@ class OverdueDetectionServiceTest {
 
         ArgumentCaptor<LoanOverdueLedger> captor = ArgumentCaptor.forClass(LoanOverdueLedger.class);
         verify(loanOverdueLedgerRepository).save(captor.capture());
-        assertThat(captor.getValue().getInterestLedgerId()).isNull();
-        assertThat(captor.getValue().getPrincipalRepaymentLedgerId()).isEqualTo(2L);
+        assertThat(captor.getValue().getInterestLedgerPublicId()).isNull();
+        assertThat(captor.getValue().getPrincipalRepaymentPublicId()).isEqualTo(PRINCIPAL_REPAYMENT_PUBLIC_ID);
+        assertThat(captor.getValue().getUserPublicId()).isEqualTo(USER_PUBLIC_ID);
+        assertThat(captor.getValue().getCreditLimitPublicId()).isEqualTo(CREDIT_LIMIT_PUBLIC_ID);
         assertThat(captor.getValue().getOverdueAmount()).isEqualByComparingTo("50000.00");
         assertThat(captor.getValue().getOverdueDays()).isEqualTo(3);
     }
@@ -160,7 +172,7 @@ class OverdueDetectionServiceTest {
 
         assertThat(result).isEmpty();
         assertThat(principalLedger.getStatus()).isEqualTo(PrincipalRepaymentLedger.STATUS_UPCOMING);
-        verify(creditLimitRepository, never()).findById(Mockito.any());
+        verify(creditLimitRepository, never()).findByPublicId(Mockito.any());
         verify(loanOverdueLedgerRepository, never()).save(Mockito.any());
     }
 
@@ -183,7 +195,7 @@ class OverdueDetectionServiceTest {
 
         assertThat(result).isEmpty();
         assertThat(interestLedger.getStatus()).isEqualTo(InterestLedger.STATUS_PAID);
-        verify(creditLimitRepository, never()).findById(Mockito.any());
+        verify(creditLimitRepository, never()).findByPublicId(Mockito.any());
         verify(loanOverdueLedgerRepository, never()).save(Mockito.any());
     }
 
@@ -201,16 +213,16 @@ class OverdueDetectionServiceTest {
         );
         CreditLimit creditLimit = creditLimit(20L, 200L);
         LoanOverdueLedger existingOverdue = LoanOverdueLedger.principalOverdue(
-                200L,
-                20L,
-                2L,
+                USER_PUBLIC_ID,
+                CREDIT_LIMIT_PUBLIC_ID,
+                PRINCIPAL_REPAYMENT_PUBLIC_ID,
                 new BigDecimal("45000.00"),
                 2
         );
 
         when(principalRepaymentLedgerRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(principalLedger));
-        when(creditLimitRepository.findById(20L)).thenReturn(Optional.of(creditLimit));
-        when(loanOverdueLedgerRepository.findByPrincipalRepaymentLedgerIdAndResolvedAtIsNull(2L))
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.of(creditLimit));
+        when(loanOverdueLedgerRepository.findByPrincipalRepaymentPublicIdAndResolvedAtIsNull(PRINCIPAL_REPAYMENT_PUBLIC_ID))
                 .thenReturn(Optional.of(existingOverdue));
 
         service.detectPrincipalOverdue(2L, today, now);
@@ -230,7 +242,8 @@ class OverdueDetectionServiceTest {
     ) throws Exception {
         InterestLedger ledger = newInstance(InterestLedger.class);
         setField(ledger, "id", id);
-        setField(ledger, "creditLimitId", creditLimitId);
+        setField(ledger, "publicId", INTEREST_LEDGER_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
         setField(ledger, "basePrincipal", new BigDecimal("1000000.00"));
         setField(ledger, "dueDate", dueDate);
         setField(ledger, "interestAmount", interestAmount);
@@ -251,7 +264,10 @@ class OverdueDetectionServiceTest {
     ) throws Exception {
         PrincipalRepaymentLedger ledger = newInstance(PrincipalRepaymentLedger.class);
         setField(ledger, "id", id);
-        setField(ledger, "creditLimitId", creditLimitId);
+        setField(ledger, "publicId", PRINCIPAL_REPAYMENT_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(ledger, "orderPublicId", ORDER_PUBLIC_ID);
+        setField(ledger, "paymentRequestPublicId", PAYMENT_REQUEST_PUBLIC_ID);
         setField(ledger, "dueDate", dueDate);
         setField(ledger, "principalAmount", principalAmount);
         setField(ledger, "amountPaid", amountPaid);
@@ -262,7 +278,8 @@ class OverdueDetectionServiceTest {
     private CreditLimit creditLimit(Long id, Long userId) throws Exception {
         CreditLimit creditLimit = newInstance(CreditLimit.class);
         setField(creditLimit, "id", id);
-        setField(creditLimit, "userId", userId);
+        setField(creditLimit, "publicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(creditLimit, "userPublicId", USER_PUBLIC_ID);
         setField(creditLimit, "usedAmount", new BigDecimal("100000.00"));
         setField(creditLimit, "status", "ACTIVE");
         return creditLimit;

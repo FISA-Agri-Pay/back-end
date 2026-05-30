@@ -2,6 +2,7 @@ package com.kkpp.batch.interest.payment.domain;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -28,7 +29,10 @@ public class Wallet extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID userPublicId;
 
     @Column(nullable = false)
     private BigDecimal balance;
@@ -43,8 +47,8 @@ public class Wallet extends BaseEntity {
     // 실제 자동 상환 금액만큼 지갑 잔액을 차감한다.
     public void withdraw(BigDecimal amount) {
         if (!STATUS_ACTIVE.equals(status)) {
-            throw new IllegalStateException("활성 상태 지갑만 자동 이자 상환에 사용할 수 있습니다. walletId="
-                    + id + ", status=" + status);
+            throw new IllegalStateException("활성 상태 지갑만 자동 이자 상환에 사용할 수 있습니다. walletPublicId="
+                    + publicId + ", status=" + status);
         }
 
         BigDecimal moneyAmount = toMoney(amount);
@@ -52,7 +56,7 @@ public class Wallet extends BaseEntity {
             throw new IllegalArgumentException("지갑 차감 금액은 0보다 커야 합니다.");
         }
         if (balance == null || balance.compareTo(moneyAmount) < 0) {
-            throw new IllegalStateException("지갑 잔액보다 큰 금액은 차감할 수 없습니다. walletId=" + id);
+            throw new IllegalStateException("지갑 잔액보다 큰 금액은 차감할 수 없습니다. walletPublicId=" + publicId);
         }
 
         balance = toMoney(balance.subtract(moneyAmount));

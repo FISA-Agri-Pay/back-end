@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.UUID;
 
 import com.kkpp.batch.bss.domain.CreditLimit;
 import com.kkpp.batch.bss.domain.InterestLedger;
@@ -29,6 +30,13 @@ class BssCalculationServiceTest {
 
     private static final YearMonth PERIOD = YearMonth.of(2026, 5);
     private static final LocalDateTime CALCULATED_AT = LocalDateTime.of(2026, 6, 1, 1, 0);
+    private static final UUID USER_PUBLIC_ID = UUID.fromString("11111111-1111-4111-8111-111111111148");
+    private static final UUID CREDIT_LIMIT_PUBLIC_ID = UUID.fromString("33333333-3333-4333-8333-333333333348");
+    private static final UUID APPLICATION_PUBLIC_ID = UUID.fromString("22222222-2222-4222-8222-222222222248");
+    private static final UUID INTEREST_LEDGER_PUBLIC_ID = UUID.fromString("77777777-7777-4777-8777-777777777748");
+    private static final UUID PRINCIPAL_REPAYMENT_PUBLIC_ID = UUID.fromString("88888888-8888-4888-8888-888888888848");
+    private static final UUID ORDER_PUBLIC_ID = UUID.fromString("55555555-5555-4555-8555-555555555548");
+    private static final UUID PAYMENT_REQUEST_PUBLIC_ID = UUID.fromString("66666666-6666-4666-8666-666666666648");
 
     private InterestLedgerRepository interestLedgerRepository;
     private PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
@@ -46,10 +54,10 @@ class BssCalculationServiceTest {
                 loanOverdueLedgerRepository
         );
 
-        when(interestLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+        when(interestLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
                 any(), any(), any()))
                 .thenReturn(List.of());
-        when(principalRepaymentLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+        when(principalRepaymentLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
                 any(), any(), any()))
                 .thenReturn(List.of());
         when(loanOverdueLedgerRepository.findMonthlyOverdues(any(), any(), any()))
@@ -93,7 +101,7 @@ class BssCalculationServiceTest {
 
     @Test
     void calculateOverdueScoreIsZeroWhenUnresolvedOverdueExists() throws Exception {
-        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(1L), any(), any()))
+        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(CREDIT_LIMIT_PUBLIC_ID), any(), any()))
                 .thenReturn(List.of(overdue(1L, null, 3)));
 
         BssCalculationResult result = calculate(defaultCreditLimit());
@@ -103,7 +111,7 @@ class BssCalculationServiceTest {
 
     @Test
     void calculateOverdueScoreUsesResolvedOverdueHistory() throws Exception {
-        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(1L), any(), any()))
+        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(CREDIT_LIMIT_PUBLIC_ID), any(), any()))
                 .thenReturn(List.of(overdue(1L, LocalDateTime.of(2026, 5, 10, 1, 0), 5)));
 
         BssCalculationResult result = calculate(defaultCreditLimit());
@@ -113,14 +121,14 @@ class BssCalculationServiceTest {
 
     @Test
     void calculateOverdueScoreByCountAndMaxOverdueDays() throws Exception {
-        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(1L), any(), any()))
+        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(CREDIT_LIMIT_PUBLIC_ID), any(), any()))
                 .thenReturn(List.of(
                         overdue(1L, LocalDateTime.of(2026, 5, 10, 1, 0), 8),
                         overdue(2L, LocalDateTime.of(2026, 5, 11, 1, 0), 30)
                 ));
         assertThat(calculate(defaultCreditLimit()).overdueScore()).isEqualTo(20);
 
-        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(1L), any(), any()))
+        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(CREDIT_LIMIT_PUBLIC_ID), any(), any()))
                 .thenReturn(List.of(
                         overdue(1L, LocalDateTime.of(2026, 5, 10, 1, 0), 1),
                         overdue(2L, LocalDateTime.of(2026, 5, 11, 1, 0), 2),
@@ -147,11 +155,11 @@ class BssCalculationServiceTest {
 
         calculate(creditLimit);
 
-        verifyMonthlyRange(creditLimit.getId());
+        verifyMonthlyRange(creditLimit.getPublicId());
     }
 
     private void assertInterestRepaymentScore(BigDecimal paidAmount, int expectedInterestScore) throws Exception {
-        when(interestLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+        when(interestLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
                 any(), any(), any()))
                 .thenReturn(List.of(interestLedger(new BigDecimal("1000.00"), paidAmount)));
 
@@ -161,7 +169,7 @@ class BssCalculationServiceTest {
     }
 
     private void assertPrincipalRepaymentScore(BigDecimal paidAmount, int expectedPrincipalScore) throws Exception {
-        when(principalRepaymentLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+        when(principalRepaymentLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
                 any(), any(), any()))
                 .thenReturn(List.of(principalLedger(new BigDecimal("1000.00"), paidAmount)));
 
@@ -170,22 +178,22 @@ class BssCalculationServiceTest {
         assertThat(result.repaymentScore()).isEqualTo(15 + expectedPrincipalScore);
     }
 
-    private void verifyMonthlyRange(Long creditLimitId) {
+    private void verifyMonthlyRange(UUID creditLimitPublicId) {
         Mockito.verify(interestLedgerRepository)
-                .findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
-                        creditLimitId,
+                .findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                        creditLimitPublicId,
                         PERIOD.atDay(1),
                         PERIOD.plusMonths(1).atDay(1)
                 );
         Mockito.verify(principalRepaymentLedgerRepository)
-                .findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
-                        creditLimitId,
+                .findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                        creditLimitPublicId,
                         PERIOD.atDay(1),
                         PERIOD.plusMonths(1).atDay(1)
                 );
         Mockito.verify(loanOverdueLedgerRepository)
                 .findMonthlyOverdues(
-                        creditLimitId,
+                        creditLimitPublicId,
                         PERIOD.atDay(1).atStartOfDay(),
                         PERIOD.plusMonths(1).atDay(1).atStartOfDay()
                 );
@@ -203,7 +211,9 @@ class BssCalculationServiceTest {
             throws Exception {
         CreditLimit creditLimit = newInstance(CreditLimit.class);
         setField(creditLimit, "id", id);
-        setField(creditLimit, "userId", userId);
+        setField(creditLimit, "publicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(creditLimit, "userPublicId", USER_PUBLIC_ID);
+        setField(creditLimit, "applicationPublicId", APPLICATION_PUBLIC_ID);
         setField(creditLimit, "totalLimit", totalLimit);
         setField(creditLimit, "usedAmount", usedAmount);
         setField(creditLimit, "status", "ACTIVE");
@@ -213,7 +223,8 @@ class BssCalculationServiceTest {
     private InterestLedger interestLedger(BigDecimal interestAmount, BigDecimal amountPaid) throws Exception {
         InterestLedger ledger = newInstance(InterestLedger.class);
         setField(ledger, "id", 1L);
-        setField(ledger, "creditLimitId", 1L);
+        setField(ledger, "publicId", INTEREST_LEDGER_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
         setField(ledger, "dueDate", PERIOD.atDay(11));
         setField(ledger, "interestAmount", interestAmount);
         setField(ledger, "amountPaid", amountPaid);
@@ -224,7 +235,10 @@ class BssCalculationServiceTest {
             throws Exception {
         PrincipalRepaymentLedger ledger = newInstance(PrincipalRepaymentLedger.class);
         setField(ledger, "id", 1L);
-        setField(ledger, "creditLimitId", 1L);
+        setField(ledger, "publicId", PRINCIPAL_REPAYMENT_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(ledger, "orderPublicId", ORDER_PUBLIC_ID);
+        setField(ledger, "paymentRequestPublicId", PAYMENT_REQUEST_PUBLIC_ID);
         setField(ledger, "dueDate", PERIOD.atDay(20));
         setField(ledger, "principalAmount", principalAmount);
         setField(ledger, "amountPaid", amountPaid);
@@ -234,8 +248,8 @@ class BssCalculationServiceTest {
     private LoanOverdueLedger overdue(Long id, LocalDateTime resolvedAt, Integer overdueDays) throws Exception {
         LoanOverdueLedger overdue = newInstance(LoanOverdueLedger.class);
         setField(overdue, "id", id);
-        setField(overdue, "userId", 1L);
-        setField(overdue, "creditLimitId", 1L);
+        setField(overdue, "userPublicId", USER_PUBLIC_ID);
+        setField(overdue, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
         setField(overdue, "overdueAmount", new BigDecimal("1000.00"));
         setField(overdue, "overdueDays", overdueDays);
         setField(overdue, "resolvedAt", resolvedAt);

@@ -2,6 +2,7 @@ package com.kkpp.batch.bss.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,7 +25,16 @@ public class PrincipalRepaymentLedger {
     private Long id;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
+
+    @Column(nullable = false)
+    private UUID orderPublicId;
+
+    @Column(nullable = false)
+    private UUID paymentRequestPublicId;
 
     @Column(nullable = false)
     private LocalDate dueDate;

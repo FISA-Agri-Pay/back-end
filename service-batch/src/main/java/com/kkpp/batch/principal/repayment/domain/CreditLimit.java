@@ -2,6 +2,7 @@ package com.kkpp.batch.principal.repayment.domain;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -26,8 +27,11 @@ public class CreditLimit extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
+    private UUID publicId;
+
     @Column(nullable = false)
-    private Long userId;
+    private UUID userPublicId;
 
     @Column(nullable = false)
     private BigDecimal usedAmount;
@@ -46,7 +50,7 @@ public class CreditLimit extends BaseEntity {
             throw new IllegalArgumentException("한도 사용액 감소 금액은 0보다 커야 합니다.");
         }
         if (usedAmount == null || usedAmount.compareTo(moneyPaymentAmount) < 0) {
-            throw new IllegalStateException("한도 사용액보다 큰 금액은 감소시킬 수 없습니다. creditLimitId=" + id);
+            throw new IllegalStateException("한도 사용액보다 큰 금액은 감소시킬 수 없습니다. creditLimitPublicId=" + publicId);
         }
 
         usedAmount = toMoney(usedAmount.subtract(moneyPaymentAmount));

@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.domain.CreditLimit;
 import com.kkpp.batch.interest.domain.InterestLedger;
@@ -20,6 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class InterestChargeServiceTest {
+
+    private static final UUID CREDIT_LIMIT_PUBLIC_ID = UUID.fromString("33333333-3333-4333-8333-333333333348");
+    private static final UUID USER_PUBLIC_ID = UUID.fromString("11111111-1111-4111-8111-111111111148");
+    private static final UUID APPLICATION_PUBLIC_ID = UUID.fromString("22222222-2222-4222-8222-222222222248");
 
     private final InterestLedgerRepository interestLedgerRepository =
             Mockito.mock(InterestLedgerRepository.class);
@@ -38,13 +43,14 @@ class InterestChargeServiceTest {
         LocalDate dueDate = LocalDate.of(2026, 5, 13);
         LocalDateTime now = LocalDateTime.of(2026, 5, 1, 3, 0);
 
-        when(interestLedgerRepository.existsByCreditLimitIdAndDueDate(1L, dueDate)).thenReturn(false);
+        when(interestLedgerRepository.existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, dueDate))
+                .thenReturn(false);
 
         Optional<InterestLedger> result = service.createMonthlyInterestLedger(creditLimit, targetMonth, now);
 
         assertThat(result).isPresent();
         InterestLedger ledger = result.get();
-        assertThat(ledger.getCreditLimitId()).isEqualTo(1L);
+        assertThat(ledger.getCreditLimitPublicId()).isEqualTo(CREDIT_LIMIT_PUBLIC_ID);
         assertThat(ledger.getBasePrincipal()).isEqualByComparingTo("1200000.00");
         assertThat(ledger.getInterestAmount()).isEqualByComparingTo("12000.00");
         assertThat(ledger.getAmountPaid()).isEqualByComparingTo("0.00");
@@ -72,7 +78,7 @@ class InterestChargeServiceTest {
 
         assertThat(result).isEmpty();
         verify(interestLedgerRepository, never())
-                .existsByCreditLimitIdAndDueDate(1L, LocalDate.of(2026, 5, 13));
+                .existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, LocalDate.of(2026, 5, 13));
     }
 
     @Test
@@ -94,7 +100,7 @@ class InterestChargeServiceTest {
 
         assertThat(result).isEmpty();
         verify(interestLedgerRepository, never())
-                .existsByCreditLimitIdAndDueDate(1L, LocalDate.of(2026, 5, 13));
+                .existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, LocalDate.of(2026, 5, 13));
     }
 
     @Test
@@ -108,7 +114,8 @@ class InterestChargeServiceTest {
         );
         LocalDate dueDate = LocalDate.of(2026, 5, 13);
 
-        when(interestLedgerRepository.existsByCreditLimitIdAndDueDate(1L, dueDate)).thenReturn(true);
+        when(interestLedgerRepository.existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, dueDate))
+                .thenReturn(true);
 
         Optional<InterestLedger> result = service.createMonthlyInterestLedger(
                 creditLimit,
@@ -137,7 +144,7 @@ class InterestChargeServiceTest {
 
         assertThat(result).isEmpty();
         verify(interestLedgerRepository, never())
-                .existsByCreditLimitIdAndDueDate(1L, LocalDate.of(2027, 1, 11));
+                .existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, LocalDate.of(2027, 1, 11));
     }
 
     @Test
@@ -207,6 +214,9 @@ class InterestChargeServiceTest {
         constructor.setAccessible(true);
         CreditLimit creditLimit = constructor.newInstance();
         setField(creditLimit, "id", id);
+        setField(creditLimit, "publicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(creditLimit, "userPublicId", USER_PUBLIC_ID);
+        setField(creditLimit, "applicationPublicId", APPLICATION_PUBLIC_ID);
         setField(creditLimit, "cropTypeSnapshot", "RICE");
         setField(creditLimit, "usedAmount", usedAmount);
         setField(creditLimit, "interestRate", interestRate);

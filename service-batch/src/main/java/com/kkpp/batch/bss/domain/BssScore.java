@@ -1,6 +1,7 @@
 package com.kkpp.batch.bss.domain;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
@@ -26,10 +27,13 @@ public class BssScore extends BaseTimeEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
 
-    // 이번 배치에서는 월별 사용자 단위 점수만 저장하므로 applicationId는 null로 둔다.
-    private Long applicationId;
+    @Column(nullable = false)
+    private UUID userPublicId;
+
+    // 이번 배치에서는 월별 사용자 단위 점수만 저장하므로 applicationPublicId는 null로 둔다.
+    private UUID applicationPublicId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
