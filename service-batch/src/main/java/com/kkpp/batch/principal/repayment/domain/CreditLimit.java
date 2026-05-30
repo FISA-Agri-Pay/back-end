@@ -27,7 +27,7 @@ public class CreditLimit extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private UUID publicId;
 
     @Column(nullable = false)

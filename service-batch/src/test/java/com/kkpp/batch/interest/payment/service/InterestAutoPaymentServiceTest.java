@@ -230,7 +230,6 @@ class InterestAutoPaymentServiceTest {
         assertThat(result).contains(ledger);
         assertThat(ledger.getStatus()).isEqualTo(InterestLedger.STATUS_PAID);
         assertThat(overdueLedger.getResolvedAt()).isEqualTo(now);
-        assertThat(overdueLedger.getResolvedAt()).isEqualTo(now);
     }
 
     @Test

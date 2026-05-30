@@ -1,6 +1,7 @@
 package com.kkpp.batch.bss.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -93,5 +94,28 @@ class BssScoreJdbcRepositoryTest {
         assertThat(sql).contains("UPDATE core.bss_scores");
         assertThat(sql).contains("user_public_id");
         assertThat(sql).contains("NULL");
+    }
+
+    @Test
+    void upsertMonthlyFailsWhenMultipleMonthlyScoresAreUpdated() {
+        NamedParameterJdbcTemplate jdbcTemplate = Mockito.mock(NamedParameterJdbcTemplate.class);
+        when(jdbcTemplate.update(any(String.class), any(MapSqlParameterSource.class))).thenReturn(2);
+        BssScoreJdbcRepository repository = new BssScoreJdbcRepository(jdbcTemplate);
+        BssCalculationResult result = new BssCalculationResult(
+                USER_PUBLIC_ID,
+                24,
+                40,
+                20,
+                84,
+                84,
+                PeriodType.MONTHLY,
+                2026,
+                5,
+                LocalDateTime.of(2026, 6, 1, 1, 0)
+        );
+
+        assertThatThrownBy(() -> repository.upsertMonthly(result))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("월별 BSS 점수가 중복 저장되어 있습니다.");
     }
 }

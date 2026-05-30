@@ -10,6 +10,10 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class BssScoreJdbcRepository {
 
+    private static final String MONTHLY_BSS_LOCK_SQL = """
+            SELECT pg_advisory_xact_lock(hashtext(:lockKey))
+            """;
+
     private static final String UPDATE_MONTHLY_BSS_SQL = """
             UPDATE core.bss_scores
             SET monthly_score = :monthlyScore,
@@ -59,9 +63,30 @@ public class BssScoreJdbcRepository {
                 .addValue("totalScore", result.totalScore())
                 .addValue("calculatedAt", result.calculatedAt());
 
+        lockMonthlyBssKey(result);
+
         int updatedCount = namedParameterJdbcTemplate.update(UPDATE_MONTHLY_BSS_SQL, parameters);
+        if (updatedCount > 1) {
+            throw new IllegalStateException(
+                    "월별 BSS 점수가 중복 저장되어 있습니다. userPublicId=%s, period=%d-%d"
+                            .formatted(result.userPublicId(), result.periodYear(), result.periodMonth())
+            );
+        }
         if (updatedCount == 0) {
             namedParameterJdbcTemplate.update(INSERT_MONTHLY_BSS_SQL, parameters);
         }
+    }
+
+    private void lockMonthlyBssKey(BssCalculationResult result) {
+        MapSqlParameterSource lockParameters = new MapSqlParameterSource()
+                .addValue(
+                        "lockKey",
+                        "bss:monthly:%s:%d:%d".formatted(
+                                result.userPublicId(),
+                                result.periodYear(),
+                                result.periodMonth()
+                        )
+                );
+        namedParameterJdbcTemplate.query(MONTHLY_BSS_LOCK_SQL, lockParameters, resultSet -> null);
     }
 }
