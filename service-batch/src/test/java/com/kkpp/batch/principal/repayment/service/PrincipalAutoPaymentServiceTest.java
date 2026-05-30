@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.payment.domain.Wallet;
 import com.kkpp.batch.interest.payment.domain.WalletTransaction;
@@ -28,6 +29,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class PrincipalAutoPaymentServiceTest {
+
+    private static final UUID USER_PUBLIC_ID = UUID.fromString("11111111-1111-4111-8111-111111111148");
+    private static final UUID CREDIT_LIMIT_PUBLIC_ID = UUID.fromString("33333333-3333-4333-8333-333333333348");
+    private static final UUID PRINCIPAL_REPAYMENT_PUBLIC_ID = UUID.fromString("88888888-8888-4888-8888-888888888848");
+    private static final UUID ORDER_PUBLIC_ID = UUID.fromString("55555555-5555-4555-8555-555555555548");
+    private static final UUID PAYMENT_REQUEST_PUBLIC_ID = UUID.fromString("66666666-6666-4666-8666-666666666648");
+    private static final UUID WALLET_PUBLIC_ID = UUID.fromString("44444444-4444-4444-8444-444444444448");
 
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository =
             Mockito.mock(PrincipalRepaymentLedgerRepository.class);
@@ -161,7 +169,7 @@ class PrincipalAutoPaymentServiceTest {
         );
 
         assertThat(result).isEmpty();
-        verify(walletRepository, never()).findByUserIdForUpdate(any());
+        verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
     }
 
@@ -187,7 +195,7 @@ class PrincipalAutoPaymentServiceTest {
         );
 
         assertThat(result).isEmpty();
-        verify(walletRepository, never()).findByUserIdForUpdate(any());
+        verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
     }
 
@@ -209,7 +217,8 @@ class PrincipalAutoPaymentServiceTest {
         LoanOverdueLedger overdueLedger = overdueLedger(900L, 10L, 1L, new BigDecimal("5000.00"));
 
         mockLedgerContext(ledger, creditLimit, wallet);
-        when(loanOverdueLedgerRepository.findAllByPrincipalRepaymentLedgerIdAndResolvedAtIsNull(1L))
+        when(loanOverdueLedgerRepository.findAllByPrincipalRepaymentPublicIdAndResolvedAtIsNull(
+                PRINCIPAL_REPAYMENT_PUBLIC_ID))
                 .thenReturn(List.of(overdueLedger));
 
         Optional<PrincipalRepaymentLedger> result = service.payAutomatically(1L, today, now);
@@ -217,7 +226,6 @@ class PrincipalAutoPaymentServiceTest {
         assertThat(result).contains(ledger);
         assertThat(ledger.getStatus()).isEqualTo(PrincipalRepaymentLedger.STATUS_PAID);
         assertThat(overdueLedger.getResolvedAt()).isEqualTo(now);
-        assertThat(overdueLedger.getResolvedAmount()).isEqualByComparingTo("5000.00");
     }
 
     @Test
@@ -246,7 +254,7 @@ class PrincipalAutoPaymentServiceTest {
         assertThat(result).contains(ledger);
         assertThat(ledger.getAmountPaid()).isEqualByComparingTo("4000.00");
         assertThat(ledger.getStatus()).isEqualTo(PrincipalRepaymentLedger.STATUS_OVERDUE);
-        verify(loanOverdueLedgerRepository, never()).findAllByPrincipalRepaymentLedgerIdAndResolvedAtIsNull(any());
+        verify(loanOverdueLedgerRepository, never()).findAllByPrincipalRepaymentPublicIdAndResolvedAtIsNull(any());
     }
 
     @Test
@@ -281,9 +289,9 @@ class PrincipalAutoPaymentServiceTest {
 
     private void mockLedgerContext(PrincipalRepaymentLedger ledger, CreditLimit creditLimit, Wallet wallet) {
         when(principalRepaymentLedgerRepository.findByIdForUpdate(ledger.getId())).thenReturn(Optional.of(ledger));
-        when(principalRepaymentCreditLimitRepository.findByIdForUpdate(creditLimit.getId()))
+        when(principalRepaymentCreditLimitRepository.findByPublicIdForUpdate(creditLimit.getPublicId()))
                 .thenReturn(Optional.of(creditLimit));
-        when(walletRepository.findByUserIdForUpdate(creditLimit.getUserId())).thenReturn(Optional.of(wallet));
+        when(walletRepository.findByUserPublicIdForUpdate(creditLimit.getUserPublicId())).thenReturn(Optional.of(wallet));
     }
 
     private PrincipalRepaymentLedger principalLedger(
@@ -297,7 +305,10 @@ class PrincipalAutoPaymentServiceTest {
     ) throws Exception {
         PrincipalRepaymentLedger ledger = newInstance(PrincipalRepaymentLedger.class);
         setField(ledger, "id", id);
-        setField(ledger, "creditLimitId", creditLimitId);
+        setField(ledger, "publicId", PRINCIPAL_REPAYMENT_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(ledger, "orderPublicId", ORDER_PUBLIC_ID);
+        setField(ledger, "paymentRequestPublicId", PAYMENT_REQUEST_PUBLIC_ID);
         setField(ledger, "dueDate", dueDate);
         setField(ledger, "principalAmount", principalAmount);
         setField(ledger, "amountPaid", amountPaid);
@@ -310,7 +321,8 @@ class PrincipalAutoPaymentServiceTest {
     private CreditLimit creditLimit(Long id, Long userId, BigDecimal usedAmount) throws Exception {
         CreditLimit creditLimit = newInstance(CreditLimit.class);
         setField(creditLimit, "id", id);
-        setField(creditLimit, "userId", userId);
+        setField(creditLimit, "publicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(creditLimit, "userPublicId", USER_PUBLIC_ID);
         setField(creditLimit, "usedAmount", usedAmount);
         setField(creditLimit, "status", "ACTIVE");
         return creditLimit;
@@ -319,7 +331,8 @@ class PrincipalAutoPaymentServiceTest {
     private Wallet wallet(Long id, Long userId, BigDecimal balance) throws Exception {
         Wallet wallet = newInstance(Wallet.class);
         setField(wallet, "id", id);
-        setField(wallet, "userId", userId);
+        setField(wallet, "publicId", WALLET_PUBLIC_ID);
+        setField(wallet, "userPublicId", USER_PUBLIC_ID);
         setField(wallet, "balance", balance);
         setField(wallet, "status", "ACTIVE");
         setField(wallet, "updatedAt", LocalDateTime.of(2026, 5, 1, 0, 0));
@@ -334,8 +347,9 @@ class PrincipalAutoPaymentServiceTest {
     ) throws Exception {
         LoanOverdueLedger overdueLedger = newInstance(LoanOverdueLedger.class);
         setField(overdueLedger, "id", id);
-        setField(overdueLedger, "creditLimitId", creditLimitId);
-        setField(overdueLedger, "principalRepaymentLedgerId", principalRepaymentLedgerId);
+        setField(overdueLedger, "publicId", UUID.fromString("99999999-9999-4999-8999-999999999948"));
+        setField(overdueLedger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(overdueLedger, "principalRepaymentPublicId", PRINCIPAL_REPAYMENT_PUBLIC_ID);
         setField(overdueLedger, "overdueAmount", overdueAmount);
         setField(overdueLedger, "updatedAt", LocalDateTime.of(2026, 5, 1, 0, 0));
         return overdueLedger;

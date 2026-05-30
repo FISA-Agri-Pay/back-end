@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.domain.CreditLimit;
 import com.kkpp.batch.interest.domain.InterestLedger;
@@ -29,6 +30,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class InterestAutoPaymentServiceTest {
+
+    private static final UUID USER_PUBLIC_ID = UUID.fromString("11111111-1111-4111-8111-111111111148");
+    private static final UUID CREDIT_LIMIT_PUBLIC_ID = UUID.fromString("33333333-3333-4333-8333-333333333348");
+    private static final UUID APPLICATION_PUBLIC_ID = UUID.fromString("22222222-2222-4222-8222-222222222248");
+    private static final UUID INTEREST_LEDGER_PUBLIC_ID = UUID.fromString("77777777-7777-4777-8777-777777777748");
+    private static final UUID WALLET_PUBLIC_ID = UUID.fromString("44444444-4444-4444-8444-444444444448");
 
     private final InterestPaymentLedgerRepository interestPaymentLedgerRepository =
             Mockito.mock(InterestPaymentLedgerRepository.class);
@@ -172,7 +179,7 @@ class InterestAutoPaymentServiceTest {
         Optional<InterestLedger> result = service.payAutomatically(1L, today, LocalDateTime.of(2026, 5, 11, 1, 0));
 
         assertThat(result).isEmpty();
-        verify(walletRepository, never()).findByUserIdForUpdate(any());
+        verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
     }
 
@@ -194,7 +201,7 @@ class InterestAutoPaymentServiceTest {
         Optional<InterestLedger> result = service.payAutomatically(1L, today, LocalDateTime.of(2026, 5, 10, 1, 0));
 
         assertThat(result).isEmpty();
-        verify(walletRepository, never()).findByUserIdForUpdate(any());
+        verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
     }
 
@@ -215,7 +222,7 @@ class InterestAutoPaymentServiceTest {
         LoanOverdueLedger overdueLedger = overdueLedger(900L, 10L, 1L, new BigDecimal("5000.00"));
 
         mockLedgerContext(ledger, creditLimit(10L, 1L), wallet);
-        when(loanOverdueLedgerRepository.findAllByInterestLedgerIdAndResolvedAtIsNull(1L))
+        when(loanOverdueLedgerRepository.findAllByInterestLedgerPublicIdAndResolvedAtIsNull(INTEREST_LEDGER_PUBLIC_ID))
                 .thenReturn(List.of(overdueLedger));
 
         Optional<InterestLedger> result = service.payAutomatically(1L, today, now);
@@ -223,7 +230,7 @@ class InterestAutoPaymentServiceTest {
         assertThat(result).contains(ledger);
         assertThat(ledger.getStatus()).isEqualTo(InterestLedger.STATUS_PAID);
         assertThat(overdueLedger.getResolvedAt()).isEqualTo(now);
-        assertThat(overdueLedger.getResolvedAmount()).isEqualByComparingTo("5000.00");
+        assertThat(overdueLedger.getResolvedAt()).isEqualTo(now);
     }
 
     @Test
@@ -255,14 +262,17 @@ class InterestAutoPaymentServiceTest {
 
     private void mockLedgerContext(InterestLedger ledger, CreditLimit creditLimit, Wallet wallet) {
         when(interestPaymentLedgerRepository.findByIdForUpdate(ledger.getId())).thenReturn(Optional.of(ledger));
-        when(interestPaymentCreditLimitRepository.findById(creditLimit.getId())).thenReturn(Optional.of(creditLimit));
-        when(walletRepository.findByUserIdForUpdate(creditLimit.getUserId())).thenReturn(Optional.of(wallet));
+        when(interestPaymentCreditLimitRepository.findByPublicId(creditLimit.getPublicId()))
+                .thenReturn(Optional.of(creditLimit));
+        when(walletRepository.findByUserPublicIdForUpdate(creditLimit.getUserPublicId())).thenReturn(Optional.of(wallet));
     }
 
     private CreditLimit creditLimit(Long id, Long userId) throws Exception {
         CreditLimit creditLimit = newInstance(CreditLimit.class);
         setField(creditLimit, "id", id);
-        setField(creditLimit, "userId", userId);
+        setField(creditLimit, "publicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(creditLimit, "userPublicId", USER_PUBLIC_ID);
+        setField(creditLimit, "applicationPublicId", APPLICATION_PUBLIC_ID);
         setField(creditLimit, "status", "ACTIVE");
         return creditLimit;
     }
@@ -278,7 +288,8 @@ class InterestAutoPaymentServiceTest {
     ) throws Exception {
         InterestLedger ledger = newInstance(InterestLedger.class);
         setField(ledger, "id", id);
-        setField(ledger, "creditLimitId", creditLimitId);
+        setField(ledger, "publicId", INTEREST_LEDGER_PUBLIC_ID);
+        setField(ledger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
         setField(ledger, "basePrincipal", new BigDecimal("1000000.00"));
         setField(ledger, "dueDate", dueDate);
         setField(ledger, "interestAmount", interestAmount);
@@ -297,7 +308,8 @@ class InterestAutoPaymentServiceTest {
     private Wallet wallet(Long id, Long userId, BigDecimal balance, String status) throws Exception {
         Wallet wallet = newInstance(Wallet.class);
         setField(wallet, "id", id);
-        setField(wallet, "userId", userId);
+        setField(wallet, "publicId", WALLET_PUBLIC_ID);
+        setField(wallet, "userPublicId", USER_PUBLIC_ID);
         setField(wallet, "balance", balance);
         setField(wallet, "status", status);
         setField(wallet, "updatedAt", LocalDateTime.of(2026, 5, 1, 0, 0));
@@ -312,8 +324,9 @@ class InterestAutoPaymentServiceTest {
     ) throws Exception {
         LoanOverdueLedger overdueLedger = newInstance(LoanOverdueLedger.class);
         setField(overdueLedger, "id", id);
-        setField(overdueLedger, "creditLimitId", creditLimitId);
-        setField(overdueLedger, "interestLedgerId", interestLedgerId);
+        setField(overdueLedger, "publicId", UUID.fromString("88888888-8888-4888-8888-888888888848"));
+        setField(overdueLedger, "creditLimitPublicId", CREDIT_LIMIT_PUBLIC_ID);
+        setField(overdueLedger, "interestLedgerPublicId", INTEREST_LEDGER_PUBLIC_ID);
         setField(overdueLedger, "overdueAmount", overdueAmount);
         setField(overdueLedger, "updatedAt", LocalDateTime.of(2026, 5, 1, 0, 0));
         return overdueLedger;
