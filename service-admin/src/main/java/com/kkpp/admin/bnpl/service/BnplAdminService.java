@@ -22,6 +22,7 @@ import com.kkpp.admin.bnpl.repository.BnplAuditLogRepository;
 import com.kkpp.admin.bnpl.repository.BnplAdminUserRepository;
 import com.kkpp.admin.bnpl.repository.BnplCreditLimitRepository;
 import com.kkpp.admin.bnpl.repository.BnplNotificationRepository;
+import com.kkpp.admin.bnpl.repository.BnplOrderRepository;
 import com.kkpp.admin.bnpl.repository.BnplUserRepository;
 import com.kkpp.admin.bnpl.repository.InterestLedgerRepository;
 import com.kkpp.admin.bnpl.repository.LoanOverdueLedgerRepository;
@@ -74,6 +75,7 @@ public class BnplAdminService {
     private final BnplAdminUserRepository adminUserRepository;
     private final BnplUserRepository userRepository;
     private final PlatformTransactionManager transactionManager;
+    private final BnplOrderRepository orderRepository;
 
     // API 1 — 이용 현황 KPI 조회
     // 총 이용 잔액 / 당월 회수 예정액 / 연체 금액 세 가지 수치를 한 번에 산정한다.
@@ -81,6 +83,7 @@ public class BnplAdminService {
     public BnplSummaryResponse getBnplSummary() {
         log.debug("BNPL 이용 현황 KPI 조회 요청");
 
+        long totalUsageCount = orderRepository.countBnplUsageOrders();
         BigDecimal totalBalance = creditLimitRepository.sumActiveUsedAmount();
 
         YearMonth currentMonth = YearMonth.now();
@@ -92,11 +95,16 @@ public class BnplAdminService {
 
         BigDecimal overdueAmount = overdueRepository.sumUnresolvedOverdueAmount();
         boolean isOverdueAlert = overdueAmount.compareTo(OVERDUE_ALERT_THRESHOLD) > 0;
+        BnplSummaryResponse.StatusCounts statusCounts = new BnplSummaryResponse.StatusCounts(
+                creditLimitRepository.countNormalUsers(),
+                overdueRepository.countDistinctOverdueUsers(),
+                creditLimitRepository.countSuspendedUsers()
+        );
 
         log.debug("BNPL 이용 현황 KPI 조회 완료: totalBalance={}, scheduledRepayment={}, overdueAmount={}, isOverdueAlert={}",
                 totalBalance, scheduledRepayment, overdueAmount, isOverdueAlert);
 
-        return new BnplSummaryResponse(totalBalance, scheduledRepayment, overdueAmount, isOverdueAlert);
+        return new BnplSummaryResponse(totalUsageCount, totalBalance, scheduledRepayment, overdueAmount, isOverdueAlert, statusCounts);
     }
 
     // API 2 — 사용자별 BNPL 이용 현황 목록 조회

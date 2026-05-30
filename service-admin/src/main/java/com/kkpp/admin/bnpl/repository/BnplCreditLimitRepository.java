@@ -19,6 +19,38 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
     @Query("SELECT COALESCE(SUM(cl.usedAmount), 0) FROM BnplCreditLimit cl WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE")
     BigDecimal sumActiveUsedAmount();
 
+    @Query("""
+            SELECT COUNT(cl)
+            FROM BnplCreditLimit cl
+            WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE
+              AND cl.createdAt = (
+                  SELECT MAX(latest.createdAt)
+                  FROM BnplCreditLimit latest
+                  WHERE latest.userPublicId = cl.userPublicId
+                    AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                          com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              )
+              AND NOT EXISTS (SELECT 1 FROM LoanOverdueLedger lol
+                              WHERE lol.userPublicId = cl.userPublicId AND lol.resolvedAt IS NULL)
+            """)
+    long countNormalUsers();
+
+    @Query("""
+            SELECT COUNT(cl)
+            FROM BnplCreditLimit cl
+            WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED
+              AND cl.createdAt = (
+                  SELECT MAX(latest.createdAt)
+                  FROM BnplCreditLimit latest
+                  WHERE latest.userPublicId = cl.userPublicId
+                    AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                          com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              )
+              AND NOT EXISTS (SELECT 1 FROM LoanOverdueLedger lol
+                              WHERE lol.userPublicId = cl.userPublicId AND lol.resolvedAt IS NULL)
+            """)
+    long countSuspendedUsers();
+
     // 사용자 publicId로 활성 한도 조회 — 단건 알림 발송 전 사용자 존재 확인용
     @Query("""
             SELECT cl
@@ -45,17 +77,24 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
                         CASE WHEN EXISTS (SELECT 1 FROM LoanOverdueLedger lol
                                           WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL)
                              THEN true ELSE false END,
-                        CASE WHEN cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED
-                             THEN 'SUSPENDED'
-                             WHEN EXISTS (SELECT 1 FROM LoanOverdueLedger lol
+                        CASE WHEN EXISTS (SELECT 1 FROM LoanOverdueLedger lol
                                           WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL)
                              THEN 'OVERDUE'
+                             WHEN cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED
+                             THEN 'SUSPENDED'
                              ELSE 'NORMAL' END
                     )
                     FROM BnplCreditLimit cl, BnplUser u
                     WHERE cl.userPublicId = u.publicId
                       AND cl.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
                                         com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+                      AND cl.createdAt = (
+                          SELECT MAX(latest.createdAt)
+                          FROM BnplCreditLimit latest
+                          WHERE latest.userPublicId = cl.userPublicId
+                            AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                                  com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+                      )
                       AND (:search IS NULL OR u.name LIKE :searchPattern OR u.phone LIKE :searchPattern)
                       AND cl.createdAt >= :startDate
                       AND cl.createdAt <= :endDate
@@ -68,7 +107,9 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
                                AND EXISTS (SELECT 1 FROM LoanOverdueLedger lol
                                            WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL))
                            OR (:status = 'SUSPENDED'
-                               AND cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED))
+                               AND cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED
+                               AND NOT EXISTS (SELECT 1 FROM LoanOverdueLedger lol
+                                               WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL)))
                     ORDER BY u.name ASC
                     """,
             countQuery = """
@@ -77,6 +118,13 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
                     WHERE cl.userPublicId = u.publicId
                       AND cl.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
                                         com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+                      AND cl.createdAt = (
+                          SELECT MAX(latest.createdAt)
+                          FROM BnplCreditLimit latest
+                          WHERE latest.userPublicId = cl.userPublicId
+                            AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                                  com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+                      )
                       AND (:search IS NULL OR u.name LIKE :searchPattern OR u.phone LIKE :searchPattern)
                       AND cl.createdAt >= :startDate
                       AND cl.createdAt <= :endDate
@@ -89,7 +137,9 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
                                AND EXISTS (SELECT 1 FROM LoanOverdueLedger lol
                                            WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL))
                            OR (:status = 'SUSPENDED'
-                               AND cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED))
+                               AND cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED
+                               AND NOT EXISTS (SELECT 1 FROM LoanOverdueLedger lol
+                                               WHERE lol.userPublicId = u.publicId AND lol.resolvedAt IS NULL)))
                     """
     )
     Page<BnplUserSummaryResponse> findBnplUsers(

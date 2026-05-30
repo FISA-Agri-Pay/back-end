@@ -59,6 +59,8 @@ public interface LoanOverdueLedgerRepository extends JpaRepository<LoanOverdueLe
                         lol.overdueDays,
                         lol.stage,
                         COALESCE(il.dueDate, prl.dueDate),
+                        prl.orderPublicId,
+                        prl.paymentRequestPublicId,
                         (SELECT MAX(n.createdAt) FROM BnplNotification n
                          WHERE n.userPublicId = lol.userPublicId
                            AND n.notificationType LIKE 'OVERDUE_ALERT_%')

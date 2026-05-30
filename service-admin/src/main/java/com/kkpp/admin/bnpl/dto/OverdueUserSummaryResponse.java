@@ -19,6 +19,8 @@ public record OverdueUserSummaryResponse(
         Integer overdueDays,
         OverdueStage stage,
         LocalDate dueDate,
+        UUID orderId,
+        UUID paymentRequestId,
         LocalDateTime alertSentAt
 ) {
 }
