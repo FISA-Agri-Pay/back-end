@@ -56,8 +56,9 @@
                 )]) {
                     sh """
                         rm -rf gitops
-                        git clone http://\${GIT_USER}:\${GIT_PASS}@${GITOPS_REPO_URL.replaceFirst('https?://', '')} gitops
+                        git -c credential.helper="!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f" clone ${GITOPS_REPO_URL} gitops
                         cd gitops
+                        git config credential.helper "!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f"
                         sed -i "s|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:.*|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG}|" on-prem/${SERVICE}/deployment.yaml
                         git config user.email "jenkins@kkpp.com"
                         git config user.name "Jenkins"
