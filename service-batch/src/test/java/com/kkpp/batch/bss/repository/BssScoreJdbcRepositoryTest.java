@@ -15,6 +15,7 @@ import com.kkpp.batch.bss.dto.BssCalculationResult;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -45,6 +46,17 @@ class BssScoreJdbcRepositoryTest {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
         verify(jdbcTemplate, times(2)).update(sqlCaptor.capture(), paramsCaptor.capture());
+
+        ArgumentCaptor<String> lockSqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> lockParamsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).query(
+                lockSqlCaptor.capture(),
+                lockParamsCaptor.capture(),
+                org.mockito.ArgumentMatchers.<ResultSetExtractor<Object>>any()
+        );
+        assertThat(lockSqlCaptor.getValue()).contains("pg_advisory_xact_lock");
+        assertThat(lockParamsCaptor.getValue().getValue("lockKey"))
+                .isEqualTo("bss:monthly:%s:2026:5".formatted(USER_PUBLIC_ID));
 
         String updateSql = sqlCaptor.getAllValues().get(0);
         assertThat(updateSql).contains("UPDATE core.bss_scores");
@@ -117,5 +129,8 @@ class BssScoreJdbcRepositoryTest {
         assertThatThrownBy(() -> repository.upsertMonthly(result))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("월별 BSS 점수가 중복 저장되어 있습니다.");
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).update(sqlCaptor.capture(), any(MapSqlParameterSource.class));
+        assertThat(sqlCaptor.getValue()).contains("UPDATE core.bss_scores");
     }
 }
