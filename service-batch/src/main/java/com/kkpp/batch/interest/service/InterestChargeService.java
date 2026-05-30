@@ -51,7 +51,7 @@ public class InterestChargeService {
         }
 
         // 동일 한도와 동일 납부 예정일에 이미 생성된 원장이 있으면 멱등하게 스킵한다.
-        if (interestLedgerRepository.existsByCreditLimitIdAndDueDate(creditLimit.getId(), dueDate)) {
+        if (interestLedgerRepository.existsByCreditLimitPublicIdAndDueDate(creditLimit.getPublicId(), dueDate)) {
             return Optional.empty();
         }
 
@@ -59,7 +59,7 @@ public class InterestChargeService {
         BigDecimal interestAmount = calculateMonthlyInterest(basePrincipal, creditLimit.getInterestRate());
 
         return Optional.of(InterestLedger.create(
-                creditLimit.getId(),
+                creditLimit.getPublicId(),
                 basePrincipal,
                 dueDate,
                 interestAmount,
@@ -84,8 +84,8 @@ public class InterestChargeService {
             throw new IllegalArgumentException("이자 원장 생성 시각이 없습니다.");
         }
         if (creditLimit.getPrincipalDueDate() == null) {
-            throw new IllegalStateException("credit_limits.principal_due_date가 없어 이자 원장을 생성할 수 없습니다. creditLimitId="
-                    + creditLimit.getId());
+            throw new IllegalStateException("credit_limits.principal_due_date가 없어 이자 원장을 생성할 수 없습니다. creditLimitPublicId="
+                    + creditLimit.getPublicId());
         }
     }
 
@@ -95,8 +95,8 @@ public class InterestChargeService {
             return DEFAULT_INTEREST_DUE_DAY;
         }
         if (interestDueDay < MIN_INTEREST_DUE_DAY || interestDueDay > MAX_INTEREST_DUE_DAY) {
-            throw new IllegalStateException("credit_limits.interest_due_day는 1~28 사이여야 합니다. creditLimitId="
-                    + creditLimit.getId() + ", interestDueDay=" + interestDueDay);
+            throw new IllegalStateException("credit_limits.interest_due_day는 1~28 사이여야 합니다. creditLimitPublicId="
+                    + creditLimit.getPublicId() + ", interestDueDay=" + interestDueDay);
         }
         return interestDueDay;
     }

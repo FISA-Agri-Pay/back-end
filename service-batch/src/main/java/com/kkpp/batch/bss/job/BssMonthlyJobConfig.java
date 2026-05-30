@@ -105,7 +105,7 @@ public class BssMonthlyJobConfig {
         return creditLimit -> bssCalculationService.calculate(creditLimit, targetMonth, calculatedAt);
     }
 
-    // 월별 BSS는 application_id가 없는 사용자 단위 점수이므로 partial unique index에 맞춘 JDBC upsert를 사용한다.
+    // 월별 BSS는 application_public_id가 없는 사용자 단위 점수로 저장한다.
     @Bean
     public ItemWriter<BssCalculationResult> bssMonthlyWriter(BssScoreJdbcRepository bssScoreJdbcRepository) {
         return chunk -> {

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -34,7 +35,16 @@ public class PrincipalRepaymentLedger extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
+
+    @Column(nullable = false)
+    private UUID orderPublicId;
+
+    @Column(nullable = false)
+    private UUID paymentRequestPublicId;
 
     @Column(nullable = false)
     private LocalDate dueDate;

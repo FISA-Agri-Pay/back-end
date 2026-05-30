@@ -1,6 +1,7 @@
 package com.kkpp.batch.principal.repayment.repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.principal.repayment.domain.CreditLimit;
 import jakarta.persistence.LockModeType;
@@ -14,6 +15,6 @@ import org.springframework.stereotype.Repository;
 public interface PrincipalRepaymentCreditLimitRepository extends JpaRepository<CreditLimit, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT c FROM PrincipalRepaymentCreditLimit c WHERE c.id = :id")
-    Optional<CreditLimit> findByIdForUpdate(@Param("id") Long id);
+    @Query("SELECT c FROM PrincipalRepaymentCreditLimit c WHERE c.publicId = :publicId")
+    Optional<CreditLimit> findByPublicIdForUpdate(@Param("publicId") UUID publicId);
 }

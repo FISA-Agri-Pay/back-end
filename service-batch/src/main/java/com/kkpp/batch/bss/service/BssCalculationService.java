@@ -54,7 +54,7 @@ public class BssCalculationService {
         int totalScore = repaymentScore + overdueScore + usageScore;
 
         return new BssCalculationResult(
-                source.userId(),
+                source.userPublicId(),
                 repaymentScore,
                 overdueScore,
                 usageScore,
@@ -74,19 +74,19 @@ public class BssCalculationService {
         LocalDate endDateExclusive = period.plusMonths(1).atDay(1);
 
         List<InterestLedger> interests =
-                interestLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
-                        creditLimit.getId(),
+                interestLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                        creditLimit.getPublicId(),
                         startDate,
                         endDateExclusive
                 );
         List<PrincipalRepaymentLedger> principals =
-                principalRepaymentLedgerRepository.findAllByCreditLimitIdAndDueDateGreaterThanEqualAndDueDateLessThan(
-                        creditLimit.getId(),
+                principalRepaymentLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                        creditLimit.getPublicId(),
                         startDate,
                         endDateExclusive
                 );
         List<LoanOverdueLedger> overdues = loanOverdueLedgerRepository.findMonthlyOverdues(
-                creditLimit.getId(),
+                creditLimit.getPublicId(),
                 startDate.atStartOfDay(),
                 endDateExclusive.atStartOfDay()
         );
@@ -112,7 +112,7 @@ public class BssCalculationService {
                 .orElse(0);
 
         return new BssCalculationSource(
-                creditLimit.getUserId(),
+                creditLimit.getUserPublicId(),
                 creditLimit.getTotalLimit(),
                 creditLimit.getUsedAmount(),
                 interestBilledAmount,

@@ -3,6 +3,7 @@ package com.kkpp.batch.overdue.domain;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -30,58 +31,76 @@ public class LoanOverdueLedger extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID userPublicId;
 
-    private Long interestLedgerId;
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
 
-    private Long principalRepaymentLedgerId;
+    private UUID interestLedgerPublicId;
+
+    private UUID principalRepaymentPublicId;
+
+    @Column(nullable = false)
+    private String overdueType;
 
     @Column(nullable = false)
     private BigDecimal overdueAmount;
-
-    private BigDecimal resolvedAmount;
 
     @Column(nullable = false)
     private Integer overdueDays;
 
     private String stage;
 
+    @Column(nullable = false)
+    private BigDecimal penaltyRate;
+
+    @Column(nullable = false)
+    private BigDecimal penaltyAmount;
+
     private LocalDateTime resolvedAt;
 
     public static LoanOverdueLedger interestOverdue(
-            Long userId,
-            Long creditLimitId,
-            Long interestLedgerId,
+            UUID userPublicId,
+            UUID creditLimitPublicId,
+            UUID interestLedgerPublicId,
             BigDecimal overdueAmount,
             int overdueDays
     ) {
         LoanOverdueLedger ledger = new LoanOverdueLedger();
-        ledger.userId = userId;
-        ledger.creditLimitId = creditLimitId;
-        ledger.interestLedgerId = interestLedgerId;
+        ledger.publicId = UUID.randomUUID();
+        ledger.userPublicId = userPublicId;
+        ledger.creditLimitPublicId = creditLimitPublicId;
+        ledger.interestLedgerPublicId = interestLedgerPublicId;
+        ledger.overdueType = "INTEREST";
         ledger.overdueAmount = toMoney(overdueAmount);
         ledger.overdueDays = overdueDays;
         ledger.stage = STAGE_ACTIVE;
+        ledger.penaltyRate = BigDecimal.ZERO;
+        ledger.penaltyAmount = BigDecimal.ZERO.setScale(MONEY_SCALE);
         return ledger;
     }
 
     public static LoanOverdueLedger principalOverdue(
-            Long userId,
-            Long creditLimitId,
-            Long principalRepaymentLedgerId,
+            UUID userPublicId,
+            UUID creditLimitPublicId,
+            UUID principalRepaymentPublicId,
             BigDecimal overdueAmount,
             int overdueDays
     ) {
         LoanOverdueLedger ledger = new LoanOverdueLedger();
-        ledger.userId = userId;
-        ledger.creditLimitId = creditLimitId;
-        ledger.principalRepaymentLedgerId = principalRepaymentLedgerId;
+        ledger.publicId = UUID.randomUUID();
+        ledger.userPublicId = userPublicId;
+        ledger.creditLimitPublicId = creditLimitPublicId;
+        ledger.principalRepaymentPublicId = principalRepaymentPublicId;
+        ledger.overdueType = "PRINCIPAL";
         ledger.overdueAmount = toMoney(overdueAmount);
         ledger.overdueDays = overdueDays;
         ledger.stage = STAGE_ACTIVE;
+        ledger.penaltyRate = BigDecimal.ZERO;
+        ledger.penaltyAmount = BigDecimal.ZERO.setScale(MONEY_SCALE);
         return ledger;
     }
 

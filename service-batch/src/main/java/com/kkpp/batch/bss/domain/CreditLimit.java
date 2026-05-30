@@ -1,6 +1,7 @@
 package com.kkpp.batch.bss.domain;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -24,9 +25,12 @@ public class CreditLimit extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
 
-    private Long applicationId;
+    @Column(nullable = false)
+    private UUID userPublicId;
+
+    private UUID applicationPublicId;
 
     @Column(nullable = false)
     private BigDecimal totalLimit;

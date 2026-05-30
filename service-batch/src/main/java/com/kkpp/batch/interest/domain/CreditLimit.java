@@ -2,6 +2,7 @@ package com.kkpp.batch.interest.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,7 +25,13 @@ public class CreditLimit {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID userPublicId;
+
+    @Column(nullable = false)
+    private UUID applicationPublicId;
 
     @Column(nullable = false)
     private String cropTypeSnapshot;
