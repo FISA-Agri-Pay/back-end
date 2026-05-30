@@ -1,4 +1,6 @@
 FROM eclipse-temurin:21-jre-alpine
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
-COPY build/libs/*-SNAPSHOT.jar app.jar
+COPY --chown=appuser:appgroup build/libs/*-SNAPSHOT.jar app.jar
+USER appuser
 ENTRYPOINT ["java", "-jar", "app.jar"]
