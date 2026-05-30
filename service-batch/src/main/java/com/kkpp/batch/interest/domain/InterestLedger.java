@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,7 +34,10 @@ public class InterestLedger {
     private Long id;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
 
     @Column(nullable = false)
     private BigDecimal basePrincipal;
@@ -60,14 +64,15 @@ public class InterestLedger {
 
     // 새로 생성되는 월별 이자 원장은 아직 납부 전인 UPCOMING 상태로 시작한다.
     public static InterestLedger create(
-            Long creditLimitId,
+            UUID creditLimitPublicId,
             BigDecimal basePrincipal,
             LocalDate dueDate,
             BigDecimal interestAmount,
             LocalDateTime now
     ) {
         InterestLedger ledger = new InterestLedger();
-        ledger.creditLimitId = creditLimitId;
+        ledger.publicId = UUID.randomUUID();
+        ledger.creditLimitPublicId = creditLimitPublicId;
         ledger.basePrincipal = basePrincipal;
         ledger.dueDate = dueDate;
         ledger.interestAmount = toMoney(interestAmount);

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.payment.domain.Wallet;
 import com.kkpp.batch.interest.payment.domain.WalletTransaction;
@@ -33,21 +34,21 @@ public class PrincipalAutoPaymentService {
 
     @Transactional
     public Optional<PrincipalRepaymentLedger> payAutomatically(
-            Long principalRepaymentLedgerId,
+            Long principalRepaymentLedgerPrimaryKey,
             LocalDate today,
             LocalDateTime now
     ) {
-        validateRequiredInput(principalRepaymentLedgerId, today, now);
+        validateRequiredInput(principalRepaymentLedgerPrimaryKey, today, now);
 
         // Reader가 읽은 뒤 원장 상태가 바뀌었을 수 있으므로 원장을 다시 잠금 조회한다.
         PrincipalRepaymentLedger principalLedger = principalRepaymentLedgerRepository
-                .findByIdForUpdate(principalRepaymentLedgerId)
-                .orElseThrow(() -> new IllegalStateException("자동 원금 상환 대상 원장을 찾을 수 없습니다. principalLedgerId="
-                        + principalRepaymentLedgerId));
+                .findByIdForUpdate(principalRepaymentLedgerPrimaryKey)
+                .orElseThrow(() -> new IllegalStateException("자동 원금 상환 대상 원장을 찾을 수 없습니다. principalLedgerPrimaryKey="
+                        + principalRepaymentLedgerPrimaryKey));
 
         if (!principalLedger.isPayableOn(today)) {
-            log.debug("자동 원금 상환 대상이 아니어서 스킵합니다. principalLedgerId={}, status={}, dueDate={}",
-                    principalLedger.getId(),
+            log.debug("자동 원금 상환 대상이 아니어서 스킵합니다. principalRepaymentPublicId={}, status={}, dueDate={}",
+                    principalLedger.getPublicId(),
                     principalLedger.getStatus(),
                     principalLedger.getDueDate());
             return Optional.empty();
@@ -55,27 +56,27 @@ public class PrincipalAutoPaymentService {
 
         // usedAmount도 함께 갱신해야 하므로 한도도 비관적 락으로 조회한다.
         CreditLimit creditLimit = principalRepaymentCreditLimitRepository
-                .findByIdForUpdate(principalLedger.getCreditLimitId())
-                .orElseThrow(() -> new IllegalStateException("원금 원장과 연결된 한도를 찾을 수 없습니다. creditLimitId="
-                        + principalLedger.getCreditLimitId()));
+                .findByPublicIdForUpdate(principalLedger.getCreditLimitPublicId())
+                .orElseThrow(() -> new IllegalStateException("원금 원장과 연결된 한도를 찾을 수 없습니다. creditLimitPublicId="
+                        + principalLedger.getCreditLimitPublicId()));
 
-        Wallet wallet = walletRepository.findByUserIdForUpdate(creditLimit.getUserId())
-                .orElseThrow(() -> new IllegalStateException("자동 원금 상환 대상 사용자의 지갑을 찾을 수 없습니다. userId="
-                        + creditLimit.getUserId()));
+        Wallet wallet = walletRepository.findByUserPublicIdForUpdate(creditLimit.getUserPublicId())
+                .orElseThrow(() -> new IllegalStateException("자동 원금 상환 대상 사용자의 지갑을 찾을 수 없습니다. userPublicId="
+                        + creditLimit.getUserPublicId()));
 
         if (!wallet.hasBalance()) {
-            log.info("지갑 잔액이 없어 자동 원금 상환을 스킵합니다. principalLedgerId={}, creditLimitId={}",
-                    principalLedger.getId(),
-                    creditLimit.getId());
+            log.info("지갑 잔액이 없어 자동 원금 상환을 스킵합니다. principalRepaymentPublicId={}, creditLimitPublicId={}",
+                    principalLedger.getPublicId(),
+                    creditLimit.getPublicId());
             return Optional.empty();
         }
 
         // 지갑 차감액, 원장 납부 증가액, 한도 사용액 감소액은 반드시 같은 금액이어야 한다.
         BigDecimal payableAmount = min(wallet.getBalance(), principalLedger.getUnpaidAmount(), creditLimit.getUsedAmount());
         if (payableAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            log.info("상환 가능 금액이 없어 자동 원금 상환을 스킵합니다. principalLedgerId={}, creditLimitId={}",
-                    principalLedger.getId(),
-                    creditLimit.getId());
+            log.info("상환 가능 금액이 없어 자동 원금 상환을 스킵합니다. principalRepaymentPublicId={}, creditLimitPublicId={}",
+                    principalLedger.getPublicId(),
+                    creditLimit.getPublicId());
             return Optional.empty();
         }
 
@@ -85,31 +86,31 @@ public class PrincipalAutoPaymentService {
         principalLedger.applyPayment(payableAmount, today, now);
         creditLimit.decreaseUsedAmount(payableAmount);
         walletTransactionRepository.save(WalletTransaction.principalPayment(
-                wallet.getId(),
+                wallet.getPublicId(),
                 payableAmount,
                 wallet.getBalance(),
-                principalLedger.getId(),
+                principalLedger.getPublicId(),
                 now
         ));
 
-        log.info("자동 원금 상환을 처리했습니다. principalLedgerId={}, creditLimitId={}, ledgerStatus={}",
-                principalLedger.getId(),
-                creditLimit.getId(),
+        log.info("자동 원금 상환을 처리했습니다. principalRepaymentPublicId={}, creditLimitPublicId={}, ledgerStatus={}",
+                principalLedger.getPublicId(),
+                creditLimit.getPublicId(),
                 principalLedger.getStatus());
 
         if (wasOverdue && principalLedger.isPaid()) {
-            resolvePrincipalOverdues(principalLedger.getId(), now);
-            log.info("자동 원금 상환으로 연체 이력을 해소했습니다. principalLedgerId={}", principalLedger.getId());
+            resolvePrincipalOverdues(principalLedger.getPublicId(), now);
+            log.info("자동 원금 상환으로 연체 이력을 해소했습니다. principalRepaymentPublicId={}", principalLedger.getPublicId());
         }
 
         return Optional.of(principalLedger);
     }
 
-    private void resolvePrincipalOverdues(Long principalRepaymentLedgerId, LocalDateTime resolvedAt) {
+    private void resolvePrincipalOverdues(UUID principalRepaymentPublicId, LocalDateTime resolvedAt) {
         // 신규 연체 생성은 연체 감지 배치 책임이다. 이 배치는 이미 존재하는 원금 연체만 해소 처리한다.
         for (LoanOverdueLedger overdueLedger :
-                loanOverdueLedgerRepository.findAllByPrincipalRepaymentLedgerIdAndResolvedAtIsNull(
-                        principalRepaymentLedgerId)) {
+                loanOverdueLedgerRepository.findAllByPrincipalRepaymentPublicIdAndResolvedAtIsNull(
+                        principalRepaymentPublicId)) {
             overdueLedger.resolve(resolvedAt);
         }
     }
@@ -118,8 +119,8 @@ public class PrincipalAutoPaymentService {
         return first.min(second).min(third);
     }
 
-    private void validateRequiredInput(Long principalRepaymentLedgerId, LocalDate today, LocalDateTime now) {
-        if (principalRepaymentLedgerId == null) {
+    private void validateRequiredInput(Long principalRepaymentLedgerPrimaryKey, LocalDate today, LocalDateTime now) {
+        if (principalRepaymentLedgerPrimaryKey == null) {
             throw new IllegalArgumentException("자동 원금 상환 대상 원장 id가 없습니다.");
         }
         if (today == null) {

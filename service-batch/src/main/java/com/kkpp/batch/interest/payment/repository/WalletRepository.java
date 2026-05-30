@@ -1,6 +1,7 @@
 package com.kkpp.batch.interest.payment.repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import com.kkpp.batch.interest.payment.domain.Wallet;
 import jakarta.persistence.LockModeType;
@@ -14,6 +15,6 @@ import org.springframework.stereotype.Repository;
 public interface WalletRepository extends JpaRepository<Wallet, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT w FROM InterestPaymentWallet w WHERE w.userId = :userId")
-    Optional<Wallet> findByUserIdForUpdate(@Param("userId") Long userId);
+    @Query("SELECT w FROM InterestPaymentWallet w WHERE w.userPublicId = :userPublicId")
+    Optional<Wallet> findByUserPublicIdForUpdate(@Param("userPublicId") UUID userPublicId);
 }

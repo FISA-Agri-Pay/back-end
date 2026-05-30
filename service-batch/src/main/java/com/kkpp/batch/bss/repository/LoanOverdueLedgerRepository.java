@@ -2,6 +2,7 @@ package com.kkpp.batch.bss.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.kkpp.batch.bss.domain.LoanOverdueLedger;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,12 +14,12 @@ public interface LoanOverdueLedgerRepository extends JpaRepository<LoanOverdueLe
     @Query("""
             SELECT l
             FROM LoanOverdueLedger l
-            WHERE l.creditLimitId = :creditLimitId
+            WHERE l.creditLimitPublicId = :creditLimitPublicId
               AND l.createdAt < :endDateExclusive
               AND (l.resolvedAt IS NULL OR l.resolvedAt >= :startDate)
             """)
     List<LoanOverdueLedger> findMonthlyOverdues(
-            @Param("creditLimitId") Long creditLimitId,
+            @Param("creditLimitPublicId") UUID creditLimitPublicId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDateExclusive") LocalDateTime endDateExclusive
     );

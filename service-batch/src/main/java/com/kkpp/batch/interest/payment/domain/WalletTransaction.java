@@ -2,6 +2,7 @@ package com.kkpp.batch.interest.payment.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
@@ -30,7 +31,10 @@ public class WalletTransaction extends BaseTimeEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long walletId;
+    private UUID publicId;
+
+    @Column(nullable = false)
+    private UUID walletPublicId;
 
     @Column(nullable = false)
     private String transactionType;
@@ -43,7 +47,7 @@ public class WalletTransaction extends BaseTimeEntity {
 
     private String relatedType;
 
-    private Long relatedId;
+    private UUID relatedPublicId;
 
     private String description;
 
@@ -51,38 +55,40 @@ public class WalletTransaction extends BaseTimeEntity {
     private LocalDateTime transactedAt;
 
     public static WalletTransaction interestPayment(
-            Long walletId,
+            UUID walletPublicId,
             BigDecimal amount,
             BigDecimal balanceAfter,
-            Long interestLedgerId,
+            UUID interestLedgerPublicId,
             LocalDateTime now
     ) {
         WalletTransaction transaction = new WalletTransaction();
-        transaction.walletId = walletId;
+        transaction.publicId = UUID.randomUUID();
+        transaction.walletPublicId = walletPublicId;
         transaction.transactionType = TYPE_INTEREST_PAYMENT;
         transaction.amount = amount;
         transaction.balanceAfter = balanceAfter;
         transaction.relatedType = RELATED_TYPE_INTEREST_LEDGER;
-        transaction.relatedId = interestLedgerId;
+        transaction.relatedPublicId = interestLedgerPublicId;
         transaction.description = "이자 자동 상환";
         transaction.transactedAt = now;
         return transaction;
     }
 
     public static WalletTransaction principalPayment(
-            Long walletId,
+            UUID walletPublicId,
             BigDecimal amount,
             BigDecimal balanceAfter,
-            Long principalRepaymentLedgerId,
+            UUID principalRepaymentLedgerPublicId,
             LocalDateTime now
     ) {
         WalletTransaction transaction = new WalletTransaction();
-        transaction.walletId = walletId;
+        transaction.publicId = UUID.randomUUID();
+        transaction.walletPublicId = walletPublicId;
         transaction.transactionType = TYPE_PRINCIPAL_PAYMENT;
         transaction.amount = amount;
         transaction.balanceAfter = balanceAfter;
         transaction.relatedType = RELATED_TYPE_PRINCIPAL_REPAYMENT_LEDGER;
-        transaction.relatedId = principalRepaymentLedgerId;
+        transaction.relatedPublicId = principalRepaymentLedgerPublicId;
         transaction.description = "원금 자동 상환";
         transaction.transactedAt = now;
         return transaction;

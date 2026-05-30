@@ -10,12 +10,22 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class BssScoreJdbcRepository {
 
-    // bss_scores는 application_id가 NULL인 월별 사용자 점수에 partial unique index를 사용한다.
-    // 그래서 ON CONFLICT ON CONSTRAINT가 아니라 컬럼 목록과 WHERE 조건을 함께 지정한다.
-    private static final String UPSERT_MONTHLY_BSS_SQL = """
+    private static final String UPDATE_MONTHLY_BSS_SQL = """
+            UPDATE core.bss_scores
+            SET monthly_score = :monthlyScore,
+                total_score = :totalScore,
+                calculated_at = :calculatedAt
+            WHERE user_public_id = :userPublicId
+              AND application_public_id IS NULL
+              AND period_type = :periodType
+              AND period_year = :periodYear
+              AND period_month = :periodMonth
+            """;
+
+    private static final String INSERT_MONTHLY_BSS_SQL = """
             INSERT INTO core.bss_scores (
-                user_id,
-                application_id,
+                user_public_id,
+                application_public_id,
                 period_type,
                 period_year,
                 period_month,
@@ -25,7 +35,7 @@ public class BssScoreJdbcRepository {
                 created_at
             )
             VALUES (
-                :userId,
+                :userPublicId,
                 NULL,
                 :periodType,
                 :periodYear,
@@ -35,28 +45,23 @@ public class BssScoreJdbcRepository {
                 :calculatedAt,
                 now()
             )
-            ON CONFLICT (user_id, period_type, period_year, period_month)
-            WHERE application_id IS NULL
-            DO UPDATE SET
-                monthly_score = EXCLUDED.monthly_score,
-                total_score = EXCLUDED.total_score,
-                calculated_at = EXCLUDED.calculated_at
             """;
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    // 같은 사용자와 같은 월의 BSS가 이미 있으면 중복 insert가 아니라 최신 계산값으로 update한다.
     public void upsertMonthly(BssCalculationResult result) {
-        namedParameterJdbcTemplate.update(
-                UPSERT_MONTHLY_BSS_SQL,
-                new MapSqlParameterSource()
-                        .addValue("userId", result.userId())
-                        .addValue("periodType", result.periodType().name())
-                        .addValue("periodYear", result.periodYear())
-                        .addValue("periodMonth", result.periodMonth())
-                        .addValue("monthlyScore", result.monthlyScore())
-                        .addValue("totalScore", result.totalScore())
-                        .addValue("calculatedAt", result.calculatedAt())
-        );
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("userPublicId", result.userPublicId())
+                .addValue("periodType", result.periodType().name())
+                .addValue("periodYear", result.periodYear())
+                .addValue("periodMonth", result.periodMonth())
+                .addValue("monthlyScore", result.monthlyScore())
+                .addValue("totalScore", result.totalScore())
+                .addValue("calculatedAt", result.calculatedAt());
+
+        int updatedCount = namedParameterJdbcTemplate.update(UPDATE_MONTHLY_BSS_SQL, parameters);
+        if (updatedCount == 0) {
+            namedParameterJdbcTemplate.update(INSERT_MONTHLY_BSS_SQL, parameters);
+        }
     }
 }

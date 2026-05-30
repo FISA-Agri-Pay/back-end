@@ -2,6 +2,7 @@ package com.kkpp.batch.interest.payment.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseEntity;
 import jakarta.persistence.Column;
@@ -25,14 +26,15 @@ public class LoanOverdueLedger extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID publicId;
 
-    private Long interestLedgerId;
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
+
+    private UUID interestLedgerPublicId;
 
     @Column(nullable = false)
     private BigDecimal overdueAmount;
-
-    private BigDecimal resolvedAmount;
 
     private LocalDateTime resolvedAt;
 
@@ -46,7 +48,6 @@ public class LoanOverdueLedger extends BaseEntity {
             throw new IllegalArgumentException("연체 해소 시각은 null일 수 없습니다.");
         }
 
-        this.resolvedAmount = overdueAmount;
         this.resolvedAt = resolvedAt;
     }
 }

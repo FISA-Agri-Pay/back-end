@@ -2,6 +2,7 @@ package com.kkpp.batch.bss.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.kkpp.common.core.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
@@ -25,10 +26,20 @@ public class LoanOverdueLedger extends BaseTimeEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID publicId;
 
     @Column(nullable = false)
-    private Long creditLimitId;
+    private UUID userPublicId;
+
+    @Column(nullable = false)
+    private UUID creditLimitPublicId;
+
+    private UUID interestLedgerPublicId;
+
+    private UUID principalRepaymentPublicId;
+
+    @Column(nullable = false)
+    private String overdueType;
 
     @Column(nullable = false)
     private BigDecimal overdueAmount;
