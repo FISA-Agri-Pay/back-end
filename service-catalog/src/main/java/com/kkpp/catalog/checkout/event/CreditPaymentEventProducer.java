@@ -28,21 +28,23 @@ public class CreditPaymentEventProducer {
         try {
             String payload = objectMapper.writeValueAsString(event);
             log.info(
-                    "Publishing credit payment request event. topic={}, checkoutRequestId={}, eventId={}, totalAmount={}",
+                    "외상 결제 요청 이벤트를 발행합니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, totalAmount={}",
                     paymentRequestTopic,
-                    event.checkoutRequestId(),
+                    event.paymentRequestPublicId(),
+                    event.orderPublicId(),
                     event.eventId(),
                     event.totalAmount()
             );
             SendResult<String, String> result = kafkaTemplate
-                    .send(paymentRequestTopic, event.checkoutRequestId().toString(), payload)
+                    .send(paymentRequestTopic, event.paymentRequestPublicId().toString(), payload)
                     .get();
             log.info(
-                    "Published credit payment request event. topic={}, partition={}, offset={}, checkoutRequestId={}, eventId={}",
+                    "외상 결제 요청 이벤트 발행을 완료했습니다. topic={}, partition={}, offset={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                     result.getRecordMetadata().topic(),
                     result.getRecordMetadata().partition(),
                     result.getRecordMetadata().offset(),
-                    event.checkoutRequestId(),
+                    event.paymentRequestPublicId(),
+                    event.orderPublicId(),
                     event.eventId()
             );
         } catch (JsonProcessingException exception) {
@@ -57,9 +59,10 @@ public class CreditPaymentEventProducer {
 
     private BusinessException publishFailure(CreditPaymentRequestedEvent event, Exception exception) {
         log.error(
-                "Failed to publish credit payment request event. topic={}, checkoutRequestId={}, eventId={}",
+                "외상 결제 요청 이벤트 발행에 실패했습니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                 paymentRequestTopic,
-                event.checkoutRequestId(),
+                event.paymentRequestPublicId(),
+                event.orderPublicId(),
                 event.eventId(),
                 exception
         );
