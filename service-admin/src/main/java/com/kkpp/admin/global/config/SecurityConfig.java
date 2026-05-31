@@ -47,8 +47,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // POST 전 브라우저가 보내는 OPTIONS 프리플라이트 요청을 허용함
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
+                        // BNPL 관리자 API는 JWT role 클레임이 ADMIN 또는 SUPER_ADMIN인 경우에만 접근 가능함
                         .requestMatchers("/api/v1/admin/bnpl/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
                         .requestMatchers(
                                 "/health",
                                 "/swagger-ui.html",
