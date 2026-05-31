@@ -67,6 +67,13 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
             WHERE cl.userPublicId = :userPublicId
               AND cl.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
                                 com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              AND cl.id = (
+                  SELECT MAX(latest.id)
+                  FROM BnplCreditLimit latest
+                  WHERE latest.userPublicId = cl.userPublicId
+                    AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                          com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              )
             """)
     Optional<BnplCreditLimit> findActiveByUserPublicId(@Param("userPublicId") UUID userPublicId);
 
