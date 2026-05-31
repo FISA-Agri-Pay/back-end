@@ -21,6 +21,9 @@ import lombok.NoArgsConstructor;
 // 알림 발송 후 해당 사용자의 마지막 발송 시각(alertSentAt) 조회에도 활용된다.
 public class BnplNotification extends BaseTimeEntity {
 
+    private static final int MAX_TITLE_LENGTH = 100;
+    private static final int MAX_NOTIFICATION_TYPE_LENGTH = 30;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -52,13 +55,34 @@ public class BnplNotification extends BaseTimeEntity {
             String content,
             String notificationType
     ) {
+        if (userPublicId == null) {
+            throw new IllegalArgumentException("userPublicId must not be null.");
+        }
+        String validatedTitle = validateRequiredLength(title, "title", MAX_TITLE_LENGTH);
+        String validatedNotificationType = validateRequiredLength(
+                notificationType,
+                "notificationType",
+                MAX_NOTIFICATION_TYPE_LENGTH
+        );
+
         BnplNotification notification = new BnplNotification();
         notification.publicId = UUID.randomUUID();
         notification.userPublicId = userPublicId;
-        notification.title = title;
+        notification.title = validatedTitle;
         notification.content = content;
-        notification.notificationType = notificationType;
+        notification.notificationType = validatedNotificationType;
         notification.read = false;
         return notification;
+    }
+
+    private static String validateRequiredLength(String value, String fieldName, int maxLength) {
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " must not be null.");
+        }
+        String trimmedValue = value.trim();
+        if (trimmedValue.length() > maxLength) {
+            throw new IllegalArgumentException(fieldName + " length must be less than or equal to " + maxLength + ".");
+        }
+        return trimmedValue;
     }
 }
