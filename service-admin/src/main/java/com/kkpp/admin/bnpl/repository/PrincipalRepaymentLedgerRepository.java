@@ -12,7 +12,7 @@ public interface PrincipalRepaymentLedgerRepository extends JpaRepository<Princi
 
     // 이용 현황 KPI — 당월 회수 예정 원금 합계 (미납 잔액 기준)
     @Query("""
-            SELECT COALESCE(SUM(prl.principalAmount - prl.amountPaid), 0)
+            SELECT COALESCE(SUM(prl.principalAmount - COALESCE(prl.amountPaid, 0)), 0)
             FROM PrincipalRepaymentLedger prl
             WHERE prl.status IN (com.kkpp.admin.bnpl.domain.LedgerStatus.UPCOMING,
                                  com.kkpp.admin.bnpl.domain.LedgerStatus.PARTIAL)
