@@ -374,7 +374,7 @@ public class BnplAdminService {
         BnplAuditLog auditLog = BnplAuditLog.create(
                 adminUserPublicId,
                 userPublicId,
-                "OVERDUE_ALERT_SENT",
+                "OVERDUE_ALERT_FAILED",
                 "notifications",
                 saved.getPublicId(),
                 clientIp

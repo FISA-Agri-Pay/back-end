@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "audit_logs", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 관리자 행위 감사 로그를 저장하는 audit_logs 테이블 매핑 엔티티
-// 알림 발송 시 반드시 action = "OVERDUE_ALERT_SENT" 또는 "REPAYMENT_ALERT_SENT" 로 기록한다.
+// 알림 발송 행위는 성공/실패 결과에 맞는 action으로 기록한다.
 public class BnplAuditLog extends BaseTimeEntity {
 
     @Id
