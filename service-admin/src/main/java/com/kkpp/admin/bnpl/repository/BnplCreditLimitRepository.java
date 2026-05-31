@@ -16,7 +16,16 @@ import org.springframework.data.repository.query.Param;
 public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit, Long> {
 
     // 이용 현황 KPI — 전체 ACTIVE 한도의 사용 금액 합계
-    @Query("SELECT COALESCE(SUM(cl.usedAmount), 0) FROM BnplCreditLimit cl WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE")
+    @Query("""
+            SELECT COALESCE(SUM(cl.usedAmount), 0)
+            FROM BnplCreditLimit cl
+            WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE
+              AND cl.id = (
+                  SELECT MAX(latest.id)
+                  FROM BnplCreditLimit latest
+                  WHERE latest.userPublicId = cl.userPublicId
+              )
+            """)
     BigDecimal sumActiveUsedAmount();
 
     @Query("""
