@@ -65,6 +65,7 @@ public class BnplAdminService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final LocalDate MIN_FILTER_DATE = LocalDate.of(1900, 1, 1);
     private static final LocalDate MAX_FILTER_DATE = LocalDate.of(9999, 12, 31);
+    private static final String OVERDUE_ALERT_INTERNAL_FAILURE_REASON = "연체 알림 처리 중 오류가 발생했습니다.";
 
     private final BnplCreditLimitRepository creditLimitRepository;
     private final InterestLedgerRepository interestLedgerRepository;
@@ -312,8 +313,8 @@ public class BnplAdminService {
                     sendSingleOverdueAlert(userPublicId, channel, content, adminUserPublicId, clientIp)
             );
         } catch (Exception e) {
-            log.warn("연체 알림 발송 트랜잭션 실패: userPublicId={}, reason={}", userPublicId, e.getMessage());
-            return new OverdueAlertItemResponse(userPublicId.toString(), "FAIL", null, e.getMessage());
+            log.warn("연체 알림 발송 트랜잭션 실패: userPublicId={}", userPublicId, e);
+            return new OverdueAlertItemResponse(userPublicId.toString(), "FAIL", null, OVERDUE_ALERT_INTERNAL_FAILURE_REASON);
         }
     }
 
@@ -350,8 +351,8 @@ public class BnplAdminService {
 
             return new OverdueAlertItemResponse(userPublicId.toString(), "SUCCESS", Instant.now(), null);
         } catch (Exception e) {
-            log.warn("연체 알림 발송 실패: userPublicId={}, reason={}", userPublicId, e.getMessage());
-            return new OverdueAlertItemResponse(userPublicId.toString(), "FAIL", null, e.getMessage());
+            log.warn("연체 알림 발송 실패: userPublicId={}", userPublicId, e);
+            return new OverdueAlertItemResponse(userPublicId.toString(), "FAIL", null, OVERDUE_ALERT_INTERNAL_FAILURE_REASON);
         }
     }
 
