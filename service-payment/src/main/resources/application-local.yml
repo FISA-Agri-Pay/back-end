@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
+    username: ${DB_USERNAME:kkpp}
+    password: ${DB_PASSWORD:kkpp}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+core:
+  kafka:
+    payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
+    payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-payment}

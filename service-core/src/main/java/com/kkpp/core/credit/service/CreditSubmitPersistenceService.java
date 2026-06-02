@@ -1,7 +1,5 @@
 package com.kkpp.core.credit.service;
 
-import com.kkpp.core.auth.domain.User;
-import com.kkpp.core.auth.repository.UserRepository;
 import com.kkpp.core.credit.domain.AssScore;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
 import com.kkpp.core.credit.domain.FarmerDocument;
@@ -15,6 +13,8 @@ import com.kkpp.core.credit.repository.AssScoreRepository;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
 import com.kkpp.core.credit.repository.FarmerDocumentRepository;
 import com.kkpp.core.credit.repository.FarmerProfileRepository;
+import com.kkpp.core.user.domain.User;
+import com.kkpp.core.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;

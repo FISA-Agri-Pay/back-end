@@ -11,19 +11,3 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    consumer:
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
-core:
-  kafka:
-    payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
-    payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-core-payment}
-  payment:
-    interest-due-days: ${PAYMENT_INTEREST_DUE_DAYS:30}
-    
-resident-id:
-  hmac-key: ${RESIDENT_ID_HMAC_KEY}
-  encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY}

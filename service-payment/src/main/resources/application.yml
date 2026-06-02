@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: service-payment
+  profiles:
+    active: local
+
+server:
+  port: 8092
