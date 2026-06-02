@@ -9,7 +9,6 @@ import com.kkpp.auth.dto.request.SetPaymentPinRequest;
 import com.kkpp.auth.dto.response.TokenResponse;
 import com.kkpp.auth.exception.AuthErrorCode;
 import com.kkpp.auth.exception.AuthException;
-import com.kkpp.auth.exception.InvalidPasswordException;
 import com.kkpp.auth.exception.UserAlreadyExistsException;
 import com.kkpp.auth.exception.UserNotFoundException;
 import com.kkpp.auth.repository.UserAuthRepository;
@@ -78,14 +77,22 @@ public class AuthService {
     public TokenResponse login(LoginRequest request) {
         String normalizedPhone = normalizePhone(request.phone());
         User user = userRepository.findByPhone(normalizedPhone)
-                .orElseThrow(UserNotFoundException::new);
+                .orElse(null);
+        if (user == null) {
+            log.warn("가입되지 않은 휴대폰 번호로 로그인을 시도했습니다. phone={}", maskPhone(normalizedPhone));
+            throw new AuthException(AuthErrorCode.LOGIN_FAILED);
+        }
 
         UserAuth userAuth = userAuthRepository.findByUser(user)
-                .orElseThrow(UserNotFoundException::new);
+                .orElse(null);
+        if (userAuth == null) {
+            log.warn("인증 정보가 없는 사용자로 로그인을 시도했습니다. userId={}", user.getId());
+            throw new AuthException(AuthErrorCode.LOGIN_FAILED);
+        }
 
         if (!passwordEncoder.matches(request.password(), userAuth.getPasswordHash())) {
             log.warn("비밀번호 불일치로 로그인이 실패했습니다. userId={}", user.getId());
-            throw new InvalidPasswordException();
+            throw new AuthException(AuthErrorCode.LOGIN_FAILED);
         }
 
         userAuth.recordLogin();
@@ -136,6 +143,13 @@ public class AuthService {
 
     private String normalizePhone(String phone) {
         return phone.replace("-", "");
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) {
+            return "****";
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
     private String hashToken(String token) {
