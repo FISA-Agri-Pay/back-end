@@ -7,7 +7,7 @@ spring:
     properties:
       hibernate:
         default_schema: core
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+
+resident-id:
+  hmac-key: ${RESIDENT_ID_HMAC_KEY}
+  encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY}

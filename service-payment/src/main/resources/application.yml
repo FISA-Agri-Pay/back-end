@@ -1,6 +1,6 @@
 spring:
   application:
-    name: service-core
+    name: service-payment
   profiles:
     active: local
   mandatory-file-encoding: UTF-8
@@ -10,10 +10,7 @@ spring:
       force: true
 
 server:
-  port: 8090
-
-jwt:
-  secret: ${JWT_SECRET}
+  port: 8092
 
 logging:
   charset:

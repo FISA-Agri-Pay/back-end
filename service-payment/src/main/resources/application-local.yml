@@ -1,24 +1,21 @@
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:kkpp}
+    password: ${DB_PASSWORD:kkpp}
   jpa:
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-catalog:
+core:
   kafka:
     payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
+    payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-payment}

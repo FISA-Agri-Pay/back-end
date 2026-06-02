@@ -1,7 +1,5 @@
 package com.kkpp.core.credit.service;
 
-import com.kkpp.core.auth.domain.User;
-import com.kkpp.core.auth.repository.UserRepository;
 import com.kkpp.core.credit.domain.ApplicationStatus;
 import com.kkpp.core.credit.domain.CreditLimitApplication;
 import com.kkpp.core.credit.domain.CropType;
@@ -18,6 +16,8 @@ import com.kkpp.core.credit.dto.response.SubmitResponse;
 import com.kkpp.core.credit.exception.CreditErrorCode;
 import com.kkpp.core.credit.exception.CreditException;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
+import com.kkpp.core.user.domain.User;
+import com.kkpp.core.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

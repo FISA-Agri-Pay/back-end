@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: service-auth
+  profiles:
+    active: local
+  mandatory-file-encoding: UTF-8
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
+
+server:
+  port: 8091
+
+jwt:
+  secret: ${JWT_SECRET}
+
+resident-id:
+  hmac-key: ${RESIDENT_ID_HMAC_KEY:local-development-hmac-key}
+  encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY:local-development-encryption-key}
