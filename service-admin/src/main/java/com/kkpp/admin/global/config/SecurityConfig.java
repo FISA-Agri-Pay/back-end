@@ -1,18 +1,27 @@
 package com.kkpp.admin.global.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kkpp.common.core.exception.ErrorCode;
+import com.kkpp.common.core.response.ApiResponse;
+import com.kkpp.common.core.response.ErrorResponse;
+import com.kkpp.common.security.jwt.JwtAuthenticationFilter;
+import com.kkpp.common.security.jwt.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 
 // local 프로필에서만 적용되는 관리자 서비스 보안 설정
 @Configuration
@@ -23,6 +32,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthenticationEntryPoint authenticationEntryPoint,
             @Value("${admin.upload.product-image-public-url-prefix:/uploads/products}") String publicUrlPrefix
     ) throws Exception {
         String productImageResourcePattern = normalizePublicUrlPrefix(publicUrlPrefix) + "/**";
@@ -32,9 +43,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 // 브라우저 기반 관리자 페이지에서 오는 CORS 요청을 허용함
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // POST 전 브라우저가 보내는 OPTIONS 프리플라이트 요청을 허용함
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // BNPL 관리자 API는 JWT role 클레임이 ADMIN 또는 SUPER_ADMIN인 경우에만 접근 가능함
+                        .requestMatchers("/api/v1/admin/bnpl/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
                         .requestMatchers(
                                 "/health",
@@ -47,7 +61,34 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    @Bean
+    public JwtTokenProvider jwtTokenProvider(@Value("${jwt.secret}") String secret) {
+        return new JwtTokenProvider(secret);
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(
+            @Value("${jwt.secret}") String jwtSecret,
+            AuthenticationEntryPoint authenticationEntryPoint
+    ) {
+        return new JwtAuthenticationFilter(jwtSecret, authenticationEntryPoint);
+    }
+
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint(ObjectMapper objectMapper) {
+        return (request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    ApiResponse.fail(ErrorResponse.from(ErrorCode.UNAUTHORIZED))
+            );
+        };
     }
 
     // 업로드 이미지 공개 URL prefix를 Spring Security matcher에 사용할 경로 패턴으로 정규화하는 함수이다.
