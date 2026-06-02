@@ -31,7 +31,7 @@ public class CreditPaymentRequestedConsumer {
                     CreditPaymentRequestedMessage.class
             );
             log.info(
-                    "?몄긽 寃곗젣 ?붿껌 Kafka 硫붿떆吏瑜??섏떊?덉뒿?덈떎. topic={}, partition={}, offset={}, key={}, eventId={}, paymentRequestPublicId={}",
+                    "외상 결제 요청 Kafka 메시지를 수신했습니다. topic={}, partition={}, offset={}, key={}, eventId={}, paymentRequestPublicId={}",
                     record.topic(),
                     record.partition(),
                     record.offset(),
@@ -42,14 +42,14 @@ public class CreditPaymentRequestedConsumer {
             creditPaymentProcessingService.process(message);
         } catch (JsonProcessingException exception) {
             throw new PaymentProcessingException(
-                    "寃곗젣 ?붿껌 Kafka 硫붿떆吏 ??쭅?ы솕???ㅽ뙣?덉뒿?덈떎. topic=" + record.topic()
+                    "결제 요청 Kafka 메시지 역직렬화에 실패했습니다. topic=" + record.topic()
                             + ", partition=" + record.partition()
                             + ", offset=" + record.offset(),
                     exception
             );
         } catch (PaymentProcessingException exception) {
             log.error(
-                    "?몄긽 寃곗젣 ?붿껌 Kafka 硫붿떆吏 泥섎━???ㅽ뙣?덉뒿?덈떎. topic={}, partition={}, offset={}, key={}, reason={}",
+                    "외상 결제 요청 Kafka 메시지 처리에 실패했습니다. topic={}, partition={}, offset={}, key={}, reason={}",
                     record.topic(),
                     record.partition(),
                     record.offset(),
@@ -61,7 +61,7 @@ public class CreditPaymentRequestedConsumer {
         } catch (DataIntegrityViolationException exception) {
             if (creditPaymentProcessingService.isDuplicateKeyFailure(exception)) {
                 log.info(
-                        "以묐났 寃곗젣 ?붿껌 Kafka 硫붿떆吏瑜??뺤긽 泥섎━濡?媛꾩＜?⑸땲?? topic={}, partition={}, offset={}, key={}",
+                        "중복 결제 요청 Kafka 메시지를 정상 처리로 간주합니다. topic={}, partition={}, offset={}, key={}",
                         record.topic(),
                         record.partition(),
                         record.offset(),
@@ -73,4 +73,3 @@ public class CreditPaymentRequestedConsumer {
         }
     }
 }
-

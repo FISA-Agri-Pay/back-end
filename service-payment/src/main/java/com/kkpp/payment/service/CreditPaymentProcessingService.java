@@ -53,7 +53,7 @@ public class CreditPaymentProcessingService {
         UUID paymentRequestPublicId = message.paymentRequestPublicId();
         if (paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(eventId, paymentRequestPublicId)) {
             log.info(
-                    "?대? 泥섎━???몄긽 寃곗젣 ?붿껌 ?대깽?몄엯?덈떎. eventId={}, paymentRequestPublicId={}, idempotencyKey={}",
+                    "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, paymentRequestPublicId={}, idempotencyKey={}",
                     eventId,
                     paymentRequestPublicId,
                     message.idempotencyKey()
@@ -65,7 +65,7 @@ public class CreditPaymentProcessingService {
                 .orElse(null);
         if (order != null && creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(order.getPublicId(), PURCHASE)) {
             log.info(
-                    "二쇰Ц??????몄긽 ?ъ슜 ?먯옣???대? 議댁옱?⑸땲?? eventId={}, orderPublicId={}",
+                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderPublicId={}",
                     eventId,
                     order.getPublicId()
             );
@@ -91,12 +91,12 @@ public class CreditPaymentProcessingService {
             ));
         }
         CreditLimit creditLimit = creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(userPublicId, ACTIVE)
-                .orElseThrow(() -> new PaymentProcessingException("?쒖꽦 ?쒕룄瑜?李얠쓣 ???놁뒿?덈떎. userPublicId=" + userPublicId));
+                .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userPublicId=" + userPublicId));
 
         LocalDate today = LocalDate.now();
         if (!creditLimit.isActive(today)) {
             throw new PaymentProcessingException(
-                    "?ъ슜?????녿뒗 ?쒕룄 ?곹깭?낅땲?? userPublicId=" + userPublicId
+                    "사용할 수 없는 한도 상태입니다. userPublicId=" + userPublicId
                             + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", status=" + creditLimit.getStatus()
                             + ", expiresAt=" + creditLimit.getExpiresAt()
@@ -104,7 +104,7 @@ public class CreditPaymentProcessingService {
         }
         if (!creditLimit.canUse(message.totalAmount())) {
             throw new PaymentProcessingException(
-                    "?ъ슜 媛???쒕룄媛 遺議깊빀?덈떎. userPublicId=" + userPublicId
+                    "사용 가능 한도가 부족합니다. userPublicId=" + userPublicId
                             + ", creditLimitPublicId=" + creditLimit.getPublicId()
                             + ", availableAmount=" + creditLimit.availableAmount()
                             + ", requestedAmount=" + message.totalAmount()
@@ -134,7 +134,7 @@ public class CreditPaymentProcessingService {
         ));
 
         log.info(
-                "?몄긽 寃곗젣 ?붿껌 ?대깽??泥섎━瑜??꾨즺?덉뒿?덈떎. eventId={}, paymentRequestPublicId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
+                "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, paymentRequestPublicId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
                 eventId,
                 paymentRequestPublicId,
                 userPublicId,
@@ -145,44 +145,44 @@ public class CreditPaymentProcessingService {
 
     private void validateMessage(CreditPaymentRequestedMessage message) {
         if (message == null) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지가 비어 있습니다.");
         }
         if (message.eventId() == null || message.eventId().isBlank()) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 eventId媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 eventId가 비어 있습니다.");
         }
         if (message.paymentRequestPublicId() == null) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 paymentRequestPublicId媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 paymentRequestPublicId가 비어 있습니다.");
         }
         if (message.idempotencyKey() == null || message.idempotencyKey().isBlank()) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 idempotencyKey媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 idempotencyKey가 비어 있습니다.");
         }
         if (message.userPublicId() == null) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 userPublicId媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 userPublicId가 비어 있습니다.");
         }
         if (message.orderPublicId() == null) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 orderPublicId媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 orderPublicId가 비어 있습니다.");
         }
         if (message.deliveryAddress() == null) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 deliveryAddress媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 메시지 deliveryAddress가 비어 있습니다.");
         }
         validateDeliveryAddress(message.deliveryAddress());
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 湲덉븸???щ컮瑜댁? ?딆뒿?덈떎. amount=" + message.totalAmount());
+            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
         }
     }
 
     private void validateDeliveryAddress(CreditPaymentRequestedMessage.DeliveryAddress deliveryAddress) {
         if (isBlank(deliveryAddress.recipientName())) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 諛곗넚吏 recipientName??鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 배송지 recipientName이 비어 있습니다.");
         }
         if (isBlank(deliveryAddress.recipientPhone())) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 諛곗넚吏 recipientPhone??鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 배송지 recipientPhone이 비어 있습니다.");
         }
         if (isBlank(deliveryAddress.address())) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 諛곗넚吏 address媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 배송지 address가 비어 있습니다.");
         }
         if (isBlank(deliveryAddress.zipCode())) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 諛곗넚吏 zipCode媛 鍮꾩뼱 ?덉뒿?덈떎.");
+            throw new PaymentProcessingException("결제 요청 배송지 zipCode가 비어 있습니다.");
         }
     }
 
@@ -194,7 +194,7 @@ public class CreditPaymentProcessingService {
         try {
             return UUID.fromString(eventId);
         } catch (IllegalArgumentException exception) {
-            throw new PaymentProcessingException("寃곗젣 ?붿껌 硫붿떆吏 eventId媛 UUID ?뺤떇???꾨떃?덈떎. eventId=" + eventId, exception);
+            throw new PaymentProcessingException("결제 요청 메시지 eventId가 UUID 형식이 아닙니다. eventId=" + eventId, exception);
         }
     }
 
@@ -229,4 +229,3 @@ public class CreditPaymentProcessingService {
         }
     }
 }
-

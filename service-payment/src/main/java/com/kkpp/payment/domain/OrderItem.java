@@ -62,8 +62,7 @@ public class OrderItem extends BaseTimeEntity {
 
     private static void validateRequired(Object value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + "???꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
     }
 }
-

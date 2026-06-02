@@ -3,6 +3,16 @@ spring:
     name: service-payment
   profiles:
     active: local
+  mandatory-file-encoding: UTF-8
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
 
 server:
   port: 8092
+
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8

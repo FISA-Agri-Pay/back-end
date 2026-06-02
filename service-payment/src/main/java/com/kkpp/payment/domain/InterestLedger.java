@@ -55,8 +55,8 @@ public class InterestLedger extends BaseEntity {
             BigDecimal interestAmount
     ) {
         validateRequiredId(creditLimitPublicId, "creditLimitPublicId");
-        validatePositiveAmount(basePrincipal, "?댁옄 湲곗? ?먭툑");
-        validateNonNegativeAmount(interestAmount, "?댁옄 湲덉븸");
+        validatePositiveAmount(basePrincipal, "이자 기준 원금");
+        validateNonNegativeAmount(interestAmount, "이자 금액");
         validateRequiredDueDate(dueDate);
 
         InterestLedger ledger = new InterestLedger();
@@ -72,32 +72,31 @@ public class InterestLedger extends BaseEntity {
 
     private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
-            throw new IllegalArgumentException(fieldName + "???꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
     }
 
     private static void validatePositiveAmount(BigDecimal amount, String fieldName) {
         if (amount == null) {
-            throw new IllegalArgumentException(fieldName + "? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(fieldName + "? 0蹂대떎 而ㅼ빞 ?⑸땲?? amount=" + amount);
+            throw new IllegalArgumentException(fieldName + "은(는) 0보다 커야 합니다. amount=" + amount);
         }
     }
 
     private static void validateNonNegativeAmount(BigDecimal amount, String fieldName) {
         if (amount == null) {
-            throw new IllegalArgumentException(fieldName + "? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException(fieldName + "? ?뚯닔?????놁뒿?덈떎. amount=" + amount);
+            throw new IllegalArgumentException(fieldName + "은(는) 음수일 수 없습니다. amount=" + amount);
         }
     }
 
     private static void validateRequiredDueDate(LocalDate dueDate) {
         if (dueDate == null) {
-            throw new IllegalArgumentException("?댁옄 ?⑸? ?덉젙?쇱? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException("이자 납부 예정일은 필수입니다.");
         }
     }
 }
-

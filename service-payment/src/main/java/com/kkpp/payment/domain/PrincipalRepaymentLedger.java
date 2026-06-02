@@ -77,23 +77,22 @@ public class PrincipalRepaymentLedger extends BaseEntity {
 
     private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
-            throw new IllegalArgumentException(fieldName + "???꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
     }
 
     private static void validateRequiredDueDate(LocalDate dueDate) {
         if (dueDate == null) {
-            throw new IllegalArgumentException("?먭툑 ?곹솚 ?덉젙?쇱? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException("원금 상환 예정일은 필수입니다.");
         }
     }
 
     private static void validatePositiveAmount(BigDecimal amount) {
         if (amount == null) {
-            throw new IllegalArgumentException("?먭툑 ?곹솚 湲덉븸? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException("원금 상환 금액은 필수입니다.");
         }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("?먭툑 ?곹솚 湲덉븸? 0蹂대떎 而ㅼ빞 ?⑸땲?? amount=" + amount);
+            throw new IllegalArgumentException("원금 상환 금액은 0보다 커야 합니다. amount=" + amount);
         }
     }
 }
-

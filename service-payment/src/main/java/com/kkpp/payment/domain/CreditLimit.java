@@ -75,7 +75,7 @@ public class CreditLimit extends BaseEntity {
         validatePositiveAmount(amount);
         if (availableAmount().compareTo(amount) < 0) {
             throw new IllegalArgumentException(
-                    "?ъ슜 媛???쒕룄瑜?珥덇낵?덉뒿?덈떎. amount=" + amount
+                    "사용 가능 한도를 초과했습니다. amount=" + amount
                             + ", availableAmount=" + availableAmount()
             );
         }
@@ -84,11 +84,10 @@ public class CreditLimit extends BaseEntity {
 
     private static void validatePositiveAmount(BigDecimal amount) {
         if (amount == null) {
-            throw new IllegalArgumentException("?ъ슜 湲덉븸? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException("사용 금액은 필수입니다.");
         }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("?ъ슜 湲덉븸? 0蹂대떎 而ㅼ빞 ?⑸땲?? amount=" + amount);
+            throw new IllegalArgumentException("사용 금액은 0보다 커야 합니다. amount=" + amount);
         }
     }
 }
-

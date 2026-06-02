@@ -73,23 +73,22 @@ public class CreditUsageLedger extends BaseTimeEntity {
 
     private static void validateRequiredId(UUID id, String fieldName) {
         if (id == null) {
-            throw new IllegalArgumentException(fieldName + "???꾩닔?낅땲??");
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
         }
     }
 
     private static void validatePositiveAmount(BigDecimal amount) {
         if (amount == null) {
-            throw new IllegalArgumentException("?ъ슜 ?먯옣 湲덉븸? ?꾩닔?낅땲??");
+            throw new IllegalArgumentException("사용 원장 금액은 필수입니다.");
         }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("?ъ슜 ?먯옣 湲덉븸? 0蹂대떎 而ㅼ빞 ?⑸땲?? amount=" + amount);
+            throw new IllegalArgumentException("사용 원장 금액은 0보다 커야 합니다. amount=" + amount);
         }
     }
 
     private static void validateRequiredUsedAt(LocalDateTime usedAt) {
         if (usedAt == null) {
-            throw new IllegalArgumentException("?ъ슜 ?쇱떆???꾩닔?낅땲??");
+            throw new IllegalArgumentException("사용 일시는 필수입니다.");
         }
     }
 }
-

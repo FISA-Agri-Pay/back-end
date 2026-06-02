@@ -44,10 +44,10 @@ public class PaymentEventProcessLog extends BaseEntity {
     private String status;
 
     public static PaymentEventProcessLog processed(UUID eventId, UUID paymentRequestPublicId, String idempotencyKey) {
-        Objects.requireNonNull(eventId, "eventId???꾩닔?낅땲??");
-        Objects.requireNonNull(paymentRequestPublicId, "paymentRequestPublicId???꾩닔?낅땲??");
+        Objects.requireNonNull(eventId, "eventId는 필수입니다.");
+        Objects.requireNonNull(paymentRequestPublicId, "paymentRequestPublicId는 필수입니다.");
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
-            throw new IllegalArgumentException("idempotencyKey???꾩닔?낅땲??");
+            throw new IllegalArgumentException("idempotencyKey는 필수입니다.");
         }
 
         PaymentEventProcessLog log = new PaymentEventProcessLog();
@@ -58,4 +58,3 @@ public class PaymentEventProcessLog extends BaseEntity {
         return log;
     }
 }
-
