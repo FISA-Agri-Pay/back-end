@@ -57,9 +57,9 @@ public class SecurityConfig {
                                 "/api/v1/admin/auth/login",
                                 "/api/v1/admin/auth/token/refresh"
                         ).permitAll()
-                        // BNPL 관리자 API는 JWT role 클레임이 ADMIN 또는 SUPER_ADMIN인 경우에만 접근 가능함
-                        .requestMatchers("/api/v1/admin/bnpl/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers("/api/v1/admin/orders/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        // BNPL 관리자 API는 JWT role 클레임이 ADMIN인 경우에만 접근 가능함
+                        .requestMatchers("/api/v1/admin/bnpl/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/orders/**").hasRole("ADMIN")
                         // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
                         .requestMatchers(
                                 "/error",

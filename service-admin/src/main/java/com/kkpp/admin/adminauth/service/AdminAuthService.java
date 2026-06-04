@@ -27,6 +27,8 @@ import org.springframework.util.StringUtils;
 @Transactional(readOnly = true)
 public class AdminAuthService {
 
+    private static final String ADMIN_ROLE = "ADMIN";
+
     private final AdminAuthUserRepository adminAuthUserRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
@@ -129,6 +131,13 @@ public class AdminAuthService {
                     adminUser.getStatus());
             throw new BusinessException(ErrorCode.FORBIDDEN, "활성 상태의 관리자 계정만 인증할 수 있습니다.");
         }
+        if (!ADMIN_ROLE.equals(adminUser.getRole())) {
+            log.warn("{} 실패: ADMIN 권한이 아닌 관리자 계정입니다. 관리자공개ID={}, 역할={}",
+                    actionName,
+                    adminUser.getPublicId(),
+                    adminUser.getRole());
+            throw new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 필요합니다.");
+        }
     }
 
     private void validateRefreshToken(String refreshToken, String actionName) {
@@ -144,7 +153,7 @@ public class AdminAuthService {
         if (authUser == null || !StringUtils.hasText(authUser.role())) {
             return false;
         }
-        return "ADMIN".equals(authUser.role()) || "SUPER_ADMIN".equals(authUser.role());
+        return ADMIN_ROLE.equals(authUser.role());
     }
 
     private BusinessException loginFailed() {

@@ -156,7 +156,8 @@ CREATE TABLE IF NOT EXISTS core.admin_users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(50) NOT NULL,
 
-    role VARCHAR(20) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'ADMIN'
+        CHECK (role IN ('ADMIN')),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
 
     refresh_token VARCHAR(64),

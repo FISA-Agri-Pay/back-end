@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String CLAIM_TOKEN_PURPOSE = "purpose";
     private static final String PURPOSE_REFRESH = "refresh";
+    private static final String ROLE_ADMIN = "ADMIN";
 
     private final SecretKey secretKey;
     private final AuthenticationEntryPoint authenticationEntryPoint;
@@ -96,7 +97,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (!StringUtils.hasText(role)) {
             role = "USER";
         }
+        if (isAdminRole(role) && publicId == null) {
+            throw new JwtException("Admin access token must contain publicId.");
+        }
         return new AuthUserInfo(userId, publicId, role);
+    }
+
+    private boolean isAdminRole(String role) {
+        return ROLE_ADMIN.equals(role);
     }
 
     private Long resolveUserId(Claims claims) {
