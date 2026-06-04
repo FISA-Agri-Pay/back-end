@@ -159,11 +159,15 @@ CREATE TABLE IF NOT EXISTS core.admin_users (
     role VARCHAR(30) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
 
+    refresh_token TEXT,
     last_login_at TIMESTAMP,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE IF EXISTS core.admin_users
+    ADD COLUMN IF NOT EXISTS refresh_token TEXT;
 
 -- =========================================================
 -- 8. credit_limit_applications
@@ -852,6 +856,10 @@ CREATE INDEX IF NOT EXISTS idx_core_notifications_user_public_id
 
 CREATE INDEX IF NOT EXISTS idx_core_audit_logs_admin_user_public_id
     ON core.audit_logs(admin_user_public_id);
+
+CREATE INDEX IF NOT EXISTS idx_core_admin_users_refresh_token
+    ON core.admin_users(refresh_token)
+    WHERE refresh_token IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_core_payment_event_logs_payment_request_public_id
     ON core.payment_event_process_logs(payment_request_public_id);
