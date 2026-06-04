@@ -8,13 +8,13 @@ import com.kkpp.core.wallet.domain.PrincipalRepaymentLedger;
 import com.kkpp.core.wallet.domain.Wallet;
 import com.kkpp.core.wallet.domain.WalletTransaction;
 import com.kkpp.core.wallet.dto.WalletMeResponse;
+import com.kkpp.core.wallet.exception.WalletErrorCode;
+import com.kkpp.core.wallet.exception.WalletException;
 import com.kkpp.core.wallet.repository.CreditLimitRepository;
 import com.kkpp.core.wallet.repository.InterestLedgerRepository;
 import com.kkpp.core.wallet.repository.PrincipalRepaymentLedgerRepository;
 import com.kkpp.core.wallet.repository.WalletRepository;
 import com.kkpp.core.wallet.repository.WalletTransactionRepository;
-import com.kkpp.core.wallet.exception.WalletErrorCode;
-import com.kkpp.core.wallet.exception.WalletException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,6 +48,7 @@ public class WalletQueryService {
     private final WalletTransactionRepository walletTransactionRepository;
 
     public WalletMeResponse getMyWallet(Long authenticatedUserId) {
+        // 인증 토큰은 내부 Long userId만 제공하므로, 지갑/원장 조회 기준인 userPublicId로 변환합니다.
         UUID userPublicId = resolveUserPublicId(authenticatedUserId);
         Wallet wallet = walletRepository.findByUserPublicId(userPublicId)
                 .orElseThrow(() -> new WalletException(WalletErrorCode.WALLET_NOT_FOUND));
@@ -88,14 +89,16 @@ public class WalletQueryService {
     }
 
     private Optional<InterestLedger> findNearestUnpaidInterestLedger(CreditLimit creditLimit) {
-        return interestLedgerRepository.findFirstByCreditLimitPublicIdAndStatusInOrderByDueDateAsc(
+        // 미래 예정 원장을 우선 고르고, 미래 건이 없으면 가장 최근 연체 원장을 화면에 노출합니다.
+        return interestLedgerRepository.findNearestUnpaidLedger(
                 creditLimit.getPublicId(),
                 UNPAID_LEDGER_STATUSES
         );
     }
 
     private Optional<PrincipalRepaymentLedger> findNearestUnpaidPrincipalLedger(CreditLimit creditLimit) {
-        return principalRepaymentLedgerRepository.findFirstByCreditLimitPublicIdAndStatusInOrderByDueDateAsc(
+        // 이자 원장과 같은 기준으로 다음 상환 예정일 후보를 선택합니다.
+        return principalRepaymentLedgerRepository.findNearestUnpaidLedger(
                 creditLimit.getPublicId(),
                 UNPAID_LEDGER_STATUSES
         );
@@ -118,7 +121,7 @@ public class WalletQueryService {
     private WalletMeResponse.MonthlyInterest toMonthlyInterestResponse(InterestLedger ledger) {
         return new WalletMeResponse.MonthlyInterest(
                 ledger.getDueDate(),
-                ledger.getInterestAmount(),
+                ledger.getUnpaidAmount(),
                 ledger.getStatus()
         );
     }
@@ -127,6 +130,7 @@ public class WalletQueryService {
             CreditLimit creditLimit,
             Optional<PrincipalRepaymentLedger> principalLedger
     ) {
+        // MVP 기준 원금 잔액은 상환 원장 합산이 아니라 credit_limits.used_amount를 화면에 노출합니다.
         return new WalletMeResponse.Principal(
                 principalLedger.map(PrincipalRepaymentLedger::getDueDate)
                         .orElse(creditLimit.getPrincipalDueDate()),
@@ -173,7 +177,8 @@ public class WalletQueryService {
         BigDecimal amount = transaction.getAmount();
         if (WalletTransaction.TYPE_INTEREST_PAYMENT.equals(transaction.getTransactionType())
                 || WalletTransaction.TYPE_PRINCIPAL_PAYMENT.equals(transaction.getTransactionType())) {
-            return amount.negate();
+            // DB 값의 부호와 무관하게 프론트 내역에서는 상환성 거래를 항상 음수로 표시합니다.
+            return amount == null ? null : amount.abs().negate();
         }
         return amount;
     }

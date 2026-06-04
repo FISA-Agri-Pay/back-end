@@ -16,6 +16,7 @@ import org.hibernate.annotations.Immutable;
 
 @Entity
 @Table(name = "wallets", schema = "core")
+// 조회 전용 매핑입니다. 지갑 잔액 변경은 입금/상환 처리 흐름에서만 수행합니다.
 @Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

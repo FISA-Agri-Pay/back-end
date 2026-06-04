@@ -18,6 +18,7 @@ import org.hibernate.annotations.Immutable;
 
 @Entity(name = "WalletInterestLedger")
 @Table(name = "interest_ledger", schema = "core")
+// 조회 전용 매핑입니다. 이 API는 배치가 만든 이자 원장을 읽기만 하고 새 원장을 생성하지 않습니다.
 @Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -54,4 +55,11 @@ public class InterestLedger extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String status;
+
+    public BigDecimal getUnpaidAmount() {
+        BigDecimal totalAmount = interestAmount == null ? BigDecimal.ZERO : interestAmount;
+        BigDecimal paidAmount = amountPaid == null ? BigDecimal.ZERO : amountPaid;
+        BigDecimal unpaidAmount = totalAmount.subtract(paidAmount);
+        return unpaidAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : unpaidAmount;
+    }
 }

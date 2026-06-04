@@ -18,6 +18,7 @@ import org.hibernate.annotations.Immutable;
 
 @Entity(name = "WalletPrincipalRepaymentLedger")
 @Table(name = "principal_repayment_ledger", schema = "core")
+// 조회 전용 매핑입니다. 원금상환원장 생성과 상환 처리는 별도 결제/배치 흐름에서 수행합니다.
 @Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

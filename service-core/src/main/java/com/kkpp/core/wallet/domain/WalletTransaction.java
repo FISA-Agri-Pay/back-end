@@ -16,6 +16,7 @@ import org.hibernate.annotations.Immutable;
 
 @Entity
 @Table(name = "wallet_transactions", schema = "core")
+// 조회 전용 매핑입니다. 거래 생성은 입금/납부 처리 로직에서 담당합니다.
 @Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

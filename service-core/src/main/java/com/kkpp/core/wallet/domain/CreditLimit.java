@@ -17,6 +17,7 @@ import org.hibernate.annotations.Immutable;
 
 @Entity(name = "WalletCreditLimit")
 @Table(name = "credit_limits", schema = "core")
+// 조회 전용 매핑입니다. 내 지갑 화면의 원금 잔액은 credit_limits.used_amount 기준으로 표시합니다.
 @Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
