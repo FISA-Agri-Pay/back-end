@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,6 +27,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String CLAIM_TOKEN_PURPOSE = "purpose";
+    private static final String PURPOSE_REFRESH = "refresh";
+    private static final String ROLE_ADMIN = "ADMIN";
 
     private final SecretKey secretKey;
     private final AuthenticationEntryPoint authenticationEntryPoint;
@@ -80,12 +84,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .parseSignedClaims(token)
                 .getPayload();
 
+        if (PURPOSE_REFRESH.equals(claims.get(CLAIM_TOKEN_PURPOSE, String.class))) {
+            throw new JwtException("Refresh token cannot be used as an access token.");
+        }
+
         Long userId = resolveUserId(claims);
+        UUID publicId = resolvePublicId(claims);
+        if (userId == null && publicId == null) {
+            throw new IllegalArgumentException("JWT subject claim is missing.");
+        }
         String role = claims.get("role", String.class);
         if (!StringUtils.hasText(role)) {
             role = "USER";
         }
-        return new AuthUserInfo(userId, role);
+        if (isAdminRole(role) && publicId == null) {
+            throw new JwtException("Admin access token must contain publicId.");
+        }
+        return new AuthUserInfo(userId, publicId, role);
+    }
+
+    private boolean isAdminRole(String role) {
+        return ROLE_ADMIN.equals(role);
     }
 
     private Long resolveUserId(Claims claims) {
@@ -100,10 +119,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return Long.parseLong(text);
         }
         String subject = claims.getSubject();
-        if (StringUtils.hasText(subject)) {
+        if (StringUtils.hasText(subject) && subject.chars().allMatch(Character::isDigit)) {
             return Long.parseLong(subject);
         }
-        throw new IllegalArgumentException("JWT user id claim is missing.");
+        return null;
+    }
+
+    private UUID resolvePublicId(Claims claims) {
+        Object publicId = claims.get("publicId");
+        if (publicId instanceof String text && StringUtils.hasText(text)) {
+            return UUID.fromString(text);
+        }
+        String subject = claims.getSubject();
+        if (StringUtils.hasText(subject)) {
+            try {
+                return UUID.fromString(subject);
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private byte[] sha256(String secret) {
