@@ -46,12 +46,18 @@ CREATE TABLE IF NOT EXISTS core.admin_users
     status         VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                        CHECK (status IN ('ACTIVE', 'SUSPENDED')),
 
+    refresh_token  VARCHAR(512),
     last_login_at  TIMESTAMP,
 
     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE IF EXISTS core.admin_users
+    ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(512);
+
 CREATE INDEX IF NOT EXISTS idx_users_phone ON core.users (phone);
 CREATE INDEX IF NOT EXISTS idx_user_auth_refresh_token ON core.user_auth (refresh_token)
+    WHERE refresh_token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_admin_users_refresh_token ON core.admin_users (refresh_token)
     WHERE refresh_token IS NOT NULL;

@@ -5,7 +5,6 @@ import com.kkpp.common.core.exception.ErrorCode;
 import com.kkpp.common.core.response.ApiResponse;
 import com.kkpp.common.core.response.ErrorResponse;
 import com.kkpp.common.security.jwt.JwtAuthenticationFilter;
-import com.kkpp.common.security.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // POST 전 브라우저가 보내는 OPTIONS 프리플라이트 요청을 허용함
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/login", "/logout", "/token/refresh").permitAll()
                         // BNPL 관리자 API는 JWT role 클레임이 ADMIN 또는 SUPER_ADMIN인 경우에만 접근 가능함
                         .requestMatchers("/api/v1/admin/bnpl/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         // 로컬 테스트 대상 엔드포인트와 API 문서는 인증 없이 접근 가능함
@@ -64,11 +64,6 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
-    }
-
-    @Bean
-    public JwtTokenProvider jwtTokenProvider(@Value("${jwt.secret}") String secret) {
-        return new JwtTokenProvider(secret);
     }
 
     @Bean
