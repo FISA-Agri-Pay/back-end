@@ -154,20 +154,21 @@ CREATE TABLE IF NOT EXISTS core.admin_users (
 
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(50) NOT NULL,
 
-    role VARCHAR(30) NOT NULL,
+    role VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
 
-    refresh_token TEXT,
+    refresh_token VARCHAR(64),
     last_login_at TIMESTAMP,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Existing DB migration only. New installations already include this column in CREATE TABLE above.
 ALTER TABLE IF EXISTS core.admin_users
-    ADD COLUMN IF NOT EXISTS refresh_token TEXT;
+    ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(64);
 
 -- =========================================================
 -- 8. credit_limit_applications

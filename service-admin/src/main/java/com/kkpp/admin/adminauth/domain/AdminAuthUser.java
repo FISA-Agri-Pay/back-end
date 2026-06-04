@@ -34,10 +34,10 @@ public class AdminAuthUser extends BaseEntity {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 20)
     private String role;
 
     @Column(nullable = false, length = 20)

@@ -3,12 +3,12 @@ package com.kkpp.admin.adminauth.service;
 import com.kkpp.admin.adminauth.domain.AdminAuthUser;
 import com.kkpp.admin.adminauth.dto.AdminAuthResponse;
 import com.kkpp.admin.adminauth.dto.AdminLoginRequest;
-import com.kkpp.admin.adminauth.dto.AdminLogoutRequest;
 import com.kkpp.admin.adminauth.dto.AdminTokenRefreshRequest;
 import com.kkpp.admin.adminauth.dto.AdminUserResponse;
 import com.kkpp.admin.adminauth.repository.AdminAuthUserRepository;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
+import com.kkpp.common.security.auth.AuthUserInfo;
 import com.kkpp.common.security.jwt.JwtTokenProvider;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -69,21 +70,41 @@ public class AdminAuthService {
     }
 
     @Transactional
-    public void logout(AdminLogoutRequest request) {
-        validateRefreshToken(request.refreshToken(), "관리자 로그아웃");
+    public void logout(AuthUserInfo authUser) {
+        if (isAdminRole(authUser)) {
+            logoutByAuthenticatedAdmin(authUser);
+            return;
+        }
 
-        AdminAuthUser adminUser = adminAuthUserRepository.findByRefreshToken(hashToken(request.refreshToken()))
+        if (authUser != null) {
+            log.warn("관리자 로그아웃 실패: 관리자 권한이 아닌 토큰입니다. 역할={}", authUser.role());
+            throw new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 필요합니다.");
+        }
+
+        log.warn("관리자 로그아웃 실패: Authorization 헤더에 관리자 access token이 없습니다.");
+        throw new BusinessException(ErrorCode.UNAUTHORIZED, "관리자 인증 정보가 필요합니다.");
+    }
+
+    private void logoutByAuthenticatedAdmin(AuthUserInfo authUser) {
+        if (authUser.publicId() == null) {
+            log.warn("관리자 로그아웃 실패: access token에 관리자 공개 ID가 없습니다.");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "관리자 인증 정보가 올바르지 않습니다.");
+        }
+
+        AdminAuthUser adminUser = adminAuthUserRepository.findByPublicId(authUser.publicId())
                 .orElseThrow(() -> {
-                    log.warn("관리자 로그아웃 실패: 저장된 리프레시 토큰과 일치하지 않습니다.");
-                    return invalidRefreshToken();
+                    log.warn("관리자 로그아웃 실패: 토큰의 관리자 공개 ID에 해당하는 계정을 찾을 수 없습니다. 관리자공개ID={}", authUser.publicId());
+                    return new BusinessException(ErrorCode.UNAUTHORIZED, "관리자 정보를 찾을 수 없습니다.");
                 });
+
+        validateActiveAdmin(adminUser, "관리자 로그아웃");
         adminUser.clearRefreshToken();
         log.info("관리자 로그아웃이 완료되었습니다. 관리자공개ID={}", adminUser.getPublicId());
     }
 
     private AdminAuthResponse issueTokens(AdminAuthUser adminUser) {
-        String accessToken = jwtTokenProvider.generateAccessToken(adminUser.getId(), adminUser.getRole());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(adminUser.getId());
+        String accessToken = jwtTokenProvider.generateAccessToken(adminUser.getPublicId(), adminUser.getRole());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(adminUser.getPublicId());
         adminUser.updateRefreshToken(hashToken(refreshToken));
 
         return new AdminAuthResponse(
@@ -117,6 +138,13 @@ public class AdminAuthService {
             log.warn("{} 실패: 리프레시 토큰 검증에 실패했습니다. 사유={}", actionName, exception.getMessage());
             throw invalidRefreshToken();
         }
+    }
+
+    private boolean isAdminRole(AuthUserInfo authUser) {
+        if (authUser == null || !StringUtils.hasText(authUser.role())) {
+            return false;
+        }
+        return "ADMIN".equals(authUser.role()) || "SUPER_ADMIN".equals(authUser.role());
     }
 
     private BusinessException loginFailed() {

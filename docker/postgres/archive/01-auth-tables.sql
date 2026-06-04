@@ -46,15 +46,16 @@ CREATE TABLE IF NOT EXISTS core.admin_users
     status         VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
                        CHECK (status IN ('ACTIVE', 'SUSPENDED')),
 
-    refresh_token  VARCHAR(512),
+    refresh_token  VARCHAR(64),
     last_login_at  TIMESTAMP,
 
     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Existing DB migration only. New installations already include this column in CREATE TABLE above.
 ALTER TABLE IF EXISTS core.admin_users
-    ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(512);
+    ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(64);
 
 CREATE INDEX IF NOT EXISTS idx_users_phone ON core.users (phone);
 CREATE INDEX IF NOT EXISTS idx_user_auth_refresh_token ON core.user_auth (refresh_token)
