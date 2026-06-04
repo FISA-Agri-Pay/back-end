@@ -138,9 +138,9 @@ public class CreditHistoryQueryService {
         return switch (transaction.getTransactionType()) {
             case WalletTransaction.TYPE_INTEREST_PAYMENT -> interestPaymentTitle(transaction.getTransactedAt());
             case WalletTransaction.TYPE_PRINCIPAL_PAYMENT -> "원금 상환";
-            default -> transaction.getDescription() == null
-                    ? transaction.getTransactionType()
-                    : transaction.getDescription();
+            default -> StringUtils.hasText(transaction.getDescription())
+                    ? transaction.getDescription()
+                    : transaction.getTransactionType();
         };
     }
 

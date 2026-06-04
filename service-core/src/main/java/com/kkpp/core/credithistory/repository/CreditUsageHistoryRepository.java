@@ -12,8 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface CreditUsageHistoryRepository extends JpaRepository<CreditUsageLedger, Long> {
 
     // service-core 소유 테이블만 조인합니다. 상품명은 catalog.products가 아니라 주문 시점 스냅샷을 사용합니다.
-    // 사용자 소유 검증은 orders.user_public_id 기준으로 제한하고, 원장은 order_public_id로 연결합니다.
-    // 대표 상품명은 첫 번째 주문 상품 스냅샷을 사용하고, 나머지 개수는 서비스에서 "외 N개"로 표시합니다.
+    // 사용자 소유 검증은 credit_limits.user_public_id 기준으로 제한해 주문이 없는 CANCEL/ADJUSTMENT 원장도 포함합니다.
+    // 대표 상품명은 주문이 있는 경우 첫 번째 주문 상품 스냅샷을 사용하고, 나머지 개수는 서비스에서 "외 N개"로 표시합니다.
     @Query(value = """
             SELECT
                 cul.public_id AS historyPublicId,
@@ -25,18 +25,19 @@ public interface CreditUsageHistoryRepository extends JpaRepository<CreditUsageL
                 (
                     SELECT oi.product_name_snapshot
                     FROM core.order_items oi
-                    WHERE oi.order_public_id = o.public_id
+                    WHERE oi.order_public_id = cul.order_public_id
                     ORDER BY oi.id ASC
                     LIMIT 1
                 ) AS firstProductName,
                 (
                     SELECT COUNT(*)
                     FROM core.order_items oi
-                    WHERE oi.order_public_id = o.public_id
+                    WHERE oi.order_public_id = cul.order_public_id
                 ) AS itemCount
             FROM core.credit_usage_ledger cul
-            JOIN core.orders o ON o.public_id = cul.order_public_id
-            WHERE o.user_public_id = :userPublicId
+            JOIN core.credit_limits cl ON cl.public_id = cul.credit_limit_public_id
+            LEFT JOIN core.orders o ON o.public_id = cul.order_public_id
+            WHERE cl.user_public_id = :userPublicId
             ORDER BY cul.used_at DESC, cul.id DESC
             LIMIT :limit
             """, nativeQuery = true)
