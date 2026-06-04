@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CreditLimitRepository extends JpaRepository<CreditLimit, Long> {
 
-    Optional<CreditLimit> findFirstByUserPublicIdAndStatusOrderByCreatedAtDesc(UUID userPublicId, String status);
+    Optional<CreditLimit> findFirstByUserPublicIdAndStatusOrderByCreatedAtDescIdDesc(UUID userPublicId, String status);
 }

@@ -7,6 +7,7 @@ import com.kkpp.core.wallet.domain.InterestLedger;
 import com.kkpp.core.wallet.domain.PrincipalRepaymentLedger;
 import com.kkpp.core.wallet.domain.Wallet;
 import com.kkpp.core.wallet.domain.WalletTransaction;
+import com.kkpp.core.wallet.dto.WalletCreditSummaryResponse;
 import com.kkpp.core.wallet.dto.WalletMeResponse;
 import com.kkpp.core.wallet.exception.WalletErrorCode;
 import com.kkpp.core.wallet.exception.WalletException;
@@ -16,6 +17,7 @@ import com.kkpp.core.wallet.repository.PrincipalRepaymentLedgerRepository;
 import com.kkpp.core.wallet.repository.WalletRepository;
 import com.kkpp.core.wallet.repository.WalletTransactionRepository;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class WalletQueryService {
 
+    private static final int USAGE_RATE_SCALE = 1;
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+    private static final BigDecimal ZERO_USAGE_RATE = BigDecimal.ZERO.setScale(USAGE_RATE_SCALE);
+    private static final BigDecimal MAX_USAGE_RATE = BigDecimal.valueOf(100).setScale(USAGE_RATE_SCALE);
     private static final List<String> UNPAID_LEDGER_STATUSES = List.of(
             InterestLedger.STATUS_UPCOMING,
             InterestLedger.STATUS_PARTIAL,
@@ -47,6 +53,15 @@ public class WalletQueryService {
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final WalletTransactionRepository walletTransactionRepository;
 
+    public WalletCreditSummaryResponse getMyCreditSummary(Long authenticatedUserId) {
+        // 홈 한도 카드는 지갑 생성 여부와 무관하게 최신 활성 한도 1건만 기준으로 구성합니다.
+        UUID userPublicId = resolveUserPublicId(authenticatedUserId);
+        return creditLimitRepository
+                .findFirstByUserPublicIdAndStatusOrderByCreatedAtDescIdDesc(userPublicId, CreditLimit.STATUS_ACTIVE)
+                .map(this::toCreditSummaryResponse)
+                .orElseGet(this::emptyCreditSummaryResponse);
+    }
+
     public WalletMeResponse getMyWallet(Long authenticatedUserId) {
         // 인증 토큰은 내부 Long userId만 제공하므로, 지갑/원장 조회 기준인 userPublicId로 변환합니다.
         UUID userPublicId = resolveUserPublicId(authenticatedUserId);
@@ -54,7 +69,7 @@ public class WalletQueryService {
                 .orElseThrow(() -> new WalletException(WalletErrorCode.WALLET_NOT_FOUND));
 
         Optional<CreditLimit> activeCreditLimit = creditLimitRepository
-                .findFirstByUserPublicIdAndStatusOrderByCreatedAtDesc(userPublicId, CreditLimit.STATUS_ACTIVE);
+                .findFirstByUserPublicIdAndStatusOrderByCreatedAtDescIdDesc(userPublicId, CreditLimit.STATUS_ACTIVE);
         Optional<InterestLedger> unpaidInterestLedger = activeCreditLimit
                 .flatMap(this::findNearestUnpaidInterestLedger);
         Optional<PrincipalRepaymentLedger> unpaidPrincipalLedger = activeCreditLimit
@@ -124,6 +139,53 @@ public class WalletQueryService {
                 ledger.getUnpaidAmount(),
                 ledger.getStatus()
         );
+    }
+
+    private WalletCreditSummaryResponse toCreditSummaryResponse(CreditLimit creditLimit) {
+        BigDecimal totalLimit = zeroIfNull(creditLimit.getTotalLimit());
+        BigDecimal usedAmount = zeroIfNull(creditLimit.getUsedAmount());
+        BigDecimal remainingAmount = totalLimit.subtract(usedAmount);
+        if (remainingAmount.compareTo(BigDecimal.ZERO) < 0) {
+            // DB 제약이 깨진 데이터가 들어와도 홈 progress 영역이 음수 잔여 한도를 표시하지 않도록 방어합니다.
+            remainingAmount = BigDecimal.ZERO;
+        }
+
+        return new WalletCreditSummaryResponse(
+                true,
+                creditLimit.getPublicId(),
+                totalLimit,
+                usedAmount,
+                remainingAmount,
+                usageRate(usedAmount, totalLimit),
+                creditLimit.getStatus()
+        );
+    }
+
+    private WalletCreditSummaryResponse emptyCreditSummaryResponse() {
+        return new WalletCreditSummaryResponse(
+                false,
+                null,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                ZERO_USAGE_RATE,
+                null
+        );
+    }
+
+    private BigDecimal usageRate(BigDecimal usedAmount, BigDecimal totalLimit) {
+        if (totalLimit == null || totalLimit.compareTo(BigDecimal.ZERO) <= 0) {
+            return ZERO_USAGE_RATE;
+        }
+        BigDecimal rate = zeroIfNull(usedAmount)
+                .multiply(ONE_HUNDRED)
+                .divide(totalLimit, USAGE_RATE_SCALE, RoundingMode.HALF_UP);
+        // 프론트 progress bar 값으로 바로 쓰이므로 비정상 데이터에서도 100%를 넘기지 않습니다.
+        return rate.compareTo(MAX_USAGE_RATE) > 0 ? MAX_USAGE_RATE : rate;
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
     }
 
     private WalletMeResponse.Principal toPrincipalResponse(

@@ -3,6 +3,7 @@ package com.kkpp.core.wallet.controller;
 import com.kkpp.common.core.response.ApiResponse;
 import com.kkpp.common.security.annotation.AuthUser;
 import com.kkpp.common.security.auth.AuthUserInfo;
+import com.kkpp.core.wallet.dto.WalletCreditSummaryResponse;
 import com.kkpp.core.wallet.dto.WalletMeResponse;
 import com.kkpp.core.wallet.service.WalletQueryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -89,5 +90,67 @@ public class WalletController {
     public ApiResponse<WalletMeResponse> getMyWallet(@Parameter(hidden = true) @AuthUser AuthUserInfo authUser) {
         WalletMeResponse response = walletQueryService.getMyWallet(authUser.userId());
         return ApiResponse.success(response, "내 지갑 정보를 조회했습니다.");
+    }
+
+    @Operation(
+            summary = "홈 화면 한도 요약 조회",
+            description = """
+                    인증 사용자 기준으로 홈 화면 한도 카드에 필요한 정보를 조회합니다.
+                    현재 외상 금액, 총 승인 한도, 사용 금액, 잔여 한도, 한도 사용률, 한도 상태를 반환합니다.
+                    활성 한도가 없으면 hasActiveLimit=false와 0원 금액으로 정상 응답합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "홈 화면 한도 요약 조회 성공",
+                    content = @Content(
+                            schema = @Schema(implementation = WalletCreditSummaryResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "활성 한도 있음", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "hasActiveLimit": true,
+                                                "creditLimitPublicId": "11111111-1111-4111-8111-111111111111",
+                                                "totalLimit": 4000000.00,
+                                                "usedAmount": 2500000.00,
+                                                "remainingAmount": 1500000.00,
+                                                "usageRate": 62.5,
+                                                "status": "ACTIVE"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "활성 한도 없음", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """)
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패"
+            )
+    })
+    @GetMapping("/credit")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<WalletCreditSummaryResponse> getMyCreditSummary(
+            @Parameter(hidden = true) @AuthUser AuthUserInfo authUser
+    ) {
+        WalletCreditSummaryResponse response = walletQueryService.getMyCreditSummary(authUser.userId());
+        return ApiResponse.success(response, "홈 화면 한도 요약 정보를 조회했습니다.");
     }
 }
