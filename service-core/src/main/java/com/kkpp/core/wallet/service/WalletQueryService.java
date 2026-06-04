@@ -54,10 +54,9 @@ public class WalletQueryService {
     private final WalletTransactionRepository walletTransactionRepository;
 
     public WalletCreditSummaryResponse getMyCreditSummary(Long authenticatedUserId) {
-        // 홈 한도 카드는 지갑 생성 여부와 무관하게 최신 활성 한도 1건만 기준으로 구성합니다.
+        // 홈 한도 카드는 지갑 생성 여부와 무관하게 결제 가능한 최신 활성 한도 1건만 기준으로 구성합니다.
         UUID userPublicId = resolveUserPublicId(authenticatedUserId);
-        return creditLimitRepository
-                .findFirstByUserPublicIdAndStatusOrderByCreatedAtDescIdDesc(userPublicId, CreditLimit.STATUS_ACTIVE)
+        return findLatestUsableActiveCreditLimit(userPublicId)
                 .map(this::toCreditSummaryResponse)
                 .orElseGet(this::emptyCreditSummaryResponse);
     }
@@ -68,8 +67,7 @@ public class WalletQueryService {
         Wallet wallet = walletRepository.findByUserPublicId(userPublicId)
                 .orElseThrow(() -> new WalletException(WalletErrorCode.WALLET_NOT_FOUND));
 
-        Optional<CreditLimit> activeCreditLimit = creditLimitRepository
-                .findFirstByUserPublicIdAndStatusOrderByCreatedAtDescIdDesc(userPublicId, CreditLimit.STATUS_ACTIVE);
+        Optional<CreditLimit> activeCreditLimit = findLatestUsableActiveCreditLimit(userPublicId);
         Optional<InterestLedger> unpaidInterestLedger = activeCreditLimit
                 .flatMap(this::findNearestUnpaidInterestLedger);
         Optional<PrincipalRepaymentLedger> unpaidPrincipalLedger = activeCreditLimit
@@ -101,6 +99,15 @@ public class WalletQueryService {
         User user = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new WalletException(WalletErrorCode.USER_NOT_FOUND));
         return user.getPublicId();
+    }
+
+    private Optional<CreditLimit> findLatestUsableActiveCreditLimit(UUID userPublicId) {
+        // 결제 검증과 동일하게 만료일이 지난 ACTIVE 한도는 화면에서도 활성 한도로 보지 않습니다.
+        return creditLimitRepository.findLatestUsableActiveLimit(
+                userPublicId,
+                CreditLimit.STATUS_ACTIVE,
+                LocalDate.now()
+        );
     }
 
     private Optional<InterestLedger> findNearestUnpaidInterestLedger(CreditLimit creditLimit) {
@@ -177,10 +184,14 @@ public class WalletQueryService {
         if (totalLimit == null || totalLimit.compareTo(BigDecimal.ZERO) <= 0) {
             return ZERO_USAGE_RATE;
         }
-        BigDecimal rate = zeroIfNull(usedAmount)
+        BigDecimal normalizedUsedAmount = zeroIfNull(usedAmount).max(BigDecimal.ZERO);
+        BigDecimal rate = normalizedUsedAmount
                 .multiply(ONE_HUNDRED)
                 .divide(totalLimit, USAGE_RATE_SCALE, RoundingMode.HALF_UP);
-        // 프론트 progress bar 값으로 바로 쓰이므로 비정상 데이터에서도 100%를 넘기지 않습니다.
+        // 프론트 progress bar 값으로 바로 쓰이므로 비정상 데이터에서도 0~100 범위를 보장합니다.
+        if (rate.compareTo(ZERO_USAGE_RATE) < 0) {
+            return ZERO_USAGE_RATE;
+        }
         return rate.compareTo(MAX_USAGE_RATE) > 0 ? MAX_USAGE_RATE : rate;
     }
 
