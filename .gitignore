@@ -30,3 +30,10 @@ uploads/
 # Local Docker overrides
 docker-compose.override.yml
 
+# k8s secret
+secret.yaml
+**/secret.yaml
+
+# eks kubeconfig
+kkpp-eks-kubeconfig
+**/kkpp-eks-kubeconfig
