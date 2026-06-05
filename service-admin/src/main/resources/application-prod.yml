@@ -25,3 +25,8 @@ cloud:
       bucket: ${S3_BUCKET_NAME}
       # 업로드 후 반환할 이미지 공개 URL의 base (예: https://bucket-name.s3.ap-northeast-2.amazonaws.com)
       public-url-prefix: ${S3_PUBLIC_URL_PREFIX}
+
+credit-docs:
+  s3:
+    bucket: ${CREDIT_DOCS_S3_BUCKET:kkpp-secure-credit-docs-bucket}
+    presigned-url-expiry-minutes: 15
