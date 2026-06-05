@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCOUNT_ID = credentials('aws-account-id')
+        AWS_ACCOUNT_ID = credentials('aws-id')
         AWS_REGION = 'ap-northeast-2'
         ECR_REPO_NAME = 'service-catalog'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -60,7 +60,7 @@ pipeline {
                             
                             # deployment.yaml 파일에서 SERVICE_CATALOG_IMAGE_PLACEHOLDER를 찾아 실제 ECR 주소로 교체 후 deployment.redered.yaml 파일에 복사
                             # deployment.yaml의 aws id를 숨기기 위한 조치
-                            
+
                             sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} > service-catalog/deployment.rendered.yaml
 
                             kubectl apply -f service-catalog/deployment.rendered.yaml
