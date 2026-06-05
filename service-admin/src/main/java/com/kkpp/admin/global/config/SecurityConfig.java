@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -23,9 +22,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-// local 프로필에서만 적용되는 관리자 서비스 보안 설정
 @Configuration
-@Profile("local")
 @Slf4j
 public class SecurityConfig {
 
@@ -34,10 +31,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            AuthenticationEntryPoint authenticationEntryPoint,
-            @Value("${admin.upload.product-image-public-url-prefix:/uploads/products}") String publicUrlPrefix
+            AuthenticationEntryPoint authenticationEntryPoint
     ) throws Exception {
-        String productImageResourcePattern = normalizePublicUrlPrefix(publicUrlPrefix) + "/**";
 
         return http
                 // REST API 테스트 중 CSRF 토큰 없이 POST/PATCH/DELETE를 호출할 수 있게 함
@@ -66,10 +61,7 @@ public class SecurityConfig {
                                 "/health",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                productImageResourcePattern,
-                                "/products/**",
-                                "/api/v1/admin/credit-reviews/**"
+                                "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -104,15 +96,6 @@ public class SecurityConfig {
         };
     }
 
-    // 업로드 이미지 공개 URL prefix를 Spring Security matcher에 사용할 경로 패턴으로 정규화하는 함수이다.
-    private String normalizePublicUrlPrefix(String publicUrlPrefix) {
-        String normalizedPrefix = publicUrlPrefix.startsWith("/") ? publicUrlPrefix : "/" + publicUrlPrefix;
-        return normalizedPrefix.endsWith("/")
-                ? normalizedPrefix.substring(0, normalizedPrefix.length() - 1)
-                : normalizedPrefix;
-    }
-
-    // 브라우저의 POST/PATCH/DELETE 프리플라이트 요청을 허용하는 CORS 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

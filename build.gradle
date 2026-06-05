@@ -10,6 +10,7 @@ ext {
     lombokMapstructBindingVersion = '0.2.0'
     jjwtVersion = '0.12.6'
     springdocOpenapiVersion = '2.5.0'
+    awsSdkVersion = '2.26.7'
 }
 
 allprojects {
