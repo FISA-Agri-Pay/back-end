@@ -11,6 +11,7 @@ import com.kkpp.auth.service.AuthService;
 import com.kkpp.common.core.response.ApiResponse;
 import com.kkpp.common.security.annotation.AuthUser;
 import com.kkpp.common.security.auth.AuthUserInfo;
+import com.kkpp.common.security.jwt.JwtTokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -19,6 +20,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -39,6 +41,7 @@ public class AuthController {
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
 
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Value("${cookie.secure}")
     private boolean cookieSecure;
@@ -128,6 +131,8 @@ public class AuthController {
                 .secure(cookieSecure)
                 .sameSite("Strict")
                 .path("/")
+                // 쿠키 만료 시간을 refresh JWT 자체의 TTL과 동일하게 맞춥니다.
+                .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenExpirySeconds()))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }

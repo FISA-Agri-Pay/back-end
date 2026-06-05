@@ -95,7 +95,9 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "http://localhost:3000",
                 "http://api-auth.dev6.fisa",
-                "http://api-core.dev6.fisa"
+                "http://api-core.dev6.fisa",
+                "https://api-auth.dev6.fisa",
+                "https://api-core.dev6.fisa"
         ));
         configuration.setAllowedMethods(List.of(
                 HttpMethod.GET.name(),

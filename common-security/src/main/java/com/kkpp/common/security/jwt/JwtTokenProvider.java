@@ -101,6 +101,10 @@ public class JwtTokenProvider {
         return ACCESS_TOKEN_EXPIRY_MS / 1000;
     }
 
+    public long getRefreshTokenExpirySeconds() {
+        return REFRESH_TOKEN_EXPIRY_MS / 1000;
+    }
+
     public String getTokenType() {
         return TOKEN_TYPE;
     }
