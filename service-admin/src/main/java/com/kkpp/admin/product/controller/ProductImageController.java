@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/products/images")
+@RequestMapping("/api/v1/admin/products/images")
 @RequiredArgsConstructor
 // 관리자 상품 대표 이미지 업로드 API이다.
 // 프론트는 상품 등록/수정 전에 이 API로 파일을 먼저 업로드하고, 응답의 imageUrl을 상품 저장 API에 포함한다.
