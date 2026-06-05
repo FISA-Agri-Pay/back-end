@@ -5,7 +5,6 @@ import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import java.io.IOException;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,7 @@ public class S3ProductImageStorage implements ProductImageStorage {
     public ProductImageUploadResponse upload(MultipartFile file) {
         validate(file);
 
-        String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
+        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
         String extension = extractExtension(originalFilename);
         String objectKey = KEY_PREFIX + UUID.randomUUID() + "." + extension;
 
@@ -79,7 +78,7 @@ public class S3ProductImageStorage implements ProductImageStorage {
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "이미지 파일만 업로드할 수 있습니다.");
         }
-        String extension = extractExtension(StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename())));
+        String extension = extractExtension(StringUtils.cleanPath(file.getOriginalFilename()));
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "jpg, jpeg, png, gif, webp 이미지만 업로드할 수 있습니다.");
         }
