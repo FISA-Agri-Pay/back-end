@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/products")
+@RequestMapping("/api/v1/admin/products")
 @RequiredArgsConstructor
 // 관리자 상품 관리 API의 HTTP 요청을 받는 컨트롤러임
 public class ProductController {
@@ -48,7 +48,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(@Valid @RequestBody CreateProductRequest request) {
         ProductResponse response = productService.createProduct(request);
         return ResponseEntity
-                .created(URI.create("/products/" + response.publicId()))
+                .created(URI.create("/api/v1/admin/products/" + response.publicId()))
                 .body(ApiResponse.success(response));
     }
 

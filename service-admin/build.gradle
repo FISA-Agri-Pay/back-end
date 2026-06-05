@@ -1,4 +1,9 @@
 dependencies {
+    // AWS SDK BOM으로 S3 및 의존 모듈의 버전을 일괄 관리함
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+    // prod 프로필에서 상품 이미지를 S3(또는 MinIO)에 업로드하기 위한 의존성
+    implementation 'software.amazon.awssdk:s3'
+
     // 공통 응답, 예외, BaseEntity 등을 사용하기 위한 모듈 의존성
     implementation project(':common-core')
     // JWT 필터와 인증 사용자 객체를 공유하기 위한 보안 공통 모듈
