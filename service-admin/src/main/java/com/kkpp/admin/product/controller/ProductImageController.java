@@ -4,6 +4,7 @@ import com.kkpp.admin.product.dto.ProductImageUploadResponse;
 import com.kkpp.admin.product.storage.ProductImageStorage;
 import com.kkpp.common.core.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -22,7 +23,7 @@ public class ProductImageController {
     private final ProductImageStorage productImageStorage;
 
     // multipart/form-data의 file 파트를 받아 저장소에 위임하고 접근 가능한 이미지 URL을 반환한다.
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<ProductImageUploadResponse> uploadProductImage(@RequestPart("file") MultipartFile file) {
         return ApiResponse.success(productImageStorage.upload(file));
     }
