@@ -5,6 +5,8 @@ import com.kkpp.auth.dto.request.RefreshTokenRequest;
 import com.kkpp.auth.dto.request.RegisterRequest;
 import com.kkpp.auth.dto.request.SetPaymentPinRequest;
 import com.kkpp.auth.dto.response.TokenResponse;
+import com.kkpp.auth.exception.AuthErrorCode;
+import com.kkpp.auth.exception.AuthException;
 import com.kkpp.auth.service.AuthService;
 import com.kkpp.common.core.response.ApiResponse;
 import com.kkpp.common.security.annotation.AuthUser;
@@ -13,9 +15,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,7 +36,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+
     private final AuthService authService;
+
+    @Value("${cookie.secure}")
+    private boolean cookieSecure;
 
     @Operation(
             summary = "회원가입",
@@ -78,9 +91,13 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(
-            @RequestBody @Valid LoginRequest request
+            @RequestBody @Valid LoginRequest request,
+            HttpServletResponse response
     ) {
-        return ResponseEntity.ok(ApiResponse.success(authService.login(request), "로그인이 완료되었습니다."));
+        TokenResponse tokenResponse = authService.login(request);
+        // refreshToken은 응답 본문에 노출하지 않고 HttpOnly 쿠키로만 전달합니다.
+        addRefreshTokenCookie(response, tokenResponse.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(tokenResponse, "로그인이 완료되었습니다."));
     }
 
     @Operation(
@@ -94,8 +111,37 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(
-            @RequestBody @Valid RefreshTokenRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        return ResponseEntity.ok(ApiResponse.success(authService.refresh(request), "토큰이 재발급되었습니다."));
+        // 토큰 재발급은 클라이언트가 보낸 HttpOnly refreshToken 쿠키를 기준으로 처리합니다.
+        String refreshToken = readRefreshTokenCookie(request);
+        TokenResponse tokenResponse = authService.refresh(new RefreshTokenRequest(refreshToken));
+        addRefreshTokenCookie(response, tokenResponse.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(tokenResponse, "토큰이 재발급되었습니다."));
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                // 로컬 HTTP와 운영 HTTPS 환경을 모두 지원하도록 설정값으로 Secure 여부를 제어합니다.
+                .secure(cookieSecure)
+                .sameSite("Strict")
+                .path("/")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String readRefreshTokenCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        for (Cookie cookie : cookies) {
+            if (REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
     }
 }
