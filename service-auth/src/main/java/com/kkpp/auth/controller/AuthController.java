@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -38,6 +39,9 @@ public class AuthController {
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
 
     private final AuthService authService;
+
+    @Value("${cookie.secure}")
+    private boolean cookieSecure;
 
     @Operation(
             summary = "회원가입",
@@ -120,8 +124,8 @@ public class AuthController {
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
-                // 로컬 HTTP 테스트를 위해 Secure=false로 내려줍니다. 운영 HTTPS 전환 시 true로 되돌려야 합니다.
-                .secure(false)
+                // 로컬 HTTP와 운영 HTTPS 환경을 모두 지원하도록 설정값으로 Secure 여부를 제어합니다.
+                .secure(cookieSecure)
                 .sameSite("Strict")
                 .path("/")
                 .build();
