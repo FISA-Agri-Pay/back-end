@@ -36,7 +36,7 @@ pipeline {
                     }
                     echo "Changed files since ${prevCommit}:\n${changedFiles}"
 
-                    def watchPaths = ['service-batch/', 'common-core/']
+                    def watchPaths = ['service-batch/', 'common-core/', 'common-security/']
                     def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
                         watchPaths.any { path -> file.startsWith(path) }
                     }
