@@ -6,6 +6,9 @@ import java.util.UUID;
 
 @Schema(description = "홈 화면 한도 요약 조회 응답")
 public record WalletCreditSummaryResponse(
+        @Schema(description = "사용자 이름", example = "홍길동")
+        String name,
+
         @Schema(description = "활성 한도 보유 여부", example = "true")
         boolean hasActiveLimit,
 

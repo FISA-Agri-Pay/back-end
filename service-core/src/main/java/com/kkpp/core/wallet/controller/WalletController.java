@@ -111,6 +111,7 @@ public class WalletController {
                                             {
                                               "status": "SUCCESS",
                                               "data": {
+                                                "name": "홍길동",
                                                 "hasActiveLimit": true,
                                                 "creditLimitPublicId": "11111111-1111-4111-8111-111111111111",
                                                 "totalLimit": 4000000.00,
@@ -127,6 +128,7 @@ public class WalletController {
                                             {
                                               "status": "SUCCESS",
                                               "data": {
+                                                "name": "홍길동",
                                                 "hasActiveLimit": false,
                                                 "creditLimitPublicId": null,
                                                 "totalLimit": 0,
@@ -143,6 +145,7 @@ public class WalletController {
                                             {
                                               "status": "SUCCESS",
                                               "data": {
+                                                "name": "홍길동",
                                                 "hasActiveLimit": false,
                                                 "creditLimitPublicId": null,
                                                 "totalLimit": 0,
@@ -159,6 +162,7 @@ public class WalletController {
                                             {
                                               "status": "SUCCESS",
                                               "data": {
+                                                "name": "홍길동",
                                                 "hasActiveLimit": false,
                                                 "creditLimitPublicId": null,
                                                 "totalLimit": 0,

@@ -58,16 +58,20 @@ public class WalletQueryService {
 
     public WalletCreditSummaryResponse getMyCreditSummary(Long authenticatedUserId) {
         // 홈 한도 카드는 지갑 생성 여부와 무관하게 결제 가능한 최신 활성 한도 1건만 기준으로 구성합니다.
-        UUID userPublicId = resolveUserPublicId(authenticatedUserId);
+        User user = userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new WalletException(WalletErrorCode.USER_NOT_FOUND));
+        UUID userPublicId = user.getPublicId();
+        String userName = user.getName();
+
         Optional<CreditLimit> activeCreditLimit = findLatestUsableActiveCreditLimit(userPublicId);
         if (activeCreditLimit.isPresent()) {
-            return toCreditSummaryResponse(activeCreditLimit.get());
+            return toCreditSummaryResponse(activeCreditLimit.get(), userName);
         }
         ApplicationStatus applicationStatus = creditLimitApplicationRepository
                 .findTopByUserPublicIdOrderByAppliedAtDesc(userPublicId)
                 .map(app -> app.getStatus())
                 .orElse(null);
-        return emptyCreditSummaryResponse(applicationStatus);
+        return emptyCreditSummaryResponse(applicationStatus, userName);
     }
 
     public WalletMeResponse getMyWallet(Long authenticatedUserId) {
@@ -157,7 +161,7 @@ public class WalletQueryService {
         );
     }
 
-    private WalletCreditSummaryResponse toCreditSummaryResponse(CreditLimit creditLimit) {
+    private WalletCreditSummaryResponse toCreditSummaryResponse(CreditLimit creditLimit, String userName) {
         BigDecimal totalLimit = zeroIfNull(creditLimit.getTotalLimit());
         BigDecimal usedAmount = zeroIfNull(creditLimit.getUsedAmount());
         BigDecimal remainingAmount = totalLimit.subtract(usedAmount);
@@ -167,6 +171,7 @@ public class WalletQueryService {
         }
 
         return new WalletCreditSummaryResponse(
+                userName,
                 true,
                 creditLimit.getPublicId(),
                 totalLimit,
@@ -178,8 +183,9 @@ public class WalletQueryService {
         );
     }
 
-    private WalletCreditSummaryResponse emptyCreditSummaryResponse(ApplicationStatus applicationStatus) {
+    private WalletCreditSummaryResponse emptyCreditSummaryResponse(ApplicationStatus applicationStatus, String userName) {
         return new WalletCreditSummaryResponse(
+                userName,
                 false,
                 null,
                 BigDecimal.ZERO,
