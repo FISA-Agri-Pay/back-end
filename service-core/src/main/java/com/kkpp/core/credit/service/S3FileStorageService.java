@@ -17,7 +17,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@Profile("prod | s3")
+@Profile("prod | s3 | dev")
 public class S3FileStorageService implements FileStorageService {
 
     private static final String KEY_PREFIX = "credit-documents/";
@@ -46,11 +46,13 @@ public class S3FileStorageService implements FileStorageService {
                     .bucket(bucketName)
                     .key(objectKey)
                     .contentType(file.getContentType())
-                    .contentLength(file.getSize())
-                    .serverSideEncryption(ServerSideEncryption.AWS_KMS);
+                    .contentLength(file.getSize());
 
             if (kmsKeyArn != null) {
-                requestBuilder.ssekmsKeyId(kmsKeyArn);
+                requestBuilder.serverSideEncryption(ServerSideEncryption.AWS_KMS)
+                        .ssekmsKeyId(kmsKeyArn);
+            } else {
+                requestBuilder.serverSideEncryption(ServerSideEncryption.AES256);
             }
 
             s3Client.putObject(requestBuilder.build(),
