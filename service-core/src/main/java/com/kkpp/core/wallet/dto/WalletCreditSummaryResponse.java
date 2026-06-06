@@ -24,7 +24,10 @@ public record WalletCreditSummaryResponse(
         @Schema(description = "한도 사용률", example = "62.5")
         BigDecimal usageRate,
 
-        @Schema(description = "한도 상태", example = "ACTIVE")
-        String status
+        @Schema(description = "한도 상태 (ACTIVE 등)", example = "ACTIVE")
+        String status,
+
+        @Schema(description = "한도 신청 상태 (REQUESTED | PENDING | APPROVED | REJECTED | CANCELLED | null=신청 없음)", example = "PENDING")
+        String applicationStatus
 ) {
 }
