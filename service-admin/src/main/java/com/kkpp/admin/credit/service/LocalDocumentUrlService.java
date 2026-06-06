@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile("!prod")
+@Profile("local")
 public class LocalDocumentUrlService implements DocumentUrlService {
 
     @Override
