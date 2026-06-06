@@ -33,6 +33,7 @@ pipeline {
                     env.SKIP_BUILD = hasChanges ? 'false' : 'true'
                     if (env.SKIP_BUILD == 'true') {
                         echo "${watchPaths} 관련 변경 없음. 빌드 스킵"
+                        currentBuild.result = 'NOT_BUILT'
                     }
                 }
             }
