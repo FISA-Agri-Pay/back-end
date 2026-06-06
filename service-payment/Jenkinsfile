@@ -19,10 +19,17 @@ pipeline {
                         return
                     }
 
-                    def changedFiles = sh(
-                        returnStdout: true,
-                        script: "git diff --name-only ${prevCommit} HEAD 2>/dev/null || echo ''"
-                    ).trim()
+                    def changedFiles
+                    try {
+                        changedFiles = sh(
+                            returnStdout: true,
+                            script: "git diff --name-only ${prevCommit} HEAD"
+                        ).trim()
+                    } catch (e) {
+                        echo "git diff 실패 (얕은 clone 또는 커밋 누락) — 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
                     echo "Changed files since ${prevCommit}:\n${changedFiles}"
 
                     def watchPaths = ['service-payment/', 'common-core/']
