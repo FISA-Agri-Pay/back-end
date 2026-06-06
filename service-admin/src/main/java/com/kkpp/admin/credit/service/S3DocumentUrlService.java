@@ -8,7 +8,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @Service
-@Profile("prod")
+@Profile("prod | dev")
 public class S3DocumentUrlService implements DocumentUrlService {
 
     private final S3Presigner s3Presigner;
