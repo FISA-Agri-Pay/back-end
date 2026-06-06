@@ -117,12 +117,13 @@ public class WalletController {
                                                 "usedAmount": 2500000.00,
                                                 "remainingAmount": 1500000.00,
                                                 "usageRate": 62.5,
-                                                "status": "ACTIVE"
+                                                "status": "ACTIVE",
+                                                "applicationStatus": "APPROVED"
                                               },
                                               "message": "홈 화면 한도 요약 정보를 조회했습니다."
                                             }
                                             """),
-                                    @ExampleObject(name = "활성 한도 없음", value = """
+                                    @ExampleObject(name = "심사 중", value = """
                                             {
                                               "status": "SUCCESS",
                                               "data": {
@@ -132,7 +133,40 @@ public class WalletController {
                                                 "usedAmount": 0,
                                                 "remainingAmount": 0,
                                                 "usageRate": 0.0,
-                                                "status": null
+                                                "status": null,
+                                                "applicationStatus": "PENDING"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "반려됨", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null,
+                                                "applicationStatus": "REJECTED"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "신청 이력 없음", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null,
+                                                "applicationStatus": null
                                               },
                                               "message": "홈 화면 한도 요약 정보를 조회했습니다."
                                             }
