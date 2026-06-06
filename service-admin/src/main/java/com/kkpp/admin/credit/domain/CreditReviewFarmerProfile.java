@@ -19,7 +19,7 @@ import org.hibernate.annotations.Immutable;
 @Getter
 @Entity
 @Immutable
-@Table(name = "farmer_profiles", schema = "public")
+@Table(name = "farmer_profiles", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 신청자가 입력한 농지와 영농 정보를 조회하기 위한 farmer_profiles 테이블 매핑 엔티티
 // 관리자 상세 화면의 주소, 경작 면적, 대표 작물, 보험 가입 여부 표시 근거가 된다.
@@ -30,7 +30,7 @@ public class CreditReviewFarmerProfile extends BaseEntity {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_public_id", referencedColumnName = "public_id", nullable = false)
     private CreditReviewUser user;
 
     @Column(name = "farm_address", nullable = false, length = 255)

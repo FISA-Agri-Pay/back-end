@@ -18,3 +18,15 @@ admin:
   upload:
     product-image-dir: ${PRODUCT_IMAGE_UPLOAD_DIR:/app/uploads/products}
     product-image-public-url-prefix: ${PRODUCT_IMAGE_PUBLIC_URL_PREFIX:/uploads/products}
+
+cloud:
+  aws:
+    s3:
+      region: ${AWS_REGION}
+      bucket: ${S3_BUCKET_NAME}
+      public-url-prefix: ${S3_PUBLIC_URL_PREFIX}
+
+credit-docs:
+  s3:
+    bucket: ${CREDIT_DOCS_S3_BUCKET}
+    presigned-url-expiry-minutes: 15

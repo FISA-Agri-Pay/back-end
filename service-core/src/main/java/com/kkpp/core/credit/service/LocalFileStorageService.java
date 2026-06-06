@@ -1,6 +1,7 @@
 package com.kkpp.core.credit.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@Profile("!prod & !s3")
 public class LocalFileStorageService implements FileStorageService {
 
     private static final Path UPLOAD_ROOT = Path.of("uploads", "credit-documents");
