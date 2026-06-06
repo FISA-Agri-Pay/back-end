@@ -16,7 +16,7 @@ import org.hibernate.annotations.Immutable;
 @Getter
 @Entity
 @Immutable
-@Table(name = "users", schema = "public")
+@Table(name = "users", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 관리자 한도 심사에서 신청자 정보를 조회하기 위한 users 테이블 매핑 엔티티
 // service-admin 전용 조회 모델이므로 service-core의 User 엔티티와 분리되어 있다.

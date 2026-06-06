@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "credit_limits", schema = "public")
+@Table(name = "credit_limits", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 관리자 승인 후 생성되는 실제 사용자 한도를 나타내는 credit_limits 테이블 매핑 엔티티
 // 결제 시스템은 이 테이블의 ACTIVE 한도를 기준으로 외상 결제 가능 여부를 판단한다.
@@ -36,11 +36,11 @@ public class CreditReviewLimit extends BaseEntity {
     private UUID publicId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_public_id", referencedColumnName = "public_id", nullable = false)
     private CreditReviewUser user;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false, unique = true)
+    @JoinColumn(name = "application_public_id", referencedColumnName = "public_id", nullable = false, unique = true)
     private CreditReviewApplication application;
 
     @Column(name = "total_limit", nullable = false, precision = 15, scale = 2)

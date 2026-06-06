@@ -20,7 +20,7 @@ import org.hibernate.annotations.Immutable;
 @Getter
 @Entity
 @Immutable
-@Table(name = "farmer_documents", schema = "public")
+@Table(name = "farmer_documents", schema = "core")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 한도 신청에 첨부된 서류 파일 정보를 조회하기 위한 farmer_documents 테이블 매핑 엔티티
 // 관리자 상세 화면의 농업경영체 등록확인서 파일 뷰어가 이 엔티티의 fileUrl을 사용한다.
@@ -31,11 +31,11 @@ public class CreditReviewDocument {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_public_id", referencedColumnName = "public_id", nullable = false)
     private CreditReviewUser user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "application_id")
+    @JoinColumn(name = "application_public_id", referencedColumnName = "public_id")
     private CreditReviewApplication application;
 
     @Enumerated(EnumType.STRING)
@@ -44,9 +44,6 @@ public class CreditReviewDocument {
 
     @Column(name = "file_url", nullable = false, length = 500)
     private String fileUrl;
-
-    @Column(name = "uploaded_at", nullable = false)
-    private LocalDateTime uploadedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
