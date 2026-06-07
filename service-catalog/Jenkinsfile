@@ -1,0 +1,83 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_ACCOUNT_ID = credentials('aws-id')
+        AWS_REGION = 'ap-northeast-2'
+        ECR_REPO_NAME = 'service-catalog'
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        DEPLOYMENT_FILE = 'service-catalog/deployment.yaml'
+        SERVICE_FILE = 'service-catalog/service.yaml'
+    }
+
+    stages {
+        stage('1. Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('2. Build Spring Boot') {
+            steps {
+                sh './gradlew :service-catalog:clean :service-catalog:build -x test'
+            }
+        }
+
+        stage('3. Build Docker Image') {
+            steps {
+                script {
+                    dir('service-catalog') {
+                        dockerImage = docker.build("${ECR_IMAGE}:${IMAGE_TAG}")
+                    }
+                }
+            }
+        }
+
+        stage('4. Push to ECR') {
+            steps {
+                script {
+                    docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:aws-s3-frontend-deploy") {
+                        dockerImage.push()
+                        dockerImage.push('latest')
+                    }
+                }
+            }
+        }
+
+        stage('5. Deploy to EKS') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-s3-frontend-deploy',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    withKubeConfig([credentialsId: 'eks-kubeconfig']) {
+                        sh """
+                            set -e
+                            
+                            # deployment.yaml 파일에서 SERVICE_CATALOG_IMAGE_PLACEHOLDER를 찾아 실제 ECR 주소로 교체 후 deployment.redered.yaml 파일에 복사
+                            # deployment.yaml의 aws id를 숨기기 위한 조치
+
+                            sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} > service-catalog/deployment.rendered.yaml
+
+                            kubectl apply -f service-catalog/deployment.rendered.yaml
+                            kubectl apply -f ${SERVICE_FILE}
+                            kubectl set image deployment/service-catalog-deployment service-catalog-container=${ECR_IMAGE}:${IMAGE_TAG}
+
+                            if ! kubectl rollout status deployment/service-catalog-deployment --timeout=5m; then
+                                echo 'Rollout failed or timed out. Printing Kubernetes diagnostics.'
+                                kubectl describe deployment service-catalog-deployment || true
+                                kubectl get rs,pods -o wide | grep service-catalog || true
+                                kubectl get events --sort-by=.lastTimestamp | tail -50 || true
+                                exit 1
+                            fi
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
