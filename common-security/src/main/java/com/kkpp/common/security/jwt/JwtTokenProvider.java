@@ -20,6 +20,7 @@ public class JwtTokenProvider {
     private static final String CLAIM_USER_ID = "userId";
     private static final String CLAIM_PUBLIC_ID = "publicId";
     private static final String PURPOSE_REFRESH = "refresh";
+    private static final String ROLE_USER = "USER";
 
     private final SecretKey secretKey;
 
@@ -30,16 +31,13 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(sha256(secret));
     }
 
-    public String generateUserAccessToken(Long userId) {
-        return generateAccessToken(userId, "USER");
-    }
-
-    public String generateAccessToken(Long userId, String role) {
+    public String generateUserAccessToken(Long userId, UUID publicId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USER_ID, userId)
-                .claim("role", role)
+                .claim(CLAIM_PUBLIC_ID, String.valueOf(publicId))
+                .claim("role", ROLE_USER)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS))
                 .signWith(secretKey)
