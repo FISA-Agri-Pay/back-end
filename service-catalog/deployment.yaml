@@ -73,9 +73,15 @@ spec:
 
         # Kafka producer 설정입니다.
         - name: KAFKA_BOOTSTRAP_SERVERS
-          value: 10.30.4.21:9092
+          valueFrom:
+            configMapKeyRef:
+              name: service-catalog-config
+              key: KAFKA_BOOTSTRAP_SERVERS
         - name: PAYMENT_REQUEST_TOPIC
-          value: credit-payment-requested
+          valueFrom:
+            configMapKeyRef:
+              name: service-catalog-config
+              key: PAYMENT_REQUEST_TOPIC
 
         # 컨테이너가 정상적으로 요청을 받을 수 있는지 확인합니다.
         readinessProbe:
