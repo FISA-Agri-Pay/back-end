@@ -9,8 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.http.HttpMethod;
+// 로컬 환경에서 테스트시에만 주석 해제
+// dev 브랜치로 merge하기 전, 반드시 주석할 것
+// import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,8 +22,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
-@Profile("local")
-@RequiredArgsConstructor
+// 로컬 환경에서 테스트시에만 주석 해제
+// dev 브랜치로 merge하기 전, 반드시 주석할 것
+// @Profile("local")
 public class SecurityConfig {
 
     @Bean
