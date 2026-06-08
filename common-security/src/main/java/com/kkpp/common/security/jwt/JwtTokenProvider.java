@@ -20,6 +20,7 @@ public class JwtTokenProvider {
     private static final String CLAIM_USER_ID = "userId";
     private static final String CLAIM_PUBLIC_ID = "publicId";
     private static final String PURPOSE_REFRESH = "refresh";
+    private static final String ROLE_USER = "USER";
 
     private final SecretKey secretKey;
 
@@ -36,7 +37,7 @@ public class JwtTokenProvider {
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_PUBLIC_ID, String.valueOf(publicId))
-                .claim("role", "USER")
+                .claim("role", ROLE_USER)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS))
                 .signWith(secretKey)
