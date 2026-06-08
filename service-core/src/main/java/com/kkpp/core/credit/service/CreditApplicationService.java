@@ -48,7 +48,6 @@ public class CreditApplicationService {
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
     private static final List<ApplicationStatus> IN_PROGRESS_STATUSES = List.of(
-            ApplicationStatus.REQUESTED,
             ApplicationStatus.PENDING
     );
 

@@ -190,8 +190,8 @@ CREATE TABLE IF NOT EXISTS core.credit_limit_applications (
 
     is_reapplication BOOLEAN NOT NULL DEFAULT FALSE,
 
-    status VARCHAR(20) NOT NULL DEFAULT 'REQUESTED'
-        CHECK (status IN ('REQUESTED', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')),
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')),
 
     rejection_reason TEXT,
 
@@ -794,7 +794,7 @@ CREATE INDEX IF NOT EXISTS idx_core_credit_limit_applications_user_public_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_core_credit_limit_applications_user_in_progress
     ON core.credit_limit_applications(user_public_id)
-    WHERE status IN ('REQUESTED', 'PENDING');
+    WHERE status = 'PENDING';
 
 CREATE INDEX IF NOT EXISTS idx_core_ass_scores_user_public_id
     ON core.ass_scores(user_public_id);
