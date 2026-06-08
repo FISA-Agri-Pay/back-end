@@ -61,7 +61,7 @@ public class CreditLimitApplication extends BaseEntity {
         application.userPublicId = userPublicId;
         application.requestedAmount = requestedAmount;
         application.isReapplication = false;
-        application.status = ApplicationStatus.REQUESTED;
+        application.status = ApplicationStatus.PENDING;
         application.appliedAt = LocalDateTime.now();
         return application;
     }
