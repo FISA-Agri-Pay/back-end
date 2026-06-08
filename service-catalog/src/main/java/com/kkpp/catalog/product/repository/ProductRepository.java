@@ -15,7 +15,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             from Product p
             join fetch p.category c
             where (:categoryId is null or c.id = :categoryId)
-              and (:keyword is null or lower(p.name) like lower(concat('%', :keyword, '%')))
+              and (:keyword is null or lower(p.name) like lower(concat('%', cast(:keyword as string), '%')))
               and p.status <> 'HIDDEN'
             order by p.id desc
             """)

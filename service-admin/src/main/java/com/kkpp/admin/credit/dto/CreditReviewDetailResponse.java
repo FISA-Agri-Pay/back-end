@@ -59,7 +59,7 @@ public record CreditReviewDetailResponse(
     // 승인 또는 반려 결정 결과를 나타내는 상세 응답 하위 DTO이다.
     public record ReviewDecisionInfo(
             BigDecimal approvedAmount,
-            Long reviewedBy,
+            UUID reviewedByAdminPublicId,
             String rejectionReason,
             LocalDateTime decidedAt
     ) {

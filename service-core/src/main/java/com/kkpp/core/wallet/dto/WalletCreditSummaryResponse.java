@@ -6,6 +6,9 @@ import java.util.UUID;
 
 @Schema(description = "홈 화면 한도 요약 조회 응답")
 public record WalletCreditSummaryResponse(
+        @Schema(description = "사용자 이름", example = "홍길동")
+        String name,
+
         @Schema(description = "활성 한도 보유 여부", example = "true")
         boolean hasActiveLimit,
 
@@ -24,7 +27,10 @@ public record WalletCreditSummaryResponse(
         @Schema(description = "한도 사용률", example = "62.5")
         BigDecimal usageRate,
 
-        @Schema(description = "한도 상태", example = "ACTIVE")
-        String status
+        @Schema(description = "한도 상태 (ACTIVE 등)", example = "ACTIVE")
+        String status,
+
+        @Schema(description = "한도 신청 상태 (PENDING | APPROVED | REJECTED | CANCELLED | null=신청 없음)", example = "PENDING")
+        String applicationStatus
 ) {
 }

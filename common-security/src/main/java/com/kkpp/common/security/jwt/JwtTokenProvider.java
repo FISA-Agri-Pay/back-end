@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 
 public class JwtTokenProvider {
@@ -16,7 +17,10 @@ public class JwtTokenProvider {
     private static final long REFRESH_TOKEN_EXPIRY_MS = 30L * 24 * 60 * 60 * 1000L;
     private static final String TOKEN_TYPE = "Bearer";
     private static final String CLAIM_TOKEN_PURPOSE = "purpose";
+    private static final String CLAIM_USER_ID = "userId";
+    private static final String CLAIM_PUBLIC_ID = "publicId";
     private static final String PURPOSE_REFRESH = "refresh";
+    private static final String ROLE_USER = "USER";
 
     private final SecretKey secretKey;
 
@@ -27,15 +31,24 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(sha256(secret));
     }
 
-    public String generateUserAccessToken(Long userId) {
-        return generateAccessToken(userId, "USER");
-    }
-
-    public String generateAccessToken(Long userId, String role) {
+    public String generateUserAccessToken(Long userId, UUID publicId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claim("userId", userId)
+                .claim(CLAIM_USER_ID, userId)
+                .claim(CLAIM_PUBLIC_ID, String.valueOf(publicId))
+                .claim("role", ROLE_USER)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public String generateAccessToken(UUID publicId, String role) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(String.valueOf(publicId))
+                .claim(CLAIM_PUBLIC_ID, String.valueOf(publicId))
                 .claim("role", role)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS))
@@ -47,7 +60,19 @@ public class JwtTokenProvider {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claim("userId", userId)
+                .claim(CLAIM_USER_ID, userId)
+                .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_REFRESH)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public String generateRefreshToken(UUID publicId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(String.valueOf(publicId))
+                .claim(CLAIM_PUBLIC_ID, String.valueOf(publicId))
                 .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_REFRESH)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS))
@@ -72,6 +97,10 @@ public class JwtTokenProvider {
 
     public long getAccessTokenExpirySeconds() {
         return ACCESS_TOKEN_EXPIRY_MS / 1000;
+    }
+
+    public long getRefreshTokenExpirySeconds() {
+        return REFRESH_TOKEN_EXPIRY_MS / 1000;
     }
 
     public String getTokenType() {

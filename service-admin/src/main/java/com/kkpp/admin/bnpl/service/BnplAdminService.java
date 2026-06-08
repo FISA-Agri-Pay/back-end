@@ -405,10 +405,10 @@ public class BnplAdminService {
         if (authUser == null) {
             authUser = currentAuthUser();
         }
-        if (authUser == null || authUser.userId() == null) {
+        if (authUser == null || authUser.publicId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "관리자 인증 정보가 필요합니다.");
         }
-        return adminUserRepository.findById(authUser.userId())
+        return adminUserRepository.findByPublicId(authUser.publicId())
                 .map(adminUser -> {
                     if (!"ACTIVE".equals(adminUser.getStatus())) {
                         throw new BusinessException(ErrorCode.FORBIDDEN, "활성 상태의 관리자가 아닙니다.");

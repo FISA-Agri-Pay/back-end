@@ -11,3 +11,6 @@ spring:
 resident-id:
   hmac-key: ${RESIDENT_ID_HMAC_KEY}
   encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY}
+
+cookie:
+  secure: true

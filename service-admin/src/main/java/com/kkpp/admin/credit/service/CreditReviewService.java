@@ -55,6 +55,7 @@ public class CreditReviewService {
     private final CreditReviewDocumentRepository documentRepository;
     private final CreditReviewAssScoreRepository assScoreRepository;
     private final CreditReviewLimitRepository limitRepository;
+    private final DocumentUrlService documentUrlService;
 
     // 관리자 심사 목록을 페이지 단위로 조회한다.
     // Repository에서 바로 요약 DTO로 조회해 불필요한 엔티티 로딩을 줄인다.
@@ -242,7 +243,7 @@ public class CreditReviewService {
                 toAssInfo(application, assScore),
                 new CreditReviewDetailResponse.ReviewDecisionInfo(
                         application.getApprovedAmount(),
-                        application.getReviewedBy(),
+                        application.getReviewedByAdminPublicId(),
                         application.getRejectionReason(),
                         application.getDecidedAt()
                 ),
@@ -250,8 +251,8 @@ public class CreditReviewService {
                         .map(document -> new CreditReviewDetailResponse.DocumentInfo(
                                 document.getId(),
                                 document.getDocumentType().name(),
-                                document.getFileUrl(),
-                                document.getUploadedAt()
+                                documentUrlService.resolve(document.getFileUrl()),
+                                document.getCreatedAt()
                         ))
                         .toList(),
                 application.getAppliedAt()

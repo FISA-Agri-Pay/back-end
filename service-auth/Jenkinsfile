@@ -11,17 +11,54 @@ pipeline {
                 script {
                     env.IMAGE_TAG = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     echo "Image tag: ${env.IMAGE_TAG}"
+
+                    def prevCommit = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+                    if (!prevCommit) {
+                        echo "이전 성공 빌드 없음 - 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+
+                    def changedFiles
+                    try {
+                        changedFiles = sh(
+                            returnStdout: true,
+                            script: "git diff --name-only ${prevCommit} HEAD"
+                        ).trim()
+                    } catch (e) {
+                        echo "git diff 실패 (얕은 clone 또는 커밋 누락) — 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+                    echo "Changed files since ${prevCommit}:\n${changedFiles}"
+
+                    def watchPaths = ['service-auth/', 'common-core/', 'common-security/']
+                    def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
+                        watchPaths.any { path -> file.startsWith(path) }
+                    }
+
+                    env.SKIP_BUILD = hasChanges ? 'false' : 'true'
+                    if (env.SKIP_BUILD == 'true') {
+                        echo "${watchPaths} 관련 변경 없음. 빌드 스킵"
+                        currentBuild.result = 'NOT_BUILT'
+                    }
                 }
             }
         }
 
         stage('Build') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 sh './gradlew :service-auth:bootJar -x test'
             }
         }
 
         stage('Docker Build & Push') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'harbor-credentials',
@@ -42,7 +79,10 @@ pipeline {
 
         stage('Update GitOps') {
             when {
-                expression { env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev' }
+                allOf {
+                    expression { env.SKIP_BUILD != 'true' }
+                    expression { env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev' }
+                }
             }
             steps {
                 withCredentials([usernamePassword(

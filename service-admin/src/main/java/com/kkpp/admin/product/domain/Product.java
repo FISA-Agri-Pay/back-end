@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -20,9 +21,9 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "products", schema = "public")
+@Table(name = "products", schema = "catalog")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-// public.products 테이블과 매핑되는 상품 엔티티임
+// catalog.products 테이블과 매핑되는 상품 엔티티임
 public class Product extends BaseEntity {
 
     @Id
@@ -33,7 +34,7 @@ public class Product extends BaseEntity {
     private UUID publicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "category_public_id", referencedColumnName = "public_id", nullable = false)
     private Category category;
 
     @Column(nullable = false, length = 100)
@@ -141,5 +142,12 @@ public class Product extends BaseEntity {
     // 관리자 화면에서 판매 중지 처리하는 상태 변경임
     public void stopSelling() {
         this.status = ProductStatus.HIDDEN;
+    }
+
+    @PrePersist
+    private void prePersist() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID();
+        }
     }
 }

@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -120,8 +121,9 @@ public class AuthService {
 
     private TokenResponse issueTokens(UserAuth userAuth) {
         Long userId = userAuth.getUser().getId();
+        UUID publicId = userAuth.getUser().getPublicId();
 
-        String accessToken = jwtTokenProvider.generateUserAccessToken(userId);
+        String accessToken = jwtTokenProvider.generateUserAccessToken(userId, publicId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
         userAuth.updateRefreshToken(hashToken(refreshToken));
 

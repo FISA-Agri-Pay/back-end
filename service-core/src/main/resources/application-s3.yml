@@ -1,0 +1,6 @@
+cloud:
+  aws:
+    s3:
+      region: ${AWS_S3_REGION:ap-northeast-2}
+      bucket: ${AWS_S3_BUCKET}
+      kms-key-arn: ${AWS_S3_KMS_KEY_ARN:}

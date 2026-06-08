@@ -5,5 +5,6 @@ package com.kkpp.admin.credit.domain;
 public enum CreditReviewStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    CANCELLED
 }
