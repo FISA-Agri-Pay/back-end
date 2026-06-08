@@ -43,18 +43,6 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String generateAccessToken(Long userId, String role) {
-        Date now = new Date();
-        return Jwts.builder()
-                .subject(String.valueOf(userId))
-                .claim(CLAIM_USER_ID, userId)
-                .claim("role", role)
-                .issuedAt(now)
-                .expiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS))
-                .signWith(secretKey)
-                .compact();
-    }
-
     public String generateAccessToken(UUID publicId, String role) {
         Date now = new Date();
         return Jwts.builder()
