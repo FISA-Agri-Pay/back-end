@@ -11,6 +11,7 @@ pipeline {
         CONFIGMAP_FILE = 'service-catalog/configmap.yaml'
         DEPLOYMENT_FILE = 'service-catalog/deployment.yaml'
         SERVICE_FILE = 'service-catalog/service.yaml'
+        INGRESS_FILE = 'service-catalog/ingress.yaml'
     }
 
     stages {
@@ -67,6 +68,7 @@ pipeline {
                             kubectl apply -f ${CONFIGMAP_FILE}
                             kubectl apply -f service-catalog/deployment.rendered.yaml
                             kubectl apply -f ${SERVICE_FILE}
+                            kubectl apply -f ${INGRESS_FILE}
 
                             if ! kubectl rollout status deployment/service-catalog-deployment --timeout=5m; then
                                 echo 'Rollout failed or timed out. Printing Kubernetes diagnostics.'
