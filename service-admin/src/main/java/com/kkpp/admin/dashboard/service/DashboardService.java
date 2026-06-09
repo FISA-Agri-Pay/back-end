@@ -14,6 +14,8 @@ import com.kkpp.admin.dashboard.dto.DashboardSummaryResponse.ActionRequired;
 import com.kkpp.admin.dashboard.dto.DashboardSummaryResponse.DailyBnplUsage;
 import com.kkpp.admin.dashboard.dto.DashboardSummaryResponse.RecentBnplOrder;
 import com.kkpp.admin.product.repository.ProductRepository;
+import com.kkpp.common.core.exception.BusinessException;
+import com.kkpp.common.core.exception.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -45,57 +47,68 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public DashboardSummaryResponse getSummary() {
-        LocalDate today = LocalDate.now();
-        YearMonth currentMonth = YearMonth.from(today);
-        LocalDate startOfMonth = currentMonth.atDay(1);
-        LocalDate endOfMonth = currentMonth.atEndOfMonth();
-        LocalDateTime startOfMonthAt = startOfMonth.atStartOfDay();
-        LocalDateTime nextMonthStartAt = currentMonth.plusMonths(1).atDay(1).atStartOfDay();
+        try {
+            LocalDate today = LocalDate.now();
+            YearMonth currentMonth = YearMonth.from(today);
+            LocalDate startOfMonth = currentMonth.atDay(1);
+            LocalDate endOfMonth = currentMonth.atEndOfMonth();
+            LocalDateTime startOfMonthAt = startOfMonth.atStartOfDay();
+            LocalDateTime nextMonthStartAt = currentMonth.plusMonths(1).atDay(1).atStartOfDay();
 
-        long pendingCreditReviewCount = creditReviewApplicationRepository.countByStatus(CreditReviewStatus.PENDING);
-        BigDecimal monthlyBnplPaymentAmount = zeroIfNull(
-                bnplOrderRepository.sumBnplOrderAmountBetween(startOfMonthAt, nextMonthStartAt)
-        );
-        BigDecimal monthlyScheduledRepaymentAmount = zeroIfNull(
-                interestLedgerRepository.sumScheduledRepaymentThisMonth(startOfMonth, endOfMonth)
-        ).add(zeroIfNull(
-                principalRepaymentLedgerRepository.sumScheduledRepaymentThisMonth(startOfMonth, endOfMonth)
-        ));
+            long pendingCreditReviewCount = creditReviewApplicationRepository.countByStatus(CreditReviewStatus.PENDING);
+            BigDecimal monthlyBnplPaymentAmount = zeroIfNull(
+                    bnplOrderRepository.sumBnplOrderAmountBetween(startOfMonthAt, nextMonthStartAt)
+            );
+            BigDecimal monthlyScheduledRepaymentAmount = zeroIfNull(
+                    interestLedgerRepository.sumScheduledRepaymentThisMonth(startOfMonth, endOfMonth)
+            ).add(zeroIfNull(
+                    principalRepaymentLedgerRepository.sumScheduledRepaymentThisMonth(startOfMonth, endOfMonth)
+            ));
 
-        long overdueUserCount = loanOverdueLedgerRepository.countDistinctOverdueUsers();
-        long activeBnplUserCount = bnplCreditLimitRepository.countCurrentBnplUsers();
-        BigDecimal currentOverdueRatePercent = calculateOverdueRatePercent(overdueUserCount, activeBnplUserCount);
+            long overdueUserCount = loanOverdueLedgerRepository.countDistinctOverdueUsers();
+            long activeBnplUserCount = bnplCreditLimitRepository.countCurrentBnplUsers();
+            BigDecimal currentOverdueRatePercent = calculateOverdueRatePercent(overdueUserCount, activeBnplUserCount);
 
-        LocalDate trendStartDate = today.minusDays(RECENT_DAYS - 1L);
-        List<DailyBnplUsage> recentSevenDaysBnplUsage = getRecentSevenDaysBnplUsage(trendStartDate, today);
-        List<RecentBnplOrder> recentBnplOrders = getRecentBnplOrders();
+            LocalDate trendStartDate = today.minusDays(RECENT_DAYS - 1L);
+            List<DailyBnplUsage> recentSevenDaysBnplUsage = getRecentSevenDaysBnplUsage(trendStartDate, today);
+            List<RecentBnplOrder> recentBnplOrders = getRecentBnplOrders();
 
-        long outOfStockProductCount = productRepository.countOutOfStockOrSoldOutProducts();
-        long overdueIssueCount = loanOverdueLedgerRepository.countByResolvedAtIsNull();
+            long outOfStockProductCount = productRepository.countOutOfStockOrSoldOutProducts();
+            long overdueIssueCount = loanOverdueLedgerRepository.countByResolvedAtIsNull();
 
-        log.debug(
-                "관리자 대시보드 요약 조회 완료: pendingReviews={}, monthlyBnplAmount={}, overdueUsers={}, activeBnplUsers={}",
-                pendingCreditReviewCount,
-                monthlyBnplPaymentAmount,
-                overdueUserCount,
-                activeBnplUserCount
-        );
+            log.debug(
+                    "관리자 대시보드 요약 조회 완료: pendingReviews={}, monthlyBnplAmount={}, overdueUsers={}, activeBnplUsers={}",
+                    pendingCreditReviewCount,
+                    monthlyBnplPaymentAmount,
+                    overdueUserCount,
+                    activeBnplUserCount
+            );
 
-        return new DashboardSummaryResponse(
-                pendingCreditReviewCount,
-                monthlyBnplPaymentAmount,
-                monthlyScheduledRepaymentAmount,
-                currentOverdueRatePercent,
-                overdueUserCount,
-                activeBnplUserCount,
-                recentSevenDaysBnplUsage,
-                recentBnplOrders,
-                new ActionRequired(
-                        pendingCreditReviewCount,
-                        outOfStockProductCount,
-                        overdueIssueCount
-                )
-        );
+            return new DashboardSummaryResponse(
+                    pendingCreditReviewCount,
+                    monthlyBnplPaymentAmount,
+                    monthlyScheduledRepaymentAmount,
+                    currentOverdueRatePercent,
+                    overdueUserCount,
+                    activeBnplUserCount,
+                    recentSevenDaysBnplUsage,
+                    recentBnplOrders,
+                    new ActionRequired(
+                            pendingCreditReviewCount,
+                            outOfStockProductCount,
+                            overdueIssueCount
+                    )
+            );
+        } catch (BusinessException exception) {
+            log.warn("관리자 대시보드 요약 조회 실패: {}", exception.getMessage());
+            throw exception;
+        } catch (RuntimeException exception) {
+            log.error("관리자 대시보드 요약 조회 중 예외가 발생했습니다.", exception);
+            throw new BusinessException(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    "관리자 대시보드 요약 조회 중 오류가 발생했습니다."
+            );
+        }
     }
 
     private List<DailyBnplUsage> getRecentSevenDaysBnplUsage(LocalDate startDate, LocalDate endDate) {
