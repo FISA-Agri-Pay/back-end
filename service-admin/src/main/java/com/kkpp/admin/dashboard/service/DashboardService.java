@@ -55,6 +55,13 @@ public class DashboardService {
             LocalDateTime startOfMonthAt = startOfMonth.atStartOfDay();
             LocalDateTime nextMonthStartAt = currentMonth.plusMonths(1).atDay(1).atStartOfDay();
 
+            log.info(
+                    "관리자 대시보드 요약 조회 요청: 기준일={}, 당월시작일={}, 당월종료일={}",
+                    today,
+                    startOfMonth,
+                    endOfMonth
+            );
+
             long pendingCreditReviewCount = creditReviewApplicationRepository.countByStatus(CreditReviewStatus.PENDING);
             BigDecimal monthlyBnplPaymentAmount = zeroIfNull(
                     bnplOrderRepository.sumBnplOrderAmountBetween(startOfMonthAt, nextMonthStartAt)
@@ -76,12 +83,16 @@ public class DashboardService {
             long outOfStockProductCount = productRepository.countOutOfStockOrSoldOutProducts();
             long overdueIssueCount = loanOverdueLedgerRepository.countByResolvedAtIsNull();
 
-            log.debug(
-                    "관리자 대시보드 요약 조회 완료: pendingReviews={}, monthlyBnplAmount={}, overdueUsers={}, activeBnplUsers={}",
+            log.info(
+                    "관리자 대시보드 요약 조회 완료: pendingReviews={}, monthlyBnplAmount={}, monthlyScheduledRepayment={}, overdueRatePercent={}, overdueUsers={}, activeBnplUsers={}, outOfStockProducts={}, overdueIssues={}",
                     pendingCreditReviewCount,
                     monthlyBnplPaymentAmount,
+                    monthlyScheduledRepaymentAmount,
+                    currentOverdueRatePercent,
                     overdueUserCount,
-                    activeBnplUserCount
+                    activeBnplUserCount,
+                    outOfStockProductCount,
+                    overdueIssueCount
             );
 
             return new DashboardSummaryResponse(
