@@ -22,6 +22,7 @@ Thumbs.db
 
 # Local file uploads
 uploads/
+docs/kkpp-04-test-coverage-guide.md
 
 # Env
 .env
