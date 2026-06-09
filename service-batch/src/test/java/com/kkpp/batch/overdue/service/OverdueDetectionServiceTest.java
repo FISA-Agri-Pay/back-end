@@ -1,6 +1,7 @@
 package com.kkpp.batch.overdue.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -200,6 +201,57 @@ class OverdueDetectionServiceTest {
     }
 
     @Test
+    void detectInterestOverdueThrowsWhenRequiredInputIsMissing() {
+        assertThatThrownBy(() -> service.detectInterestOverdue(null, LocalDate.of(2026, 5, 28), LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 연체 감지 대상 원장 id가 없습니다");
+        assertThatThrownBy(() -> service.detectInterestOverdue(1L, null, LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 연체 감지 기준일이 없습니다");
+        assertThatThrownBy(() -> service.detectInterestOverdue(1L, LocalDate.of(2026, 5, 28), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 연체 감지 처리 시각이 없습니다");
+    }
+
+    @Test
+    void detectInterestOverdueThrowsWhenLedgerIsMissing() {
+        when(interestLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.detectInterestOverdue(
+                1L,
+                LocalDate.of(2026, 5, 28),
+                LocalDateTime.of(2026, 5, 28, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("연체 감지 대상 이자 원장을 찾을 수 없습니다");
+    }
+
+    @Test
+    void detectInterestOverdueThrowsWhenCreditLimitIsMissing() throws Exception {
+        InterestLedger interestLedger = interestLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                InterestLedger.STATUS_UPCOMING,
+                LocalDate.of(2026, 5, 27)
+        );
+
+        when(interestLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(interestLedger));
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.detectInterestOverdue(
+                1L,
+                LocalDate.of(2026, 5, 28),
+                LocalDateTime.of(2026, 5, 28, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("연체 원장과 연결된 한도를 찾을 수 없습니다");
+
+        verify(loanOverdueLedgerRepository, never()).save(Mockito.any());
+    }
+
+    @Test
     void detectPrincipalOverdueDoesNotDuplicateExistingActiveOverdueLedger() throws Exception {
         LocalDate today = LocalDate.of(2026, 12, 31);
         LocalDateTime now = LocalDateTime.of(2026, 12, 31, 1, 0);
@@ -230,6 +282,117 @@ class OverdueDetectionServiceTest {
         assertThat(existingOverdue.getOverdueAmount()).isEqualByComparingTo("40000.00");
         assertThat(existingOverdue.getOverdueDays()).isEqualTo(4);
         verify(loanOverdueLedgerRepository, never()).save(Mockito.any());
+    }
+
+    @Test
+    void detectPrincipalOverdueThrowsWhenRequiredInputIsMissing() {
+        assertThatThrownBy(() -> service.detectPrincipalOverdue(null, LocalDate.of(2026, 12, 31), LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원금 연체 감지 대상 원장 id가 없습니다");
+        assertThatThrownBy(() -> service.detectPrincipalOverdue(1L, null, LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원금 연체 감지 기준일이 없습니다");
+        assertThatThrownBy(() -> service.detectPrincipalOverdue(1L, LocalDate.of(2026, 12, 31), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원금 연체 감지 처리 시각이 없습니다");
+    }
+
+    @Test
+    void detectPrincipalOverdueThrowsWhenLedgerIsMissing() {
+        when(principalRepaymentLedgerRepository.findByIdForUpdate(2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.detectPrincipalOverdue(
+                2L,
+                LocalDate.of(2026, 12, 31),
+                LocalDateTime.of(2026, 12, 31, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("연체 감지 대상 원금 원장을 찾을 수 없습니다");
+    }
+
+    @Test
+    void detectPrincipalOverdueThrowsWhenCreditLimitIsMissing() throws Exception {
+        PrincipalRepaymentLedger principalLedger = principalLedger(
+                2L,
+                20L,
+                new BigDecimal("50000.00"),
+                BigDecimal.ZERO,
+                PrincipalRepaymentLedger.STATUS_UPCOMING,
+                LocalDate.of(2026, 12, 30)
+        );
+
+        when(principalRepaymentLedgerRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(principalLedger));
+        when(creditLimitRepository.findByPublicId(CREDIT_LIMIT_PUBLIC_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.detectPrincipalOverdue(
+                2L,
+                LocalDate.of(2026, 12, 31),
+                LocalDateTime.of(2026, 12, 31, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("연체 원장과 연결된 한도를 찾을 수 없습니다");
+
+        verify(loanOverdueLedgerRepository, never()).save(Mockito.any());
+    }
+
+    @Test
+    void loanOverdueLedgerFactoriesCreateInterestAndPrincipalOverdues() {
+        LoanOverdueLedger interestOverdue = LoanOverdueLedger.interestOverdue(
+                USER_PUBLIC_ID,
+                CREDIT_LIMIT_PUBLIC_ID,
+                INTEREST_LEDGER_PUBLIC_ID,
+                new BigDecimal("1000.129"),
+                3
+        );
+        LoanOverdueLedger principalOverdue = LoanOverdueLedger.principalOverdue(
+                USER_PUBLIC_ID,
+                CREDIT_LIMIT_PUBLIC_ID,
+                PRINCIPAL_REPAYMENT_PUBLIC_ID,
+                new BigDecimal("2000.125"),
+                5
+        );
+
+        assertThat(interestOverdue.getPublicId()).isNotNull();
+        assertThat(interestOverdue.getOverdueType()).isEqualTo("INTEREST");
+        assertThat(interestOverdue.getInterestLedgerPublicId()).isEqualTo(INTEREST_LEDGER_PUBLIC_ID);
+        assertThat(interestOverdue.getPrincipalRepaymentPublicId()).isNull();
+        assertThat(interestOverdue.getOverdueAmount()).isEqualByComparingTo("1000.13");
+        assertThat(interestOverdue.getOverdueDays()).isEqualTo(3);
+        assertThat(interestOverdue.getStage()).isEqualTo(LoanOverdueLedger.STAGE_ACTIVE);
+        assertThat(interestOverdue.getPenaltyAmount()).isEqualByComparingTo("0.00");
+
+        assertThat(principalOverdue.getPublicId()).isNotNull();
+        assertThat(principalOverdue.getOverdueType()).isEqualTo("PRINCIPAL");
+        assertThat(principalOverdue.getInterestLedgerPublicId()).isNull();
+        assertThat(principalOverdue.getPrincipalRepaymentPublicId()).isEqualTo(PRINCIPAL_REPAYMENT_PUBLIC_ID);
+        assertThat(principalOverdue.getOverdueAmount()).isEqualByComparingTo("2000.13");
+        assertThat(principalOverdue.getOverdueDays()).isEqualTo(5);
+        assertThat(principalOverdue.getStage()).isEqualTo(LoanOverdueLedger.STAGE_ACTIVE);
+        assertThat(principalOverdue.getPenaltyAmount()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void updateActiveRefreshesUnresolvedOverdueAndRejectsResolvedLedger() throws Exception {
+        LoanOverdueLedger overdueLedger = LoanOverdueLedger.interestOverdue(
+                USER_PUBLIC_ID,
+                CREDIT_LIMIT_PUBLIC_ID,
+                INTEREST_LEDGER_PUBLIC_ID,
+                new BigDecimal("1000.00"),
+                1
+        );
+
+        overdueLedger.updateActive(new BigDecimal("1500.129"), 4);
+
+        assertThat(overdueLedger.getOverdueAmount()).isEqualByComparingTo("1500.13");
+        assertThat(overdueLedger.getOverdueDays()).isEqualTo(4);
+        assertThat(overdueLedger.getStage()).isEqualTo(LoanOverdueLedger.STAGE_ACTIVE);
+
+        setField(overdueLedger, "id", 900L);
+        setField(overdueLedger, "resolvedAt", LocalDateTime.of(2026, 5, 30, 1, 0));
+
+        assertThatThrownBy(() -> overdueLedger.updateActive(new BigDecimal("2000.00"), 5))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 해소된 연체 이력은 연체 감지 배치에서 갱신할 수 없습니다");
     }
 
     private InterestLedger interestLedger(

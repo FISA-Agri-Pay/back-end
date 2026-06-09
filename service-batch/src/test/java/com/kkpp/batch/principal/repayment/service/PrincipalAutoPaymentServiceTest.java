@@ -1,6 +1,7 @@
 package com.kkpp.batch.principal.repayment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -197,6 +198,180 @@ class PrincipalAutoPaymentServiceTest {
         assertThat(result).isEmpty();
         verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
         verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
+    }
+
+    @Test
+    void payAutomaticallyThrowsWhenRequiredInputIsMissing() {
+        assertThatThrownBy(() -> service.payAutomatically(null, LocalDate.of(2026, 12, 31), LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("자동 원금 상환 대상 원장 id가 없습니다");
+        assertThatThrownBy(() -> service.payAutomatically(1L, null, LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("자동 원금 상환 기준일이 없습니다");
+        assertThatThrownBy(() -> service.payAutomatically(1L, LocalDate.of(2026, 12, 31), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("자동 원금 상환 처리 시각이 없습니다");
+    }
+
+    @Test
+    void payAutomaticallyThrowsWhenLedgerIsMissing() {
+        when(principalRepaymentLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.payAutomatically(
+                1L,
+                LocalDate.of(2026, 12, 31),
+                LocalDateTime.of(2026, 12, 31, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("자동 원금 상환 대상 원장을 찾을 수 없습니다");
+    }
+
+    @Test
+    void payAutomaticallyThrowsWhenCreditLimitIsMissing() throws Exception {
+        PrincipalRepaymentLedger ledger = principalLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                PrincipalRepaymentLedger.STATUS_UPCOMING,
+                LocalDate.of(2026, 12, 31),
+                null
+        );
+
+        when(principalRepaymentLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(ledger));
+        when(principalRepaymentCreditLimitRepository.findByPublicIdForUpdate(CREDIT_LIMIT_PUBLIC_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.payAutomatically(
+                1L,
+                LocalDate.of(2026, 12, 31),
+                LocalDateTime.of(2026, 12, 31, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("원금 원장과 연결된 한도를 찾을 수 없습니다");
+
+        verify(walletRepository, never()).findByUserPublicIdForUpdate(any());
+        verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
+    }
+
+    @Test
+    void payAutomaticallyThrowsWhenWalletIsMissing() throws Exception {
+        PrincipalRepaymentLedger ledger = principalLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                PrincipalRepaymentLedger.STATUS_UPCOMING,
+                LocalDate.of(2026, 12, 31),
+                null
+        );
+        CreditLimit creditLimit = creditLimit(10L, 1L, new BigDecimal("10000.00"));
+
+        when(principalRepaymentLedgerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(ledger));
+        when(principalRepaymentCreditLimitRepository.findByPublicIdForUpdate(creditLimit.getPublicId()))
+                .thenReturn(Optional.of(creditLimit));
+        when(walletRepository.findByUserPublicIdForUpdate(USER_PUBLIC_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.payAutomatically(
+                1L,
+                LocalDate.of(2026, 12, 31),
+                LocalDateTime.of(2026, 12, 31, 1, 0)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("자동 원금 상환 대상 사용자의 지갑을 찾을 수 없습니다");
+
+        verify(walletTransactionRepository, never()).save(any(WalletTransaction.class));
+    }
+
+    @Test
+    void creditLimitDecreaseUsedAmountRoundsMoneyAndRejectsInvalidAmount() throws Exception {
+        CreditLimit creditLimit = creditLimit(10L, 1L, new BigDecimal("10000.129"));
+
+        creditLimit.decreaseUsedAmount(new BigDecimal("1000.124"));
+
+        assertThat(creditLimit.getUsedAmount()).isEqualByComparingTo("9000.01");
+        assertThat(creditLimit.hasUsedAmount()).isTrue();
+        assertThatThrownBy(() -> creditLimit.decreaseUsedAmount(BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("한도 사용액 감소 금액은 0보다 커야 합니다");
+        assertThatThrownBy(() -> creditLimit.decreaseUsedAmount(new BigDecimal("9000.02")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("한도 사용액보다 큰 금액은 감소시킬 수 없습니다");
+    }
+
+    @Test
+    void creditLimitHasUsedAmountReturnsFalseForNullOrZeroAmount() throws Exception {
+        CreditLimit nullUsedAmount = creditLimit(10L, 1L, null);
+        CreditLimit zeroUsedAmount = creditLimit(10L, 1L, BigDecimal.ZERO);
+
+        assertThat(nullUsedAmount.hasUsedAmount()).isFalse();
+        assertThat(zeroUsedAmount.hasUsedAmount()).isFalse();
+    }
+
+    @Test
+    void principalOverdueLedgerResolveStoresResolvedAtAndRejectsNull() throws Exception {
+        LoanOverdueLedger overdueLedger = overdueLedger(900L, 10L, 1L, new BigDecimal("5000.00"));
+        LocalDateTime resolvedAt = LocalDateTime.of(2027, 1, 10, 1, 0);
+
+        overdueLedger.resolve(resolvedAt);
+
+        assertThat(overdueLedger.getResolvedAt()).isEqualTo(resolvedAt);
+        assertThatThrownBy(() -> overdueLedger.resolve(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("연체 해소 시각은 null일 수 없습니다");
+    }
+
+    @Test
+    void principalLedgerDomainMethodsCoverZeroAndInvalidBranches() throws Exception {
+        PrincipalRepaymentLedger overpaidLedger = principalLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                new BigDecimal("12000.00"),
+                PrincipalRepaymentLedger.STATUS_PARTIAL,
+                LocalDate.of(2026, 12, 31),
+                null
+        );
+        PrincipalRepaymentLedger cancelledLedger = principalLedger(
+                2L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                "CANCELLED",
+                LocalDate.of(2026, 12, 31),
+                null
+        );
+
+        assertThat(overpaidLedger.getUnpaidAmount()).isEqualByComparingTo("0.00");
+        assertThat(overpaidLedger.isPayableOn(LocalDate.of(2026, 12, 31))).isFalse();
+        assertThat(cancelledLedger.isPayableOn(LocalDate.of(2026, 12, 31))).isFalse();
+        assertThat(cancelledLedger.isOverdueDetectionTarget(LocalDate.of(2027, 1, 1))).isFalse();
+        assertThatThrownBy(() -> cancelledLedger.markOverdue(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원금 연체 감지 시각이 없습니다");
+        assertThatThrownBy(() -> cancelledLedger.applyPayment(BigDecimal.ZERO, LocalDate.of(2026, 12, 31), LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원금 자동 상환 금액은 0보다 커야 합니다");
+    }
+
+    @Test
+    void principalLedgerApplyPaymentKeepsPastDuePartialAsOverdue() throws Exception {
+        LocalDate dueDate = LocalDate.of(2026, 12, 31);
+        PrincipalRepaymentLedger ledger = principalLedger(
+                1L,
+                10L,
+                new BigDecimal("10000.00"),
+                BigDecimal.ZERO,
+                PrincipalRepaymentLedger.STATUS_UPCOMING,
+                dueDate,
+                null
+        );
+
+        ledger.applyPayment(new BigDecimal("4000.00"), dueDate.plusDays(1), LocalDateTime.of(2027, 1, 1, 1, 0));
+
+        assertThat(ledger.getAmountPaid()).isEqualByComparingTo("4000.00");
+        assertThat(ledger.getStatus()).isEqualTo(PrincipalRepaymentLedger.STATUS_OVERDUE);
+        assertThat(ledger.getPaidAt()).isNull();
     }
 
     @Test
