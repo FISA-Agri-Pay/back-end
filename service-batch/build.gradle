@@ -1,3 +1,7 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     implementation project(':common-core')
     implementation 'org.springframework.boot:spring-boot-starter-batch'
@@ -11,4 +15,33 @@ dependencies {
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/*Application*',
+                '**/*Config*',
+                '**/*JobConfig*',
+                '**/bss/domain/BssScore*',
+                '**/repository/**',
+                '**/dto/**'
+        ])
+    }))
 }
