@@ -18,8 +18,7 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
     @Query("""
             SELECT COUNT(cl)
             FROM BnplCreditLimit cl
-            WHERE cl.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
-                                com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+            WHERE cl.status = com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE
               AND cl.id = (
                   SELECT MAX(latest.id)
                   FROM BnplCreditLimit latest
@@ -28,7 +27,7 @@ public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit
                                           com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
               )
             """)
-    long countCurrentBnplUsers();
+    long countCurrentActiveBnplUsers();
 
     // 이용 현황 KPI — 전체 ACTIVE 한도의 사용 금액 합계
     @Query("""

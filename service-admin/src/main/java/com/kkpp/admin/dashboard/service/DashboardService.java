@@ -73,7 +73,7 @@ public class DashboardService {
             ));
 
             long overdueUserCount = loanOverdueLedgerRepository.countDistinctOverdueUsers();
-            long activeBnplUserCount = bnplCreditLimitRepository.countCurrentBnplUsers();
+            long activeBnplUserCount = bnplCreditLimitRepository.countCurrentActiveBnplUsers();
             BigDecimal currentOverdueRatePercent = calculateOverdueRatePercent(overdueUserCount, activeBnplUserCount);
 
             LocalDate trendStartDate = today.minusDays(RECENT_DAYS - 1L);
