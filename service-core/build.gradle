@@ -1,3 +1,7 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
     implementation 'software.amazon.awssdk:s3'
@@ -17,6 +21,8 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -29,4 +35,35 @@ bootRun {
             '-Dsun.stdout.encoding=UTF-8',
             '-Dsun.stderr.encoding=UTF-8'
     ]
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/CoreApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/dto/**',
+                '**/repository/**',
+                '**/exception/**',
+                '**/global/**',
+                '**/*FileStorageService*'
+        ])
+    }))
 }
