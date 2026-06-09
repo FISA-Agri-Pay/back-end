@@ -127,6 +127,47 @@ class InterestChargeServiceTest {
     }
 
     @Test
+    void createMonthlyInterestLedgerUsesDefaultDueDayWhenInterestDueDayIsMissing() throws Exception {
+        CreditLimit creditLimit = creditLimit(
+                1L,
+                new BigDecimal("1200000.00"),
+                new BigDecimal("0.1200"),
+                null,
+                LocalDate.of(2026, 12, 31)
+        );
+
+        Optional<InterestLedger> result = service.createMonthlyInterestLedger(
+                creditLimit,
+                YearMonth.of(2026, 5),
+                LocalDateTime.of(2026, 5, 1, 3, 0)
+        );
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getDueDate()).isEqualTo(LocalDate.of(2026, 5, 11));
+    }
+
+    @Test
+    void createMonthlyInterestLedgerSkipsNullUsedAmount() throws Exception {
+        CreditLimit creditLimit = creditLimit(
+                1L,
+                null,
+                new BigDecimal("0.1200"),
+                13,
+                LocalDate.of(2026, 12, 31)
+        );
+
+        Optional<InterestLedger> result = service.createMonthlyInterestLedger(
+                creditLimit,
+                YearMonth.of(2026, 5),
+                LocalDateTime.of(2026, 5, 1, 3, 0)
+        );
+
+        assertThat(result).isEmpty();
+        verify(interestLedgerRepository, never())
+                .existsByCreditLimitPublicIdAndDueDate(CREDIT_LIMIT_PUBLIC_ID, LocalDate.of(2026, 5, 13));
+    }
+
+    @Test
     void createMonthlyInterestLedgerSkipsAfterPrincipalDueDate() throws Exception {
         CreditLimit creditLimit = creditLimit(
                 1L,
@@ -183,6 +224,39 @@ class InterestChargeServiceTest {
         ))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("principal_due_date가 없어 이자 원장을 생성할 수 없습니다");
+    }
+
+    @Test
+    void createMonthlyInterestLedgerThrowsWhenRequiredInputIsMissing() throws Exception {
+        CreditLimit creditLimit = creditLimit(
+                1L,
+                new BigDecimal("1200000.00"),
+                new BigDecimal("0.1200"),
+                13,
+                LocalDate.of(2026, 12, 31)
+        );
+
+        assertThatThrownBy(() -> service.createMonthlyInterestLedger(
+                null,
+                YearMonth.of(2026, 5),
+                LocalDateTime.of(2026, 5, 1, 3, 0)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 원장 생성 대상 한도가 없습니다");
+        assertThatThrownBy(() -> service.createMonthlyInterestLedger(
+                creditLimit,
+                null,
+                LocalDateTime.of(2026, 5, 1, 3, 0)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 원장 생성 대상 월이 없습니다");
+        assertThatThrownBy(() -> service.createMonthlyInterestLedger(
+                creditLimit,
+                YearMonth.of(2026, 5),
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("이자 원장 생성 시각이 없습니다");
     }
 
     @Test

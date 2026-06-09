@@ -138,6 +138,14 @@ class BssCalculationServiceTest {
     }
 
     @Test
+    void calculateOverdueScoreIsTenWhenResolvedOverdueExceedsThirtyDays() throws Exception {
+        when(loanOverdueLedgerRepository.findMonthlyOverdues(eq(CREDIT_LIMIT_PUBLIC_ID), any(), any()))
+                .thenReturn(List.of(overdue(1L, LocalDateTime.of(2026, 5, 10, 1, 0), 31)));
+
+        assertThat(calculate(defaultCreditLimit()).overdueScore()).isEqualTo(10);
+    }
+
+    @Test
     void calculateUsageScoreByLimitUsageRate() throws Exception {
         assertThat(calculate(creditLimit(1L, 1L, new BigDecimal("1000"), new BigDecimal("900"))).usageScore())
                 .isEqualTo(20);
@@ -147,6 +155,21 @@ class BssCalculationServiceTest {
                 .isEqualTo(0);
         assertThat(calculate(creditLimit(1L, 1L, BigDecimal.ZERO, new BigDecimal("100"))).usageScore())
                 .isEqualTo(0);
+    }
+
+    @Test
+    void calculateTreatsNullLedgerAmountsAsZero() throws Exception {
+        when(interestLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                any(), any(), any()))
+                .thenReturn(List.of(interestLedger(null, null)));
+        when(principalRepaymentLedgerRepository.findAllByCreditLimitPublicIdAndDueDateGreaterThanEqualAndDueDateLessThan(
+                any(), any(), any()))
+                .thenReturn(List.of(principalLedger(null, null)));
+
+        BssCalculationResult result = calculate(creditLimit(1L, 1L, new BigDecimal("1000"), null));
+
+        assertThat(result.repaymentScore()).isEqualTo(24);
+        assertThat(result.usageScore()).isEqualTo(20);
     }
 
     @Test

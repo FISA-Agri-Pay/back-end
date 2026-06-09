@@ -23,6 +23,7 @@ Thumbs.db
 # Local file uploads
 uploads/
 docs/kkpp-04-test-coverage-guide.md
+docs/kkpp-05-service-batch-test-result.md
 
 # Env
 .env
