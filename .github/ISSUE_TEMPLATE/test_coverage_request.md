@@ -67,7 +67,3 @@ assignees: ""
 - [ ] JaCoCo HTML 리포트를 생성했습니다.
 - [ ] 목표 커버리지 달성 여부를 이슈에 기록했습니다.
 - [ ] 테스트 산출물 표의 `단위 테스트 결과`를 갱신했습니다.
-
-## 참고 문서
-
-- `docs/kkpp-04-test-coverage-guide.md`
