@@ -18,6 +18,8 @@ import org.springframework.data.repository.query.Param;
 // resolved_at IS NULL 조건으로 미해소 연체만 조회하는 것이 핵심이다.
 public interface LoanOverdueLedgerRepository extends JpaRepository<LoanOverdueLedger, Long> {
 
+    long countByResolvedAtIsNull();
+
     // 연체 현황 KPI — 미해소 연체 금액 합계
     @Query("SELECT COALESCE(SUM(lol.overdueAmount), 0) FROM LoanOverdueLedger lol WHERE lol.resolvedAt IS NULL")
     BigDecimal sumUnresolvedOverdueAmount();

@@ -18,6 +18,8 @@ import org.springframework.data.repository.query.Param;
 // 관리자 화면에서 가장 많이 접근하는 credit_limit_applications 테이블을 중심으로 조회한다.
 public interface CreditReviewApplicationRepository extends JpaRepository<CreditReviewApplication, Long> {
 
+    long countByStatus(CreditReviewStatus status);
+
     // 목록 화면에서 필요한 값만 DTO로 바로 조회하는 쿼리이다.
     // 신청, 사용자, 농지 프로필, ASS 점수를 조인해 테이블 한 행에 필요한 정보를 만든다.
     @Query("""

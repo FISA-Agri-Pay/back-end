@@ -15,6 +15,21 @@ import org.springframework.data.repository.query.Param;
 // BNPL 관리자 화면에서 ERD 기준 core.credit_limits 테이블을 조회하는 Repository
 public interface BnplCreditLimitRepository extends JpaRepository<BnplCreditLimit, Long> {
 
+    @Query("""
+            SELECT COUNT(cl)
+            FROM BnplCreditLimit cl
+            WHERE cl.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              AND cl.id = (
+                  SELECT MAX(latest.id)
+                  FROM BnplCreditLimit latest
+                  WHERE latest.userPublicId = cl.userPublicId
+                    AND latest.status IN (com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.ACTIVE,
+                                          com.kkpp.admin.bnpl.domain.BnplCreditLimitStatus.SUSPENDED)
+              )
+            """)
+    long countCurrentBnplUsers();
+
     // 이용 현황 KPI — 전체 ACTIVE 한도의 사용 금액 합계
     @Query("""
             SELECT COALESCE(SUM(cl.usedAmount), 0)
