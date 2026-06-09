@@ -74,7 +74,7 @@ public class DashboardService {
         long overdueIssueCount = loanOverdueLedgerRepository.countByResolvedAtIsNull();
 
         log.debug(
-                "Admin dashboard summary loaded: pendingReviews={}, monthlyBnplAmount={}, overdueUsers={}, activeBnplUsers={}",
+                "관리자 대시보드 요약 조회 완료: pendingReviews={}, monthlyBnplAmount={}, overdueUsers={}, activeBnplUsers={}",
                 pendingCreditReviewCount,
                 monthlyBnplPaymentAmount,
                 overdueUserCount,
@@ -142,7 +142,7 @@ public class DashboardService {
 
     private String buildOrderDisplayName(String firstProductName, long itemCount) {
         if (firstProductName == null) {
-            return "BNPL order";
+            return "외상 주문";
         }
         if (itemCount <= 1) {
             return firstProductName;

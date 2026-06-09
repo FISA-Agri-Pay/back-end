@@ -7,80 +7,80 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Schema(description = "Admin dashboard summary response")
+@Schema(description = "관리자 대시보드 요약 응답")
 public record DashboardSummaryResponse(
-        @Schema(description = "Credit limit applications with PENDING status")
+        @Schema(description = "한도 심사 대기 건수")
         long pendingCreditReviewCount,
 
-        @Schema(description = "Total BNPL order amount for the current month")
+        @Schema(description = "당월 외상 결제 총액")
         BigDecimal monthlyBnplPaymentAmount,
 
-        @Schema(description = "Scheduled BNPL repayment amount for the current month")
+        @Schema(description = "당월 상환 예정 금액")
         BigDecimal monthlyScheduledRepaymentAmount,
 
-        @Schema(description = "Current overdue rate as a percentage")
+        @Schema(description = "현재 연체율")
         BigDecimal currentOverdueRatePercent,
 
-        @Schema(description = "Users with unresolved overdue ledgers")
+        @Schema(description = "미해소 연체 사용자 수")
         long overdueUserCount,
 
-        @Schema(description = "Current BNPL users with ACTIVE or SUSPENDED credit limits")
+        @Schema(description = "현재 BNPL 이용 사용자 수")
         long activeBnplUserCount,
 
-        @Schema(description = "Daily BNPL usage for the latest seven days")
+        @Schema(description = "최근 7일 외상 이용 추이")
         List<DailyBnplUsage> recentSevenDaysBnplUsage,
 
-        @Schema(description = "Latest five BNPL orders")
+        @Schema(description = "최근 접수 외상 주문 목록")
         List<RecentBnplOrder> recentBnplOrders,
 
-        @Schema(description = "Admin action required counts")
+        @Schema(description = "관리자 처리 필요 업무 건수")
         ActionRequired actionRequired
 ) {
 
-    @Schema(description = "Daily BNPL usage amount")
+    @Schema(description = "일자별 외상 이용 금액")
     public record DailyBnplUsage(
-            @Schema(description = "Usage date")
+            @Schema(description = "이용 일자")
             LocalDate date,
 
-            @Schema(description = "BNPL order amount for the date")
+            @Schema(description = "해당 일자의 외상 이용 금액")
             BigDecimal amount
     ) {
     }
 
-    @Schema(description = "Recent BNPL order summary")
+    @Schema(description = "최근 외상 주문 요약")
     public record RecentBnplOrder(
-            @Schema(description = "Order public ID")
+            @Schema(description = "주문 공개 ID")
             UUID orderPublicId,
 
-            @Schema(description = "Order user name")
+            @Schema(description = "주문자명")
             String userName,
 
-            @Schema(description = "First product name snapshot")
+            @Schema(description = "대표 상품명")
             String firstProductName,
 
-            @Schema(description = "Order item count")
+            @Schema(description = "주문 상품 수")
             long itemCount,
 
-            @Schema(description = "Display title for the order")
+            @Schema(description = "주문 표시명")
             String orderDisplayName,
 
-            @Schema(description = "Order amount")
+            @Schema(description = "주문 금액")
             BigDecimal amount,
 
-            @Schema(description = "Order date and time")
+            @Schema(description = "주문 일시")
             LocalDateTime orderedAt
     ) {
     }
 
-    @Schema(description = "Admin action required counts")
+    @Schema(description = "관리자 처리 필요 업무 건수")
     public record ActionRequired(
-            @Schema(description = "Pending credit review count")
+            @Schema(description = "한도 심사 대기 건수")
             long pendingCreditReviewCount,
 
-            @Schema(description = "Products sold out or out of stock")
+            @Schema(description = "품절 또는 재고 부족 상품 건수")
             long outOfStockProductCount,
 
-            @Schema(description = "Unresolved overdue ledger count")
+            @Schema(description = "미해소 연체 건수")
             long overdueIssueCount
     ) {
     }
