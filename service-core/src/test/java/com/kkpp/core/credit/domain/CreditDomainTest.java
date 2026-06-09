@@ -4,6 +4,7 @@ import static com.kkpp.core.testsupport.TestEntityFactory.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.kkpp.core.credit.dto.response.RequiredDocumentResponse;
 import java.math.BigDecimal;
@@ -31,8 +32,12 @@ class CreditDomainTest {
         List<RequiredDocumentResponse> responses = RequiredDocumentType.byInsurance(false);
 
         assertThat(responses).hasSize(2);
-        assertThat(responses.get(0).isRequired()).isTrue();
-        assertThat(responses.get(1).isRequired()).isFalse();
+        assertThat(responses)
+                .extracting(RequiredDocumentResponse::documentCode, RequiredDocumentResponse::isRequired)
+                .containsExactlyInAnyOrder(
+                        tuple(RequiredDocumentType.AGRI_MANAGEMENT_REGISTRATION.name(), true),
+                        tuple(RequiredDocumentType.CROP_DISASTER_INSURANCE.name(), false)
+                );
         assertThat(RequiredDocumentType.fromDocumentCode("AGRI_MANAGEMENT_REGISTRATION"))
                 .isEqualTo(RequiredDocumentType.AGRI_MANAGEMENT_REGISTRATION);
 

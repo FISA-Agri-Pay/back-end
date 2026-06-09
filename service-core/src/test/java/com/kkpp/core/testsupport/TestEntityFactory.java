@@ -37,7 +37,7 @@ public final class TestEntityFactory {
 
     public static FarmerProfile farmerProfile(BigDecimal fieldAreaM2, CropType cropType, Boolean hasInsurance) {
         return FarmerProfile.create(
-                UUID.fromString("11111111-1111-4111-8111-111111111111"),
+                UUID.randomUUID(),
                 "경기도 안성시",
                 "101동",
                 "17500",
