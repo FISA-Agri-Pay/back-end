@@ -6,6 +6,8 @@ import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,9 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
     @Value("${catalog.kafka.payment-request-topic}")
     private String paymentRequestTopic;
 
+    @Value("${catalog.kafka.payment-request-timeout-seconds:10}")
+    private Long paymentRequestTimeoutSeconds;
+
     @Override
     public void publish(CreditPaymentRequestedEvent event) {
         try {
@@ -40,7 +45,7 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
             );
             SendResult<String, String> result = kafkaTemplate
                     .send(paymentRequestTopic, event.paymentRequestPublicId().toString(), payload)
-                    .get();
+                    .get(paymentRequestTimeoutSeconds, TimeUnit.SECONDS);
             log.info(
                     "외상 결제 요청 이벤트 Kafka 발행을 완료했습니다. topic={}, partition={}, offset={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                     result.getRecordMetadata().topic(),
@@ -55,7 +60,7 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw publishFailure(event, exception);
-        } catch (ExecutionException | RuntimeException exception) {
+        } catch (ExecutionException | TimeoutException | RuntimeException exception) {
             throw publishFailure(event, exception);
         }
     }

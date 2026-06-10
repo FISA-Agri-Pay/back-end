@@ -7,6 +7,10 @@ spring:
 server:
   port: 8081
 
+catalog:
+  kafka:
+    payment-request-timeout-seconds: ${PAYMENT_REQUEST_KAFKA_TIMEOUT_SECONDS:10}
+
 payment-request:
   transport: ${PAYMENT_REQUEST_TRANSPORT:kafka}
   sqs:
