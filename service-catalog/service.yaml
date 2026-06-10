@@ -5,6 +5,7 @@ kind: Service
 metadata:
   # 이 서비스의 고유 이름입니다. Jenkinsfile이나 다른 서비스에서 이 이름으로 통신할 수 있습니다.
   name: service-catalog-service
+  namespace: service-catalog
   # 아래 internal 설정을 적용하지 않으면, AWS가 로드밸런서(ELB)를 생성하며 외부 트래픽을 허용(Ingress)하게 됩니다.
   # 이 백엔드 서비스는 외부에 노출되선 안되며 내부 VPC에서만 접속 가능해야 하므로 내부 LB(Internal LB)로 설정해야 합니다.
   annotations:
