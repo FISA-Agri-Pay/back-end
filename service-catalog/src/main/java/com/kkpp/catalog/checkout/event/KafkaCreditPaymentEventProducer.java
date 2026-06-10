@@ -31,7 +31,7 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
         try {
             String payload = objectMapper.writeValueAsString(event);
             log.info(
-                    "Publishing credit payment request event to Kafka. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, totalAmount={}",
+                    "외상 결제 요청 이벤트를 Kafka로 발행합니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, totalAmount={}",
                     paymentRequestTopic,
                     event.paymentRequestPublicId(),
                     event.orderPublicId(),
@@ -42,7 +42,7 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
                     .send(paymentRequestTopic, event.paymentRequestPublicId().toString(), payload)
                     .get();
             log.info(
-                    "Published credit payment request event to Kafka. topic={}, partition={}, offset={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
+                    "외상 결제 요청 이벤트 Kafka 발행을 완료했습니다. topic={}, partition={}, offset={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                     result.getRecordMetadata().topic(),
                     result.getRecordMetadata().partition(),
                     result.getRecordMetadata().offset(),
@@ -51,7 +51,7 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
                     event.eventId()
             );
         } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Failed to serialize payment request event.");
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 생성에 실패했습니다.");
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw publishFailure(event, exception);
@@ -62,13 +62,13 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
 
     private BusinessException publishFailure(CreditPaymentRequestedEvent event, Exception exception) {
         log.error(
-                "Failed to publish credit payment request event to Kafka. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
+                "외상 결제 요청 이벤트 Kafka 발행에 실패했습니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                 paymentRequestTopic,
                 event.paymentRequestPublicId(),
                 event.orderPublicId(),
                 event.eventId(),
                 exception
         );
-        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Failed to publish payment request event.");
+        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
     }
 }

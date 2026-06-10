@@ -5,12 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.SqsException;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
 
@@ -26,6 +28,13 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
     @Value("${payment-request.sqs.queue-url}")
     private String paymentRequestQueueUrl;
 
+    @PostConstruct
+    private void validateQueueUrl() {
+        if (paymentRequestQueueUrl == null || paymentRequestQueueUrl.isBlank()) {
+            throw new IllegalStateException("PAYMENT_REQUEST_QUEUE_URL이 설정되지 않았습니다.");
+        }
+    }
+
     @Override
     public void publish(CreditPaymentRequestedEvent event) {
         try {
@@ -38,7 +47,7 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .build();
 
             log.info(
-                    "Publishing credit payment request event to SQS. queueUrl={}, messageGroupId={}, messageDeduplicationId={}, orderPublicId={}, eventId={}, totalAmount={}",
+                    "외상 결제 요청 이벤트를 SQS로 발행합니다. queueUrl={}, messageGroupId={}, messageDeduplicationId={}, orderPublicId={}, eventId={}, totalAmount={}",
                     paymentRequestQueueUrl,
                     request.messageGroupId(),
                     request.messageDeduplicationId(),
@@ -48,7 +57,7 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
             );
             SendMessageResponse response = sqsClient.sendMessage(request);
             log.info(
-                    "Published credit payment request event to SQS. messageId={}, sequenceNumber={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
+                    "외상 결제 요청 이벤트 SQS 발행을 완료했습니다. messageId={}, sequenceNumber={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                     response.messageId(),
                     response.sequenceNumber(),
                     event.paymentRequestPublicId(),
@@ -56,17 +65,28 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     event.eventId()
             );
         } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Failed to serialize payment request event.");
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 생성에 실패했습니다.");
+        } catch (SqsException exception) {
+            log.error(
+                    "외상 결제 요청 이벤트 SQS 발행에 실패했습니다. queueUrl={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, awsErrorCode={}",
+                    paymentRequestQueueUrl,
+                    event.paymentRequestPublicId(),
+                    event.orderPublicId(),
+                    event.eventId(),
+                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
+                    exception
+            );
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
         } catch (RuntimeException exception) {
             log.error(
-                    "Failed to publish credit payment request event to SQS. queueUrl={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
+                    "외상 결제 요청 이벤트 SQS 발행 중 알 수 없는 오류가 발생했습니다. queueUrl={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
                     paymentRequestQueueUrl,
                     event.paymentRequestPublicId(),
                     event.orderPublicId(),
                     event.eventId(),
                     exception
             );
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Failed to publish payment request event.");
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
         }
     }
 }
