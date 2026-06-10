@@ -92,6 +92,12 @@ spec:
             configMapKeyRef:
               name: service-catalog-config
               key: PAYMENT_REQUEST_TOPIC
+        - name: PAYMENT_REQUEST_TRANSPORT
+          value: "PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER"
+        - name: PAYMENT_REQUEST_QUEUE_URL
+          value: "PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER"
+        - name: AWS_REGION
+          value: "AWS_REGION_PLACEHOLDER"
 
         # 컨테이너가 정상적으로 요청을 받을 수 있는지 확인합니다.
         readinessProbe:
