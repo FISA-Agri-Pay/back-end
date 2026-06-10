@@ -4,6 +4,8 @@ import com.kkpp.auth.dto.request.LoginRequest;
 import com.kkpp.auth.dto.request.RefreshTokenRequest;
 import com.kkpp.auth.dto.request.RegisterRequest;
 import com.kkpp.auth.dto.request.SetPaymentPinRequest;
+import com.kkpp.auth.dto.request.VerifyPaymentPinRequest;
+import com.kkpp.auth.dto.response.PaymentPinVerificationResponse;
 import com.kkpp.auth.dto.response.TokenResponse;
 import com.kkpp.auth.exception.AuthErrorCode;
 import com.kkpp.auth.exception.AuthException;
@@ -83,6 +85,24 @@ public class AuthController {
     }
 
     @Operation(
+            summary = "결제 PIN 검증",
+            description = "인증된 사용자의 결제 PIN을 검증하고 검증 완료 이벤트를 발행합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 PIN 검증 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "결제 PIN 미등록"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "결제 PIN 불일치")
+    })
+    @PostMapping("/payment-pin/verify")
+    public ResponseEntity<ApiResponse<PaymentPinVerificationResponse>> verifyPaymentPin(
+            @AuthUser AuthUserInfo authUser,
+            @RequestBody @Valid VerifyPaymentPinRequest request
+    ) {
+        PaymentPinVerificationResponse response = authService.verifyPaymentPin(authUser.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success(response, "결제 PIN 검증이 완료되었습니다."));
+    }
+
+    @Operation(
             summary = "로그인",
             description = "휴대폰 번호와 계정 비밀번호로 로그인하고 access token과 refresh token을 발급합니다."
     )
@@ -98,7 +118,6 @@ public class AuthController {
             HttpServletResponse response
     ) {
         TokenResponse tokenResponse = authService.login(request);
-        // refreshToken은 응답 본문에 노출하지 않고 HttpOnly 쿠키로만 전달합니다.
         addRefreshTokenCookie(response, tokenResponse.refreshToken());
         return ResponseEntity.ok(ApiResponse.success(tokenResponse, "로그인이 완료되었습니다."));
     }
@@ -117,7 +136,6 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        // 토큰 재발급은 클라이언트가 보낸 HttpOnly refreshToken 쿠키를 기준으로 처리합니다.
         String refreshToken = readRefreshTokenCookie(request);
         TokenResponse tokenResponse = authService.refresh(new RefreshTokenRequest(refreshToken));
         addRefreshTokenCookie(response, tokenResponse.refreshToken());
@@ -127,11 +145,9 @@ public class AuthController {
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
-                // 로컬 HTTP와 운영 HTTPS 환경을 모두 지원하도록 설정값으로 Secure 여부를 제어합니다.
                 .secure(cookieSecure)
                 .sameSite("Strict")
                 .path("/")
-                // 쿠키 만료 시간을 refresh JWT 자체의 TTL과 동일하게 맞춥니다.
                 .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenExpirySeconds()))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

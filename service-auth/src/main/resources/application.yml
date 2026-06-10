@@ -24,5 +24,16 @@ resident-id:
   hmac-key: ${RESIDENT_ID_HMAC_KEY:local-development-hmac-key}
   encryption-key: ${RESIDENT_ID_ENCRYPTION_KEY:local-development-encryption-key}
 
+payment-pin-verification:
+  transport: ${PAYMENT_PIN_VERIFICATION_TRANSPORT:sqs}
+  ttl-seconds: ${PAYMENT_PIN_VERIFICATION_TTL_SECONDS:300}
+  sqs:
+    queue-url: ${PAYMENT_PIN_VERIFIED_QUEUE_URL:}
+
+cloud:
+  aws:
+    sqs:
+      region: ${AWS_REGION:ap-northeast-2}
+
 cookie:
   secure: true

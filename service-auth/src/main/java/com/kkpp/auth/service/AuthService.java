@@ -6,7 +6,11 @@ import com.kkpp.auth.dto.request.LoginRequest;
 import com.kkpp.auth.dto.request.RefreshTokenRequest;
 import com.kkpp.auth.dto.request.RegisterRequest;
 import com.kkpp.auth.dto.request.SetPaymentPinRequest;
+import com.kkpp.auth.dto.request.VerifyPaymentPinRequest;
+import com.kkpp.auth.dto.response.PaymentPinVerificationResponse;
 import com.kkpp.auth.dto.response.TokenResponse;
+import com.kkpp.auth.event.PaymentPinVerifiedEvent;
+import com.kkpp.auth.event.PaymentPinVerifiedEventPublisher;
 import com.kkpp.auth.exception.AuthErrorCode;
 import com.kkpp.auth.exception.AuthException;
 import com.kkpp.auth.exception.UserAlreadyExistsException;
@@ -17,10 +21,12 @@ import com.kkpp.common.security.jwt.JwtTokenProvider;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +42,10 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final ResidentCryptoService residentCryptoService;
+    private final PaymentPinVerifiedEventPublisher paymentPinVerifiedEventPublisher;
+
+    @Value("${payment-pin-verification.ttl-seconds:300}")
+    private long paymentPinVerificationTtlSeconds;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -72,6 +82,42 @@ public class AuthService {
         UserAuth userAuth = getUserAuth(userId);
         userAuth.updatePin(passwordEncoder.encode(request.pin()));
         log.info("결제 PIN 등록이 완료되었습니다. userId={}", userId);
+    }
+
+    public PaymentPinVerificationResponse verifyPaymentPin(Long userId, VerifyPaymentPinRequest request) {
+        UserAuth userAuth = getUserAuth(userId);
+        if (!userAuth.isPinSet()) {
+            log.warn("결제 PIN이 등록되지 않은 사용자가 PIN 검증을 시도했습니다. userId={}", userId);
+            throw new AuthException(AuthErrorCode.PAYMENT_PIN_NOT_REGISTERED);
+        }
+
+        if (!passwordEncoder.matches(request.pin(), userAuth.getPinHash())) {
+            log.warn("결제 PIN 불일치로 검증이 실패했습니다. userId={}", userId);
+            throw new AuthException(AuthErrorCode.PAYMENT_PIN_MISMATCH);
+        }
+
+        Instant verifiedAt = Instant.now();
+        Instant expiresAt = verifiedAt.plusSeconds(resolveVerificationTtlSeconds());
+        UUID verificationId = UUID.randomUUID();
+        PaymentPinVerifiedEvent event = new PaymentPinVerifiedEvent(
+                UUID.randomUUID(),
+                verificationId,
+                userAuth.getUser().getPublicId(),
+                verifiedAt,
+                expiresAt,
+                "PAYMENT_PIN"
+        );
+
+        paymentPinVerifiedEventPublisher.publish(event);
+        log.info(
+                "결제 PIN 검증이 완료되었습니다. userId={}, userPublicId={}, verificationId={}, expiresAt={}",
+                userId,
+                userAuth.getUser().getPublicId(),
+                verificationId,
+                expiresAt
+        );
+
+        return new PaymentPinVerificationResponse(verificationId, expiresAt);
     }
 
     @Transactional
@@ -141,6 +187,10 @@ public class AuthService {
                 .orElseThrow(UserNotFoundException::new);
         return userAuthRepository.findByUser(user)
                 .orElseThrow(UserNotFoundException::new);
+    }
+
+    private long resolveVerificationTtlSeconds() {
+        return paymentPinVerificationTtlSeconds > 0 ? paymentPinVerificationTtlSeconds : 300;
     }
 
     private String normalizePhone(String phone) {
