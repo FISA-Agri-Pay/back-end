@@ -63,7 +63,7 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     withKubeConfig([credentialsId: 'eks-kubeconfig']) {
-                        sh """
+                        sh '''
                             set -e
 
                             if [ -z "${SERVICE_CATALOG_IRSA_ROLE_ARN}" ]; then
@@ -97,7 +97,7 @@ pipeline {
                                 kubectl get -n ${K8S_NAMESPACE} events --sort-by=.lastTimestamp | tail -50 || true
                                 exit 1
                             fi
-                        """
+                        '''
                     }
                 }
             }
