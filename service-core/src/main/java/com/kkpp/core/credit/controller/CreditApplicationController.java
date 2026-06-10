@@ -34,7 +34,7 @@ import java.util.Map;
 
 @Tag(name = "한도 심사 신청")
 @RestController
-@RequestMapping("/api/v1/credit")
+@RequestMapping("/api/v1/core/credit")
 @RequiredArgsConstructor
 public class CreditApplicationController {
 
