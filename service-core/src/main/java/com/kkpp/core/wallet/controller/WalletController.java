@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "지갑")
 @RestController
-@RequestMapping("/api/core/wallet")
+@RequestMapping("/api/v1/core/wallet")
 @RequiredArgsConstructor
 public class WalletController {
 

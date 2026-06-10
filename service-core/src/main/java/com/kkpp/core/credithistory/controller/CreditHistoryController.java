@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "외상 조회")
 @RestController
-@RequestMapping("/api/core/credit-history")
+@RequestMapping("/api/v1/core/credit-history")
 @RequiredArgsConstructor
 public class CreditHistoryController {
 
