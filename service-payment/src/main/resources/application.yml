@@ -16,3 +16,16 @@ logging:
   charset:
     console: UTF-8
     file: UTF-8
+
+payment-request:
+  transport: ${PAYMENT_REQUEST_TRANSPORT:kafka}
+  sqs:
+    queue-url: ${PAYMENT_REQUEST_QUEUE_URL:}
+    max-number-of-messages: ${PAYMENT_REQUEST_SQS_MAX_NUMBER_OF_MESSAGES:5}
+    wait-time-seconds: ${PAYMENT_REQUEST_SQS_WAIT_TIME_SECONDS:20}
+    poll-delay-millis: ${PAYMENT_REQUEST_SQS_POLL_DELAY_MILLIS:1000}
+
+cloud:
+  aws:
+    sqs:
+      region: ${AWS_REGION:ap-northeast-2}
