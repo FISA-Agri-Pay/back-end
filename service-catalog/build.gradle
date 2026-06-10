@@ -1,6 +1,8 @@
 dependencies {
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
     implementation project(':common-core')
     implementation project(':common-security')
+    implementation 'software.amazon.awssdk:sqs'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
