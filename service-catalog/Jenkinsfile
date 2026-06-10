@@ -6,7 +6,7 @@ pipeline {
         AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
         PAYMENT_REQUEST_TRANSPORT = "${params.PAYMENT_REQUEST_TRANSPORT ?: 'kafka'}"
         PAYMENT_REQUEST_QUEUE_URL = "${params.PAYMENT_REQUEST_QUEUE_URL ?: ''}"
-        SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: 'arn:aws:iam::153585581837:role/kkpp-dev-service-catalog-irsa'}"
+        SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: ''}"
         K8S_NAMESPACE = 'service-catalog'
         ECR_REPO_NAME = 'service-catalog'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -65,6 +65,11 @@ pipeline {
                     withKubeConfig([credentialsId: 'eks-kubeconfig']) {
                         sh """
                             set -e
+
+                            if [ -z "${SERVICE_CATALOG_IRSA_ROLE_ARN}" ]; then
+                                echo 'SERVICE_CATALOG_IRSA_ROLE_ARN is required.'
+                                exit 1
+                            fi
                             
                             # deployment.yaml 파일에서 SERVICE_CATALOG_IMAGE_PLACEHOLDER를 찾아 실제 ECR 주소로 교체 후 deployment.rendered.yaml 파일에 복사
                             # deployment.yaml의 aws id를 숨기기 위한 조치
