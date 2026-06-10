@@ -6,3 +6,13 @@ spring:
 
 server:
   port: 8081
+
+payment-request:
+  transport: ${PAYMENT_REQUEST_TRANSPORT:kafka}
+  sqs:
+    queue-url: ${PAYMENT_REQUEST_QUEUE_URL:}
+
+cloud:
+  aws:
+    sqs:
+      region: ${AWS_REGION:ap-northeast-2}
