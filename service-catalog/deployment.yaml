@@ -7,6 +7,7 @@ kind: Deployment
 # Deployment의 이름과 공통 라벨을 정의합니다.
 metadata:
   name: service-catalog-deployment
+  namespace: service-catalog
   labels:
     app: service-catalog
 
@@ -30,6 +31,7 @@ spec:
         app: service-catalog
 
     spec:
+      serviceAccountName: service-catalog-sa
       containers:
       - name: service-catalog-container
         # Jenkins 배포 단계에서 ECR 주소와 태그로 교체되어 실제로는 deployment.redered.yaml로 배포됩니다.

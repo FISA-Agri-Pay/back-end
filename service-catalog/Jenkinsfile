@@ -6,10 +6,14 @@ pipeline {
         AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
         PAYMENT_REQUEST_TRANSPORT = "${params.PAYMENT_REQUEST_TRANSPORT ?: 'kafka'}"
         PAYMENT_REQUEST_QUEUE_URL = "${params.PAYMENT_REQUEST_QUEUE_URL ?: ''}"
+        SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: 'arn:aws:iam::153585581837:role/kkpp-dev-service-catalog-irsa'}"
+        K8S_NAMESPACE = 'service-catalog'
         ECR_REPO_NAME = 'service-catalog'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
+        NAMESPACE_FILE = 'service-catalog/namespace.yaml'
+        SERVICE_ACCOUNT_FILE = 'service-catalog/service-account.yaml'
         CONFIGMAP_FILE = 'service-catalog/configmap.yaml'
         DEPLOYMENT_FILE = 'service-catalog/deployment.yaml'
         SERVICE_FILE = 'service-catalog/service.yaml'
@@ -71,16 +75,21 @@ pipeline {
                             | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
                             > service-catalog/deployment.rendered.yaml
 
-                            kubectl apply -f ${CONFIGMAP_FILE}
-                            kubectl apply -f service-catalog/deployment.rendered.yaml
-                            kubectl apply -f ${SERVICE_FILE}
-                            kubectl apply -f ${INGRESS_FILE}
+                            sed "s|SERVICE_CATALOG_IRSA_ROLE_ARN_PLACEHOLDER|${SERVICE_CATALOG_IRSA_ROLE_ARN}|g" ${SERVICE_ACCOUNT_FILE} \\
+                            > service-catalog/service-account.rendered.yaml
 
-                            if ! kubectl rollout status deployment/service-catalog-deployment --timeout=5m; then
+                            kubectl apply -f ${NAMESPACE_FILE}
+                            kubectl apply -f service-catalog/service-account.rendered.yaml
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${CONFIGMAP_FILE}
+                            kubectl apply -n ${K8S_NAMESPACE} -f service-catalog/deployment.rendered.yaml
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${SERVICE_FILE}
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${INGRESS_FILE}
+
+                            if ! kubectl rollout status -n ${K8S_NAMESPACE} deployment/service-catalog-deployment --timeout=5m; then
                                 echo 'Rollout failed or timed out. Printing Kubernetes diagnostics.'
-                                kubectl describe deployment service-catalog-deployment || true
-                                kubectl get rs,pods -o wide | grep service-catalog || true
-                                kubectl get events --sort-by=.lastTimestamp | tail -50 || true
+                                kubectl describe -n ${K8S_NAMESPACE} deployment service-catalog-deployment || true
+                                kubectl get -n ${K8S_NAMESPACE} rs,pods -o wide | grep service-catalog || true
+                                kubectl get -n ${K8S_NAMESPACE} events --sort-by=.lastTimestamp | tail -50 || true
                                 exit 1
                             fi
                         """
