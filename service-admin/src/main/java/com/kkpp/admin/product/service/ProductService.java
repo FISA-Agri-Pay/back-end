@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(transactionManager = "catalogTransactionManager")
 // 상품 관리 비즈니스 로직과 트랜잭션을 담당하는 서비스임
 public class ProductService {
 
@@ -39,7 +40,7 @@ public class ProductService {
     private final ProductMapper productMapper;
 
     // 상품 목록을 조건별로 검색하고 페이지 응답으로 변환함
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, transactionManager = "catalogTransactionManager")
     public ProductPageResponse getProducts(
             Long categoryId,
             String categoryName,
