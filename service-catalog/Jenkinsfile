@@ -3,7 +3,9 @@ pipeline {
 
     environment {
         AWS_ACCOUNT_ID = credentials('aws-id')
-        AWS_REGION = 'ap-northeast-2'
+        AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
+        PAYMENT_REQUEST_TRANSPORT = "${params.PAYMENT_REQUEST_TRANSPORT ?: 'kafka'}"
+        PAYMENT_REQUEST_QUEUE_URL = "${params.PAYMENT_REQUEST_QUEUE_URL ?: ''}"
         ECR_REPO_NAME = 'service-catalog'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
@@ -63,7 +65,11 @@ pipeline {
                             # deployment.yaml 파일에서 SERVICE_CATALOG_IMAGE_PLACEHOLDER를 찾아 실제 ECR 주소로 교체 후 deployment.rendered.yaml 파일에 복사
                             # deployment.yaml의 aws id를 숨기기 위한 조치
 
-                            sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} > service-catalog/deployment.rendered.yaml
+                            sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} \\
+                            | sed "s|PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER|${PAYMENT_REQUEST_TRANSPORT}|g" \\
+                            | sed "s|PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER|${PAYMENT_REQUEST_QUEUE_URL}|g" \\
+                            | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
+                            > service-catalog/deployment.rendered.yaml
 
                             kubectl apply -f ${CONFIGMAP_FILE}
                             kubectl apply -f service-catalog/deployment.rendered.yaml
