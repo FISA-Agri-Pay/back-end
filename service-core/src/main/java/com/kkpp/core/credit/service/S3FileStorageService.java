@@ -1,5 +1,7 @@
 package com.kkpp.core.credit.service;
 
+import com.kkpp.core.credit.exception.CreditErrorCode;
+import com.kkpp.core.credit.exception.CreditException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
@@ -61,7 +63,8 @@ public class S3FileStorageService implements FileStorageService {
             log.info("S3 파일 업로드를 완료했습니다. key={}", objectKey);
             return objectKey;
         } catch (IOException | S3Exception e) {
-            throw new IllegalStateException("S3 파일 업로드에 실패했습니다.", e);
+            log.error("S3 파일 업로드에 실패했습니다. key={}", objectKey, e);
+            throw new CreditException(CreditErrorCode.FILE_STORAGE_ERROR, objectKey);
         }
     }
 
