@@ -6,6 +6,7 @@ import com.kkpp.admin.credit.domain.CreditReviewDocument;
 import com.kkpp.admin.credit.domain.CreditReviewFarmerProfile;
 import com.kkpp.admin.credit.domain.CreditReviewLimit;
 import com.kkpp.admin.credit.domain.CreditReviewStatus;
+import com.kkpp.admin.credit.domain.CreditReviewWallet;
 import com.kkpp.admin.credit.dto.ApproveCreditReviewRequest;
 import com.kkpp.admin.credit.dto.CreditReviewDecisionResponse;
 import com.kkpp.admin.credit.dto.CreditReviewDetailResponse;
@@ -17,6 +18,7 @@ import com.kkpp.admin.credit.repository.CreditReviewAssScoreRepository;
 import com.kkpp.admin.credit.repository.CreditReviewDocumentRepository;
 import com.kkpp.admin.credit.repository.CreditReviewFarmerProfileRepository;
 import com.kkpp.admin.credit.repository.CreditReviewLimitRepository;
+import com.kkpp.admin.credit.repository.CreditReviewWalletRepository;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -55,6 +57,7 @@ public class CreditReviewService {
     private final CreditReviewDocumentRepository documentRepository;
     private final CreditReviewAssScoreRepository assScoreRepository;
     private final CreditReviewLimitRepository limitRepository;
+    private final CreditReviewWalletRepository walletRepository;
     private final DocumentUrlService documentUrlService;
 
     // 관리자 심사 목록을 페이지 단위로 조회한다.
@@ -139,6 +142,9 @@ public class CreditReviewService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "이미 한도가 발급된 신청입니다.");
         }
 
+        UUID userPublicId = application.getUser().getPublicId();
+        ensureWalletExists(userPublicId);
+
         LocalDateTime decidedAt = LocalDateTime.now();
         application.approve(request.reviewedBy(), request.approvedAmount(), decidedAt);
 
@@ -218,6 +224,17 @@ public class CreditReviewService {
     private CreditReviewApplication getApplicationForUpdate(UUID publicId) {
         return applicationRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 한도 심사 신청입니다."));
+    }
+
+    private void ensureWalletExists(UUID userPublicId) {
+        // 기존 지갑이 있으면 계좌 정보, 잔액, 상태를 덮어쓰지 않는다.
+        if (walletRepository.existsByUserPublicId(userPublicId)) {
+            log.debug("Credit approval wallet already exists. userPublicId={}", userPublicId);
+            return;
+        }
+
+        walletRepository.save(CreditReviewWallet.issue(userPublicId));
+        log.info("Credit approval wallet created. userPublicId={}", userPublicId);
     }
 
     // 여러 엔티티를 관리자 상세 화면 응답 DTO로 변환한다.
