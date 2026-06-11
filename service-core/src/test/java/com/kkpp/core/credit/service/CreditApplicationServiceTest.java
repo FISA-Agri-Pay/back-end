@@ -80,7 +80,8 @@ class CreditApplicationServiceTest {
                 userRepository,
                 creditLimitApplicationRepository,
                 fileStorageService,
-                creditSubmitPersistenceService
+                creditSubmitPersistenceService,
+                new com.kkpp.core.global.tracing.TracingSupport()
         );
     }
 
