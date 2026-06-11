@@ -54,7 +54,7 @@ public class AuthController {
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "회원가입 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 검증 실패 또는 잘못된 요청 본문"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 가입된 사용자")
     })
     @SecurityRequirements
@@ -69,11 +69,13 @@ public class AuthController {
 
     @Operation(
             summary = "결제 PIN 등록",
-            description = "인증된 사용자의 6자리 결제 PIN을 등록합니다."
+            description = "인증된 사용자의 6자리 결제 PIN을 등록하거나 재등록합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 PIN 등록 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "PIN 형식 오류 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
     @PostMapping("/register/payment-pin")
     public ResponseEntity<ApiResponse<Void>> setPaymentPin(
@@ -86,12 +88,14 @@ public class AuthController {
 
     @Operation(
             summary = "결제 PIN 검증",
-            description = "인증된 사용자의 결제 PIN을 검증하고 검증 완료 이벤트를 발행합니다."
+            description = "인증된 사용자의 결제 PIN을 검증하고, 검증 성공 시 SQS 검증 완료 이벤트를 발행합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 PIN 검증 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "결제 PIN 미등록"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "결제 PIN 불일치")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "PIN 형식 오류, PIN 미등록 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 또는 결제 PIN 불일치"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "결제 PIN 검증 완료 이벤트 발행 실패")
     })
     @PostMapping("/payment-pin/verify")
     public ResponseEntity<ApiResponse<PaymentPinVerificationResponse>> verifyPaymentPin(
@@ -108,8 +112,8 @@ public class AuthController {
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "비밀번호 불일치"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 검증 실패 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "휴대폰 번호 또는 비밀번호 불일치")
     })
     @SecurityRequirements
     @PostMapping("/login")
@@ -124,11 +128,11 @@ public class AuthController {
 
     @Operation(
             summary = "Access Token 재발급",
-            description = "refresh token을 검증한 뒤 새로운 access token과 refresh token을 발급합니다."
+            description = "HttpOnly refreshToken 쿠키를 검증한 뒤 새로운 access token과 refresh token을 발급합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 재발급 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 refresh token")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "refreshToken 쿠키 누락 또는 유효하지 않은 refresh token")
     })
     @SecurityRequirements
     @PostMapping("/refresh")
