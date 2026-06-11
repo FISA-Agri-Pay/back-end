@@ -16,6 +16,15 @@ payment-request:
   sqs:
     queue-url: ${PAYMENT_REQUEST_QUEUE_URL:}
 
+payment-pin-verification:
+  consumer:
+    enabled: ${PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED:false}
+  sqs:
+    queue-url: ${PAYMENT_PIN_VERIFIED_QUEUE_URL:}
+    max-number-of-messages: ${PAYMENT_PIN_VERIFICATION_SQS_MAX_NUMBER_OF_MESSAGES:5}
+    wait-time-seconds: ${PAYMENT_PIN_VERIFICATION_SQS_WAIT_TIME_SECONDS:20}
+    poll-delay-millis: ${PAYMENT_PIN_VERIFICATION_SQS_POLL_DELAY_MILLIS:1000}
+
 cloud:
   aws:
     sqs:

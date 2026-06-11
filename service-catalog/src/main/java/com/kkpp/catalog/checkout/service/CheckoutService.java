@@ -8,6 +8,7 @@ import com.kkpp.catalog.checkout.dto.request.DeliveryAddressRequest;
 import com.kkpp.catalog.checkout.dto.response.CheckoutRequestResponse;
 import com.kkpp.catalog.checkout.event.CreditPaymentEventProducer;
 import com.kkpp.catalog.checkout.repository.BnplPaymentRequestRepository;
+import com.kkpp.catalog.paymentpin.service.PaymentPinVerificationService;
 import com.kkpp.catalog.product.domain.Product;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
@@ -35,6 +36,7 @@ public class CheckoutService {
     private final CartItemRepository cartItemRepository;
     private final BnplPaymentRequestRepository bnplPaymentRequestRepository;
     private final CreditPaymentEventProducer creditPaymentEventProducer;
+    private final PaymentPinVerificationService paymentPinVerificationService;
     private final TransactionTemplate transactionTemplate;
 
     public CheckoutRequestResponse createCheckoutRequest(UUID userPublicId, CreateCheckoutRequest request) {
@@ -64,6 +66,7 @@ public class CheckoutService {
                 request.idempotencyKey()
         );
         validatePaymentMethod(request.paymentMethod());
+        validatePaymentPinVerificationId(request);
 
         BnplPaymentRequest existingRequest = bnplPaymentRequestRepository
                 .findByPublicIdAndUserPublicId(paymentRequestPublicId, userPublicId)
@@ -78,6 +81,12 @@ public class CheckoutService {
             );
             return CheckoutRequestResponse.from(existingRequest, orderPublicId(existingRequest.getPublicId()));
         }
+
+        paymentPinVerificationService.consumeForCheckout(
+                userPublicId,
+                request.verificationId(),
+                paymentRequestPublicId
+        );
 
         List<CartItem> cartItems = cartItemRepository.findAllByUserPublicIdAndIdInWithProduct(
                 userPublicId,
@@ -190,6 +199,12 @@ public class CheckoutService {
     private void validatePaymentMethod(String paymentMethod) {
         if (!CREDIT_LIMIT_PAYMENT.equals(paymentMethod)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "외상 한도 결제만 지원합니다.");
+        }
+    }
+
+    private void validatePaymentPinVerificationId(CreateCheckoutRequest request) {
+        if (CREDIT_LIMIT_PAYMENT.equals(request.paymentMethod()) && request.verificationId() == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "결제 PIN 검증 ID가 필요합니다.");
         }
     }
 
