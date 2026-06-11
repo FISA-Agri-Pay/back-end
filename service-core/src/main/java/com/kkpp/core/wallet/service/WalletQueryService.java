@@ -2,6 +2,8 @@ package com.kkpp.core.wallet.service;
 
 import com.kkpp.core.credit.domain.ApplicationStatus;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
+import com.kkpp.core.global.logging.LogMaskingUtils;
+import com.kkpp.core.global.tracing.TracingSupport;
 import com.kkpp.core.user.domain.User;
 import com.kkpp.core.user.repository.UserRepository;
 import com.kkpp.core.wallet.domain.CreditLimit;
@@ -18,6 +20,8 @@ import com.kkpp.core.wallet.repository.InterestLedgerRepository;
 import com.kkpp.core.wallet.repository.PrincipalRepaymentLedgerRepository;
 import com.kkpp.core.wallet.repository.WalletRepository;
 import com.kkpp.core.wallet.repository.WalletTransactionRepository;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -26,9 +30,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -55,27 +61,71 @@ public class WalletQueryService {
     private final InterestLedgerRepository interestLedgerRepository;
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final TracingSupport tracingSupport;
 
     public WalletCreditSummaryResponse getMyCreditSummary(Long authenticatedUserId) {
-        // 홈 한도 카드는 지갑 생성 여부와 무관하게 결제 가능한 최신 활성 한도 1건만 기준으로 구성합니다.
-        User user = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new WalletException(WalletErrorCode.USER_NOT_FOUND));
-        UUID userPublicId = user.getPublicId();
-        String userName = user.getName();
-
-        Optional<CreditLimit> activeCreditLimit = findLatestUsableActiveCreditLimit(userPublicId);
-        if (activeCreditLimit.isPresent()) {
-            return toCreditSummaryResponse(activeCreditLimit.get(), userName);
+        long startedAtNanos = System.nanoTime();
+        Span span = tracingSupport.startSpan("service-core.wallet.credit-summary");
+        try (Scope ignored = span.makeCurrent()) {
+            return getMyCreditSummaryWithSpan(authenticatedUserId, startedAtNanos, span);
+        } catch (RuntimeException exception) {
+            tracingSupport.recordException(span, exception);
+            throw exception;
+        } finally {
+            span.end();
         }
-        ApplicationStatus applicationStatus = creditLimitApplicationRepository
-                .findTopByUserPublicIdOrderByAppliedAtDesc(userPublicId)
-                .map(app -> app.getStatus())
-                .orElse(null);
-        return emptyCreditSummaryResponse(applicationStatus, userName);
+    }
+
+    private WalletCreditSummaryResponse getMyCreditSummaryWithSpan(
+            Long authenticatedUserId,
+            long startedAtNanos,
+            Span span
+    ) {
+        // 홈 화면의 한도 요약 조회는 모니터링 대상 API라 별도 span과 구조화 로그를 남깁니다.
+        span.setAttribute("kkpp.event", "wallet.credit.summary");
+        span.setAttribute("kkpp.user.id", authenticatedUserId);
+        log.atInfo()
+                .addKeyValue("event", "wallet.credit.summary.started")
+                .addKeyValue("userId", authenticatedUserId)
+                .log("한도 요약 조회를 시작했습니다.");
+
+        try {
+            User user = userRepository.findById(authenticatedUserId)
+                    .orElseThrow(() -> new WalletException(WalletErrorCode.USER_NOT_FOUND));
+            UUID userPublicId = user.getPublicId();
+            span.setAttribute("kkpp.user.public_id.masked", LogMaskingUtils.maskIdentifier(userPublicId));
+            String userName = user.getName();
+
+            Optional<CreditLimit> activeCreditLimit = findLatestUsableActiveCreditLimit(userPublicId);
+            if (activeCreditLimit.isPresent()) {
+                WalletCreditSummaryResponse response = toCreditSummaryResponse(activeCreditLimit.get(), userName);
+                logCreditSummaryCompleted(authenticatedUserId, userPublicId, response, startedAtNanos, span);
+                return response;
+            }
+
+            ApplicationStatus applicationStatus = creditLimitApplicationRepository
+                    .findTopByUserPublicIdOrderByAppliedAtDesc(userPublicId)
+                    .map(app -> app.getStatus())
+                    .orElse(null);
+            WalletCreditSummaryResponse response = emptyCreditSummaryResponse(applicationStatus, userName);
+            logCreditSummaryCompleted(authenticatedUserId, userPublicId, response, startedAtNanos, span);
+            return response;
+        } catch (RuntimeException exception) {
+            // 실패 시에는 금액이나 개인정보 대신 실패 구간과 처리 시간을 남깁니다.
+            span.setAttribute("kkpp.failure_state", "QUERYING_CREDIT_SUMMARY");
+            span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+            log.atError()
+                    .addKeyValue("event", "wallet.credit.summary.failed")
+                    .addKeyValue("userId", authenticatedUserId)
+                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .addKeyValue("failureState", "QUERYING_CREDIT_SUMMARY")
+                    .setCause(exception)
+                    .log("한도 요약 조회 중 오류가 발생했습니다.");
+            throw exception;
+        }
     }
 
     public WalletMeResponse getMyWallet(Long authenticatedUserId) {
-        // 인증 토큰은 내부 Long userId만 제공하므로, 지갑/원장 조회 기준인 userPublicId로 변환합니다.
         UUID userPublicId = resolveUserPublicId(authenticatedUserId);
         Wallet wallet = walletRepository.findByUserPublicId(userPublicId)
                 .orElseThrow(() -> new WalletException(WalletErrorCode.WALLET_NOT_FOUND));
@@ -115,7 +165,6 @@ public class WalletQueryService {
     }
 
     private Optional<CreditLimit> findLatestUsableActiveCreditLimit(UUID userPublicId) {
-        // 결제 검증과 동일하게 만료일이 지난 ACTIVE 한도는 화면에서도 활성 한도로 보지 않습니다.
         return creditLimitRepository.findLatestUsableActiveLimit(
                 userPublicId,
                 CreditLimit.STATUS_ACTIVE,
@@ -124,7 +173,6 @@ public class WalletQueryService {
     }
 
     private Optional<InterestLedger> findNearestUnpaidInterestLedger(CreditLimit creditLimit) {
-        // 미래 예정 원장을 우선 고르고, 미래 건이 없으면 가장 최근 연체 원장을 화면에 노출합니다.
         return interestLedgerRepository.findNearestUnpaidLedger(
                 creditLimit.getPublicId(),
                 UNPAID_LEDGER_STATUSES
@@ -132,7 +180,6 @@ public class WalletQueryService {
     }
 
     private Optional<PrincipalRepaymentLedger> findNearestUnpaidPrincipalLedger(CreditLimit creditLimit) {
-        // 이자 원장과 같은 기준으로 다음 상환 예정일 후보를 선택합니다.
         return principalRepaymentLedgerRepository.findNearestUnpaidLedger(
                 creditLimit.getPublicId(),
                 UNPAID_LEDGER_STATUSES
@@ -166,7 +213,6 @@ public class WalletQueryService {
         BigDecimal usedAmount = zeroIfNull(creditLimit.getUsedAmount());
         BigDecimal remainingAmount = totalLimit.subtract(usedAmount);
         if (remainingAmount.compareTo(BigDecimal.ZERO) < 0) {
-            // DB 제약이 깨진 데이터가 들어와도 홈 progress 영역이 음수 잔여 한도를 표시하지 않도록 방어합니다.
             remainingAmount = BigDecimal.ZERO;
         }
 
@@ -197,6 +243,35 @@ public class WalletQueryService {
         );
     }
 
+    private void logCreditSummaryCompleted(
+            Long authenticatedUserId,
+            UUID userPublicId,
+            WalletCreditSummaryResponse response,
+            long startedAtNanos,
+            Span span
+    ) {
+        // 금액은 응답으로 충분히 확인 가능하므로 로그와 span에는 상태 중심의 안전한 컨텍스트만 남깁니다.
+        span.setAttribute("kkpp.has_active_limit", response.hasActiveLimit());
+        span.setAttribute("kkpp.credit_limit.public_id.masked", LogMaskingUtils.maskIdentifier(response.creditLimitPublicId()));
+        if (response.applicationStatus() != null) {
+            span.setAttribute("kkpp.application.status", response.applicationStatus());
+        }
+        span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+        log.atInfo()
+                .addKeyValue("event", "wallet.credit.summary.completed")
+                .addKeyValue("userId", authenticatedUserId)
+                .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(userPublicId))
+                .addKeyValue("hasActiveLimit", response.hasActiveLimit())
+                .addKeyValue("creditLimitPublicId", LogMaskingUtils.maskIdentifier(response.creditLimitPublicId()))
+                .addKeyValue("applicationStatus", response.applicationStatus())
+                .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                .log("한도 요약 조회를 완료했습니다.");
+    }
+
+    private long elapsedMillis(long startedAtNanos) {
+        return (System.nanoTime() - startedAtNanos) / 1_000_000;
+    }
+
     private BigDecimal usageRate(BigDecimal usedAmount, BigDecimal totalLimit) {
         if (totalLimit == null || totalLimit.compareTo(BigDecimal.ZERO) <= 0) {
             return ZERO_USAGE_RATE;
@@ -205,7 +280,6 @@ public class WalletQueryService {
         BigDecimal rate = normalizedUsedAmount
                 .multiply(ONE_HUNDRED)
                 .divide(totalLimit, USAGE_RATE_SCALE, RoundingMode.HALF_UP);
-        // 프론트 progress bar 값으로 바로 쓰이므로 비정상 데이터에서도 0~100 범위를 보장합니다.
         if (rate.compareTo(ZERO_USAGE_RATE) < 0) {
             return ZERO_USAGE_RATE;
         }
@@ -220,7 +294,6 @@ public class WalletQueryService {
             CreditLimit creditLimit,
             Optional<PrincipalRepaymentLedger> principalLedger
     ) {
-        // MVP 기준 원금 잔액은 상환 원장 합산이 아니라 credit_limits.used_amount를 화면에 노출합니다.
         return new WalletMeResponse.Principal(
                 principalLedger.map(PrincipalRepaymentLedger::getDueDate)
                         .orElse(creditLimit.getPrincipalDueDate()),
@@ -267,7 +340,6 @@ public class WalletQueryService {
         BigDecimal amount = transaction.getAmount();
         if (WalletTransaction.TYPE_INTEREST_PAYMENT.equals(transaction.getTransactionType())
                 || WalletTransaction.TYPE_PRINCIPAL_PAYMENT.equals(transaction.getTransactionType())) {
-            // DB 값의 부호와 무관하게 프론트 내역에서는 상환성 거래를 항상 음수로 표시합니다.
             return amount == null ? null : amount.abs().negate();
         }
         return amount;
