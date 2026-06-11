@@ -344,7 +344,7 @@ class CreditApplicationServiceTest {
         MultipartFile oversizedFile = org.mockito.Mockito.mock(MultipartFile.class);
         when(oversizedFile.isEmpty()).thenReturn(false);
         when(oversizedFile.getOriginalFilename()).thenReturn("agri.pdf");
-        when(oversizedFile.getSize()).thenReturn(10L * 1024 * 1024 + 1);
+        when(oversizedFile.getSize()).thenReturn(20L * 1024 * 1024 + 1);
 
         assertThatThrownBy(() -> creditApplicationService.submit(USER_ID, SESSION_ID, Map.of(
                 "AGRI_MANAGEMENT_REGISTRATION",
