@@ -6,6 +6,8 @@ pipeline {
         AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
         PAYMENT_REQUEST_TRANSPORT = "${params.PAYMENT_REQUEST_TRANSPORT ?: 'kafka'}"
         PAYMENT_REQUEST_QUEUE_URL = "${params.PAYMENT_REQUEST_QUEUE_URL ?: ''}"
+        PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED = "${params.PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED ?: 'false'}"
+        PAYMENT_PIN_VERIFIED_QUEUE_URL = "${params.PAYMENT_PIN_VERIFIED_QUEUE_URL ?: ''}"
         SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: ''}"
         K8S_NAMESPACE = 'service-catalog'
         ECR_REPO_NAME = 'service-catalog'
@@ -78,6 +80,8 @@ pipeline {
                             | sed "s|PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER|${PAYMENT_REQUEST_TRANSPORT}|g" \\
                             | sed "s|PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER|${PAYMENT_REQUEST_QUEUE_URL}|g" \\
                             | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
+                            | sed "s|PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED_PLACEHOLDER|${PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED}|g" \\
+                            | sed "s|PAYMENT_PIN_VERIFIED_QUEUE_URL_PLACEHOLDER|${PAYMENT_PIN_VERIFIED_QUEUE_URL}|g" \\
                             > service-catalog/deployment.rendered.yaml
 
                             sed "s|SERVICE_CATALOG_IRSA_ROLE_ARN_PLACEHOLDER|${SERVICE_CATALOG_IRSA_ROLE_ARN}|g" ${SERVICE_ACCOUNT_FILE} \\
