@@ -5,11 +5,14 @@ import com.kkpp.common.security.auth.AuthUserInfo;
 import com.kkpp.core.credit.exception.CreditException;
 import com.kkpp.core.wallet.exception.WalletException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -27,7 +30,7 @@ public class MonitoredApiLoggingAspect {
         long startedAtNanos = System.nanoTime();
         HttpServletRequest request = currentRequest();
         Long userId = findUserId(joinPoint.getArgs());
-        String sessionId = findSessionId(joinPoint.getArgs());
+        String sessionId = findSessionId(joinPoint);
 
         // 반복되는 API 요청 시작 로그와 처리 시간 측정은 AOP에서 담당해 비즈니스 로직과 분리합니다.
         log.atInfo()
@@ -48,11 +51,12 @@ public class MonitoredApiLoggingAspect {
                     .addKeyValue("uri", request == null ? null : request.getRequestURI())
                     .addKeyValue("userId", userId)
                     .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
-                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                     .log("모니터링 대상 API 요청을 완료했습니다.");
             return result;
         } catch (Throwable exception) {
-            log.atWarn()
+            LoggingEventBuilder logBuilder = isBusinessException(exception) ? log.atInfo() : log.atWarn();
+            logBuilder
                     .addKeyValue("event", monitoredApiLogging.event() + ".failed")
                     .addKeyValue("apiName", monitoredApiLogging.apiName())
                     .addKeyValue("method", request == null ? null : request.getMethod())
@@ -63,7 +67,7 @@ public class MonitoredApiLoggingAspect {
                     .addKeyValue("errorCode", errorCode(exception))
                     .addKeyValue("errorMessage", errorMessage(exception))
                     .addKeyValue("failureState", "API_REQUEST_FAILED")
-                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                     .setCause(exception)
                     .log("모니터링 대상 API 요청 처리에 실패했습니다.");
             throw exception;
@@ -86,12 +90,19 @@ public class MonitoredApiLoggingAspect {
                 .orElse(null);
     }
 
-    private String findSessionId(Object[] args) {
-        return Arrays.stream(args)
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .findFirst()
-                .orElse(null);
+    private String findSessionId(ProceedingJoinPoint joinPoint) {
+        Object[] args = joinPoint.getArgs();
+        MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+        Annotation[][] parameterAnnotations = methodSignature.getMethod().getParameterAnnotations();
+
+        for (int index = 0; index < parameterAnnotations.length; index++) {
+            boolean isSessionId = Arrays.stream(parameterAnnotations[index])
+                    .anyMatch(MonitoredSessionId.class::isInstance);
+            if (isSessionId && args[index] instanceof String sessionId) {
+                return sessionId;
+            }
+        }
+        return null;
     }
 
     private String errorCode(Throwable exception) {
@@ -120,7 +131,9 @@ public class MonitoredApiLoggingAspect {
         return exception.getMessage();
     }
 
-    private long elapsedMillis(long startedAtNanos) {
-        return (System.nanoTime() - startedAtNanos) / 1_000_000;
+    private boolean isBusinessException(Throwable exception) {
+        return exception instanceof CreditException
+                || exception instanceof WalletException
+                || exception instanceof BusinessException;
     }
 }

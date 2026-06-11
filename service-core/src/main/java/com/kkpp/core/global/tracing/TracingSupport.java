@@ -15,7 +15,7 @@ public class TracingSupport {
         return tracer.spanBuilder(spanName).startSpan();
     }
 
-    public void recordException(Span span, RuntimeException exception) {
+    public void recordException(Span span, Throwable exception) {
         // Custom Span 실패 상태를 명확히 표시해 Tempo에서 실패 지점을 바로 찾을 수 있게 합니다.
         span.recordException(exception);
         span.setStatus(StatusCode.ERROR, exception.getClass().getSimpleName());

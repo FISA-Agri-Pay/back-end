@@ -8,12 +8,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import static com.kkpp.core.global.logging.MonitoredApiConstants.CREDIT_SUMMARY_URI;
+
 @Slf4j
 @Order(1)
 @RestControllerAdvice
 public class WalletExceptionHandler {
-
-    private static final String CREDIT_SUMMARY_URI = "/api/v1/core/wallet/credit";
 
     @ExceptionHandler(WalletException.class)
     public ResponseEntity<ApiResponse<Void>> handleWalletException(
@@ -31,6 +31,7 @@ public class WalletExceptionHandler {
                     .addKeyValue("status", errorCode.getStatus())
                     .addKeyValue("errorCode", errorCode.getCode())
                     .addKeyValue("errorMessage", errorCode.getMessage())
+                    .addKeyValue("exceptionType", exception.getClass().getSimpleName())
                     .log("한도 요약 조회 처리 중 예외가 발생했습니다.");
         } else {
             log.warn("지갑 요청 처리 중 예외가 발생했습니다. method={}, uri={}, code={}, message={}",

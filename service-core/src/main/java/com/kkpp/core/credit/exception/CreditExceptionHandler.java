@@ -8,11 +8,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import static com.kkpp.core.global.logging.MonitoredApiConstants.CREDIT_SUBMIT_URI;
+
 @Slf4j
 @RestControllerAdvice
 public class CreditExceptionHandler {
-
-    private static final String CREDIT_SUBMIT_URI = "/api/v1/core/credit/submit";
 
     @ExceptionHandler(CreditException.class)
     public ResponseEntity<ApiResponse<Void>> handleCreditException(

@@ -3,6 +3,7 @@ package com.kkpp.core.wallet.service;
 import com.kkpp.core.credit.domain.ApplicationStatus;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
 import com.kkpp.core.global.logging.LogMaskingUtils;
+import com.kkpp.core.global.logging.LoggingTimeUtils;
 import com.kkpp.core.global.tracing.TracingSupport;
 import com.kkpp.core.user.domain.User;
 import com.kkpp.core.user.repository.UserRepository;
@@ -113,11 +114,11 @@ public class WalletQueryService {
         } catch (RuntimeException exception) {
             // 실패 시에는 금액이나 개인정보 대신 실패 구간과 처리 시간을 남깁니다.
             span.setAttribute("kkpp.failure_state", "QUERYING_CREDIT_SUMMARY");
-            span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+            span.setAttribute("kkpp.duration_ms", LoggingTimeUtils.elapsedMillis(startedAtNanos));
             log.atError()
                     .addKeyValue("event", "wallet.credit.summary.failed")
                     .addKeyValue("userId", authenticatedUserId)
-                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                     .addKeyValue("failureState", "QUERYING_CREDIT_SUMMARY")
                     .setCause(exception)
                     .log("한도 요약 조회 중 오류가 발생했습니다.");
@@ -256,7 +257,7 @@ public class WalletQueryService {
         if (response.applicationStatus() != null) {
             span.setAttribute("kkpp.application.status", response.applicationStatus());
         }
-        span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+        span.setAttribute("kkpp.duration_ms", LoggingTimeUtils.elapsedMillis(startedAtNanos));
         log.atInfo()
                 .addKeyValue("event", "wallet.credit.summary.completed")
                 .addKeyValue("userId", authenticatedUserId)
@@ -264,12 +265,8 @@ public class WalletQueryService {
                 .addKeyValue("hasActiveLimit", response.hasActiveLimit())
                 .addKeyValue("creditLimitPublicId", LogMaskingUtils.maskIdentifier(response.creditLimitPublicId()))
                 .addKeyValue("applicationStatus", response.applicationStatus())
-                .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                 .log("한도 요약 조회를 완료했습니다.");
-    }
-
-    private long elapsedMillis(long startedAtNanos) {
-        return (System.nanoTime() - startedAtNanos) / 1_000_000;
     }
 
     private BigDecimal usageRate(BigDecimal usedAmount, BigDecimal totalLimit) {

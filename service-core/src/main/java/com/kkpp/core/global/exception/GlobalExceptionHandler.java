@@ -18,12 +18,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import static com.kkpp.core.global.logging.MonitoredApiConstants.CREDIT_SUBMIT_URI;
+import static com.kkpp.core.global.logging.MonitoredApiConstants.CREDIT_SUMMARY_URI;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    private static final String CREDIT_SUBMIT_URI = "/api/v1/core/credit/submit";
-    private static final String CREDIT_SUMMARY_URI = "/api/v1/core/wallet/credit";
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(
@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
                 .getFieldErrors()
                 .stream()
                 .map(this::formatFieldError)
-                .collect(Collectors.joining(","));
+                .collect(Collectors.joining(", "));
 
         if (isDetailedLoggingTarget(request)) {
             // 요청 본문 원문은 남기지 않고 검증 실패 필드만 남겨 민감정보 노출을 막습니다.
@@ -165,6 +165,6 @@ public class GlobalExceptionHandler {
     }
 
     private String formatFieldError(FieldError fieldError) {
-        return fieldError.getField() + "(" + fieldError.getDefaultMessage() + ")";
+        return fieldError.getField() + " (" + fieldError.getDefaultMessage() + ")";
     }
 }

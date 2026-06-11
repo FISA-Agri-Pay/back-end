@@ -10,6 +10,7 @@ import com.kkpp.core.credit.dto.response.InsuranceResponse;
 import com.kkpp.core.credit.dto.response.StartSessionResponse;
 import com.kkpp.core.credit.dto.response.SubmitResponse;
 import com.kkpp.core.global.logging.MonitoredApiLogging;
+import com.kkpp.core.global.logging.MonitoredSessionId;
 import com.kkpp.core.credit.service.CreditApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -360,7 +361,7 @@ public class CreditApplicationController {
     public ApiResponse<SubmitResponse> submit(
             @Parameter(hidden = true) @AuthUser AuthUserInfo authUser,
             @Parameter(description = "심사 세션 ID", example = "sess_8f9e1a2b3c4d")
-            @RequestParam(required = false) String sessionId,
+            @MonitoredSessionId @RequestParam(required = false) String sessionId,
             @Parameter(description = "농업 경영체 등록 확인서")
             @RequestParam(value = "files[AGRI_MANAGEMENT_REGISTRATION]", required = false)
             MultipartFile agriManagementRegistration,
