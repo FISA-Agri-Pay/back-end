@@ -409,6 +409,33 @@ CREATE TABLE IF NOT EXISTS catalog.bnpl_payment_requests (
 );
 
 -- =========================================================
+-- 15-1. catalog payment_pin_verifications
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS catalog.payment_pin_verifications (
+    id BIGSERIAL PRIMARY KEY,
+
+    event_id UUID NOT NULL UNIQUE,
+    verification_id UUID NOT NULL UNIQUE,
+    user_public_id UUID NOT NULL,
+
+    verification_type VARCHAR(30) NOT NULL DEFAULT 'PAYMENT_PIN'
+        CHECK (verification_type IN ('PAYMENT_PIN')),
+
+    verified_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'VERIFIED'
+        CHECK (status IN ('VERIFIED', 'USED', 'EXPIRED')),
+
+    used_at TIMESTAMP,
+    payment_request_public_id UUID,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
 -- 16. catalog bnpl_payment_request_items
 -- =========================================================
 
@@ -819,6 +846,9 @@ CREATE INDEX IF NOT EXISTS idx_catalog_cart_items_user_public_id
 
 CREATE INDEX IF NOT EXISTS idx_catalog_bnpl_payment_requests_user_public_id
     ON catalog.bnpl_payment_requests(user_public_id);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_payment_pin_verifications_user_status
+    ON catalog.payment_pin_verifications(user_public_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_core_orders_user_public_id
     ON core.orders(user_public_id);
