@@ -239,7 +239,19 @@ public class CreditReviewService {
             return;
         }
 
-        walletRepository.save(CreditReviewWallet.issue(userPublicId));
+        CreditReviewWallet wallet = CreditReviewWallet.issue(userPublicId);
+        int insertedCount = walletRepository.insertWalletIfAbsent(
+                wallet.getPublicId(),
+                wallet.getUserPublicId(),
+                wallet.getBalance(),
+                wallet.getDepositBankName(),
+                wallet.getDepositAccountNumber(),
+                wallet.getStatus()
+        );
+        if (insertedCount == 0) {
+            log.debug("Credit approval wallet was already created concurrently. userPublicId={}", userPublicId);
+            return;
+        }
         log.info("Credit approval wallet created. userPublicId={}", userPublicId);
     }
 

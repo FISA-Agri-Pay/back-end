@@ -2,6 +2,7 @@ package com.kkpp.admin.credit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -84,20 +85,30 @@ class CreditReviewServiceTest {
         when(limitRepository.existsByApplication_Id(10L)).thenReturn(false);
         when(farmerProfileRepository.findByUser_Id(20L)).thenReturn(Optional.of(farmerProfile()));
         when(walletRepository.existsByUserPublicId(USER_PUBLIC_ID)).thenReturn(false);
+        when(walletRepository.insertWalletIfAbsent(
+                any(UUID.class),
+                eq(USER_PUBLIC_ID),
+                any(BigDecimal.class),
+                eq("local-bank"),
+                eq("KKPP-" + USER_PUBLIC_ID.toString().replace("-", "")),
+                eq(CreditReviewWallet.STATUS_ACTIVE)
+        )).thenReturn(1);
         when(limitRepository.save(any(CreditReviewLimit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         creditReviewService.approve(APPLICATION_PUBLIC_ID, approveRequest());
 
-        ArgumentCaptor<CreditReviewWallet> walletCaptor = ArgumentCaptor.forClass(CreditReviewWallet.class);
-        verify(walletRepository).save(walletCaptor.capture());
-
-        CreditReviewWallet wallet = walletCaptor.getValue();
-        assertThat(wallet.getPublicId()).isNotNull();
-        assertThat(wallet.getUserPublicId()).isEqualTo(USER_PUBLIC_ID);
-        assertThat(wallet.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(wallet.getStatus()).isEqualTo(CreditReviewWallet.STATUS_ACTIVE);
-        assertThat(wallet.getDepositBankName()).isEqualTo("local-bank");
-        assertThat(wallet.getDepositAccountNumber()).isEqualTo("KKPP-" + USER_PUBLIC_ID.toString().replace("-", ""));
+        ArgumentCaptor<UUID> walletPublicIdCaptor = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<BigDecimal> balanceCaptor = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(walletRepository).insertWalletIfAbsent(
+                walletPublicIdCaptor.capture(),
+                eq(USER_PUBLIC_ID),
+                balanceCaptor.capture(),
+                eq("local-bank"),
+                eq("KKPP-" + USER_PUBLIC_ID.toString().replace("-", "")),
+                eq(CreditReviewWallet.STATUS_ACTIVE)
+        );
+        assertThat(walletPublicIdCaptor.getValue()).isNotNull();
+        assertThat(balanceCaptor.getValue()).isEqualByComparingTo(BigDecimal.ZERO);
 
         ArgumentCaptor<CreditReviewLimit> limitCaptor = ArgumentCaptor.forClass(CreditReviewLimit.class);
         verify(limitRepository).save(limitCaptor.capture());
@@ -117,7 +128,14 @@ class CreditReviewServiceTest {
 
         creditReviewService.approve(APPLICATION_PUBLIC_ID, approveRequest());
 
-        verify(walletRepository, never()).save(any(CreditReviewWallet.class));
+        verify(walletRepository, never()).insertWalletIfAbsent(
+                any(UUID.class),
+                any(UUID.class),
+                any(BigDecimal.class),
+                any(String.class),
+                any(String.class),
+                any(String.class)
+        );
     }
 
     private ApproveCreditReviewRequest approveRequest() {
