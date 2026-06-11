@@ -45,8 +45,8 @@ public class CreditApplicationService {
     private static final Duration SESSION_MARKER_TTL = Duration.ofDays(7);
     private static final Duration SUBMIT_LOCK_TTL = Duration.ofMinutes(2);
     private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
-    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-    private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf");
+    private static final long MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+    private static final List<String> ALLOWED_FILE_EXTENSIONS = List.of("jpg", "jpeg", "png", "pdf", "heic", "heif");
     private static final List<ApplicationStatus> IN_PROGRESS_STATUSES = List.of(
             ApplicationStatus.PENDING
     );

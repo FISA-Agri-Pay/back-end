@@ -23,7 +23,8 @@ public enum CreditErrorCode {
 
     APPLICATION_DUPLICATE(409, "APP-001", "이미 접수된 심사 내역이 존재합니다."),
     APPLICATION_STEP_MISSING(400, "APP-002", "신청 단계 정보가 누락되었습니다."),
-    USER_NOT_FOUND(404, "USR-002", "사용자를 찾을 수 없습니다.");
+    USER_NOT_FOUND(404, "USR-002", "사용자를 찾을 수 없습니다."),
+    FILE_STORAGE_ERROR(503, "STR-001", "파일 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 
     private final int status;
     private final String code;
