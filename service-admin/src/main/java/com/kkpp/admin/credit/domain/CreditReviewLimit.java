@@ -43,6 +43,10 @@ public class CreditReviewLimit extends BaseEntity {
     @JoinColumn(name = "application_public_id", referencedColumnName = "public_id", nullable = false, unique = true)
     private CreditReviewApplication application;
 
+    // 승인 당시 작물 정보를 스냅샷으로 저장해 이후 프로필 변경과 무관하게 한도 산정 기준을 보존한다.
+    @Column(name = "crop_type_snapshot", nullable = false, length = 30)
+    private String cropTypeSnapshot;
+
     @Column(name = "total_limit", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalLimit;
 
@@ -51,6 +55,10 @@ public class CreditReviewLimit extends BaseEntity {
 
     @Column(name = "interest_rate", nullable = false, precision = 6, scale = 4)
     private BigDecimal interestRate;
+
+    // 실제 이자 원장의 dueDate를 만들 때 사용할 월별 납부 기준일이다.
+    @Column(name = "interest_due_day", nullable = false)
+    private Integer interestDueDay;
 
     @Column(name = "principal_due_date", nullable = false)
     private LocalDate principalDueDate;
@@ -68,6 +76,8 @@ public class CreditReviewLimit extends BaseEntity {
             CreditReviewApplication application,
             BigDecimal totalLimit,
             BigDecimal interestRate,
+            String cropTypeSnapshot,
+            Integer interestDueDay,
             LocalDate principalDueDate,
             LocalDate expiresAt
     ) {
@@ -75,9 +85,11 @@ public class CreditReviewLimit extends BaseEntity {
         limit.publicId = UUID.randomUUID();
         limit.user = application.getUser();
         limit.application = application;
+        limit.cropTypeSnapshot = cropTypeSnapshot;
         limit.totalLimit = totalLimit;
         limit.usedAmount = BigDecimal.ZERO;
         limit.interestRate = interestRate;
+        limit.interestDueDay = interestDueDay;
         limit.principalDueDate = principalDueDate;
         limit.expiresAt = expiresAt;
         limit.status = CreditLimitStatus.ACTIVE;

@@ -6,6 +6,7 @@ import com.kkpp.admin.credit.domain.CreditReviewDocument;
 import com.kkpp.admin.credit.domain.CreditReviewFarmerProfile;
 import com.kkpp.admin.credit.domain.CreditReviewLimit;
 import com.kkpp.admin.credit.domain.CreditReviewStatus;
+import com.kkpp.admin.credit.domain.CreditReviewWallet;
 import com.kkpp.admin.credit.dto.ApproveCreditReviewRequest;
 import com.kkpp.admin.credit.dto.CreditReviewDecisionResponse;
 import com.kkpp.admin.credit.dto.CreditReviewDetailResponse;
@@ -17,6 +18,7 @@ import com.kkpp.admin.credit.repository.CreditReviewAssScoreRepository;
 import com.kkpp.admin.credit.repository.CreditReviewDocumentRepository;
 import com.kkpp.admin.credit.repository.CreditReviewFarmerProfileRepository;
 import com.kkpp.admin.credit.repository.CreditReviewLimitRepository;
+import com.kkpp.admin.credit.repository.CreditReviewWalletRepository;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -49,12 +51,14 @@ public class CreditReviewService {
     private static final BigDecimal DEFAULT_INTEREST_RATE = new BigDecimal("0.0450");
     // 농지 면적을 m2에서 평 단위로 변환하기 위한 기준값
     private static final BigDecimal PYEONG_TO_M2 = new BigDecimal("3.305785");
+    private static final int MAX_INTEREST_DUE_DAY = 28;
 
     private final CreditReviewApplicationRepository applicationRepository;
     private final CreditReviewFarmerProfileRepository farmerProfileRepository;
     private final CreditReviewDocumentRepository documentRepository;
     private final CreditReviewAssScoreRepository assScoreRepository;
     private final CreditReviewLimitRepository limitRepository;
+    private final CreditReviewWalletRepository walletRepository;
     private final DocumentUrlService documentUrlService;
 
     // 관리자 심사 목록을 페이지 단위로 조회한다.
@@ -140,12 +144,20 @@ public class CreditReviewService {
         }
 
         LocalDateTime decidedAt = LocalDateTime.now();
+        UUID userPublicId = application.getUser().getPublicId();
+        // credit_limits는 승인 당시 작물 스냅샷을 필수로 요구하므로 신청자의 최신 농지 정보를 함께 조회한다.
+        CreditReviewFarmerProfile profile = farmerProfileRepository.findByUser_Id(application.getUser().getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST, "한도 승인에 필요한 농지 정보가 없습니다."));
+
+        ensureWalletExists(userPublicId);
         application.approve(request.reviewedBy(), request.approvedAmount(), decidedAt);
 
         CreditReviewLimit limit = CreditReviewLimit.issue(
                 application,
                 request.approvedAmount(),
                 normalizeInterestRate(request.interestRate()),
+                normalizeCropTypeSnapshot(profile.getMainCrop()),
+                calculateDefaultInterestDueDay(decidedAt.toLocalDate()),
                 normalizePrincipalDueDate(request.principalDueDate()),
                 normalizeExpiresAt(request.expiresAt())
         );
@@ -218,6 +230,40 @@ public class CreditReviewService {
     private CreditReviewApplication getApplicationForUpdate(UUID publicId) {
         return applicationRepository.findByPublicIdForUpdate(publicId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 한도 심사 신청입니다."));
+    }
+
+    private void ensureWalletExists(UUID userPublicId) {
+        // 기존 지갑이 있으면 계좌 정보, 잔액, 상태를 덮어쓰지 않는다.
+        if (walletRepository.existsByUserPublicId(userPublicId)) {
+            log.debug("Credit approval wallet already exists. userPublicId={}", userPublicId);
+            return;
+        }
+
+        CreditReviewWallet wallet = CreditReviewWallet.issue(userPublicId);
+        int insertedCount = walletRepository.insertWalletIfAbsent(
+                wallet.getPublicId(),
+                wallet.getUserPublicId(),
+                wallet.getBalance(),
+                wallet.getDepositBankName(),
+                wallet.getDepositAccountNumber(),
+                wallet.getStatus()
+        );
+        if (insertedCount == 0) {
+            log.debug("Credit approval wallet was already created concurrently. userPublicId={}", userPublicId);
+            return;
+        }
+        log.info("Credit approval wallet created. userPublicId={}", userPublicId);
+    }
+
+    private String normalizeCropTypeSnapshot(String mainCrop) {
+        if (mainCrop == null || mainCrop.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "한도 승인에 필요한 작물 정보가 없습니다.");
+        }
+        // DB 체크 제약은 콩 작물을 SOYBEAN으로 관리하므로 기존 BEAN enum 값을 저장 형식에 맞춘다.
+        if ("BEAN".equals(mainCrop)) {
+            return "SOYBEAN";
+        }
+        return mainCrop;
     }
 
     // 여러 엔티티를 관리자 상세 화면 응답 DTO로 변환한다.
@@ -310,6 +356,11 @@ public class CreditReviewService {
     // 승인 요청에 이율이 없을 때 기본 이율을 보정한다.
     private BigDecimal normalizeInterestRate(BigDecimal interestRate) {
         return interestRate == null ? DEFAULT_INTEREST_RATE : interestRate;
+    }
+
+    private int calculateDefaultInterestDueDay(LocalDate approvedDate) {
+        // 이자 원장이 생성될 때 사용할 월별 납부 기준일을 승인일 기준 10일 뒤로 잡고 28일로 상한을 둔다.
+        return Math.min(approvedDate.getDayOfMonth() + 10, MAX_INTEREST_DUE_DAY);
     }
 
     // 승인 요청에 원금 상환 예정일이 없을 때 임시 기본 정책값을 넣는다.
