@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kkpp.admin.credit.domain.CreditReviewApplication;
+import com.kkpp.admin.credit.domain.CreditReviewFarmerProfile;
 import com.kkpp.admin.credit.domain.CreditReviewLimit;
 import com.kkpp.admin.credit.domain.CreditReviewStatus;
 import com.kkpp.admin.credit.domain.CreditReviewUser;
@@ -81,6 +82,7 @@ class CreditReviewServiceTest {
         CreditReviewApplication application = pendingApplication();
         when(applicationRepository.findByPublicIdForUpdate(APPLICATION_PUBLIC_ID)).thenReturn(Optional.of(application));
         when(limitRepository.existsByApplication_Id(10L)).thenReturn(false);
+        when(farmerProfileRepository.findByUser_Id(20L)).thenReturn(Optional.of(farmerProfile()));
         when(walletRepository.existsByUserPublicId(USER_PUBLIC_ID)).thenReturn(false);
         when(limitRepository.save(any(CreditReviewLimit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -96,6 +98,12 @@ class CreditReviewServiceTest {
         assertThat(wallet.getStatus()).isEqualTo(CreditReviewWallet.STATUS_ACTIVE);
         assertThat(wallet.getDepositBankName()).isEqualTo("local-bank");
         assertThat(wallet.getDepositAccountNumber()).isEqualTo("KKPP-" + USER_PUBLIC_ID.toString().replace("-", ""));
+
+        ArgumentCaptor<CreditReviewLimit> limitCaptor = ArgumentCaptor.forClass(CreditReviewLimit.class);
+        verify(limitRepository).save(limitCaptor.capture());
+        assertThat(limitCaptor.getValue().getCropTypeSnapshot()).isEqualTo("RICE");
+        assertThat(limitCaptor.getValue().getInterestDueDay())
+                .isEqualTo(Math.min(LocalDate.now().getDayOfMonth() + 10, 28));
     }
 
     @Test
@@ -103,6 +111,7 @@ class CreditReviewServiceTest {
         CreditReviewApplication application = pendingApplication();
         when(applicationRepository.findByPublicIdForUpdate(APPLICATION_PUBLIC_ID)).thenReturn(Optional.of(application));
         when(limitRepository.existsByApplication_Id(10L)).thenReturn(false);
+        when(farmerProfileRepository.findByUser_Id(20L)).thenReturn(Optional.of(farmerProfile()));
         when(walletRepository.existsByUserPublicId(USER_PUBLIC_ID)).thenReturn(true);
         when(limitRepository.save(any(CreditReviewLimit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -141,6 +150,13 @@ class CreditReviewServiceTest {
         set(application, "status", CreditReviewStatus.PENDING);
         set(application, "appliedAt", LocalDateTime.now());
         return application;
+    }
+
+    private CreditReviewFarmerProfile farmerProfile() {
+        CreditReviewFarmerProfile profile = instantiate(CreditReviewFarmerProfile.class);
+        set(profile, "id", 30L);
+        set(profile, "mainCrop", "RICE");
+        return profile;
     }
 
     private static <T> T instantiate(Class<T> type) {
