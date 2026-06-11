@@ -1,16 +1,17 @@
 package com.kkpp.core.credit.service;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
+import com.kkpp.core.global.logging.LogMaskingUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -29,19 +30,40 @@ public class LocalFileStorageService implements FileStorageService {
             validateUnderUploadRoot(directoryPath);
             Files.createDirectories(directoryPath);
 
-            String originalFilename = sanitizeFilename(file.getOriginalFilename());
-            String storedFilename = UUID.randomUUID() + "-" + originalFilename;
+            String storedFilename = UUID.randomUUID() + "." + extractExtension(file.getOriginalFilename());
             Path destination = directoryPath.resolve(storedFilename).normalize();
             validateUnderUploadRoot(destination);
+
+            // 로컬 테스트에서도 원본 파일명은 저장/로그에 남기지 않고 UUID와 확장자만 사용합니다.
+            log.atInfo()
+                    .addKeyValue("event", "credit.document.local.upload.started")
+                    .addKeyValue("directory", LogMaskingUtils.maskIdentifier(directory))
+                    .addKeyValue("contentType", file.getContentType())
+                    .addKeyValue("fileSize", file.getSize())
+                    .log("로컬 파일 업로드를 시작했습니다.");
 
             try (InputStream inputStream = file.getInputStream()) {
                 Files.copy(inputStream, destination);
             }
 
             String fileUrl = UPLOAD_ROOT_ABSOLUTE.relativize(destination).toString().replace('\\', '/');
-            log.info("파일 업로드를 완료했습니다. url={}", fileUrl);
+            log.atInfo()
+                    .addKeyValue("event", "credit.document.local.upload.completed")
+                    .addKeyValue("directory", LogMaskingUtils.maskIdentifier(directory))
+                    .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(fileUrl))
+                    .addKeyValue("contentType", file.getContentType())
+                    .addKeyValue("fileSize", file.getSize())
+                    .log("로컬 파일 업로드를 완료했습니다.");
             return fileUrl;
         } catch (IOException exception) {
+            log.atError()
+                    .addKeyValue("event", "credit.document.local.upload.failed")
+                    .addKeyValue("directory", LogMaskingUtils.maskIdentifier(directory))
+                    .addKeyValue("contentType", file.getContentType())
+                    .addKeyValue("fileSize", file.getSize())
+                    .addKeyValue("failureState", "COPY_FILE")
+                    .setCause(exception)
+                    .log("로컬 파일 업로드에 실패했습니다.");
             throw new IllegalStateException("파일 업로드에 실패했습니다.", exception);
         }
     }
@@ -51,10 +73,23 @@ public class LocalFileStorageService implements FileStorageService {
         try {
             Path target = resolveStoredFile(fileUrl);
             Files.deleteIfExists(target);
+            log.atInfo()
+                    .addKeyValue("event", "credit.document.local.delete.completed")
+                    .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(fileUrl))
+                    .log("로컬 파일 삭제를 완료했습니다.");
         } catch (IOException exception) {
-            log.error("파일 롤백 삭제에 실패했습니다. url={}", fileUrl, exception);
+            log.atError()
+                    .addKeyValue("event", "credit.document.local.delete.failed")
+                    .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(fileUrl))
+                    .addKeyValue("failureState", "DELETE_FILE")
+                    .setCause(exception)
+                    .log("로컬 파일 삭제에 실패했습니다.");
         } catch (IllegalArgumentException exception) {
-            log.warn("안전하지 않은 파일 롤백 삭제 요청을 거부했습니다. url={}", fileUrl);
+            log.atWarn()
+                    .addKeyValue("event", "credit.document.local.delete.rejected")
+                    .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(fileUrl))
+                    .addKeyValue("failureState", "INVALID_FILE_PATH")
+                    .log("안전하지 않은 로컬 파일 삭제 요청을 거부했습니다.");
         }
     }
 
@@ -65,14 +100,13 @@ public class LocalFileStorageService implements FileStorageService {
         return directory;
     }
 
-    private String sanitizeFilename(String filename) {
-        String candidate = filename == null || filename.isBlank() ? "document" : filename;
-        String normalized = candidate.replace('\\', '/');
-        String lastSegment = normalized.substring(normalized.lastIndexOf('/') + 1);
-        if (lastSegment.isBlank() || lastSegment.equals(".") || lastSegment.equals("..")) {
-            throw new IllegalArgumentException("업로드 파일명이 올바르지 않습니다.");
+    private String extractExtension(String filename) {
+        if (filename == null || !filename.contains(".")) {
+            return "bin";
         }
-        return lastSegment;
+        String normalized = filename.replace('\\', '/');
+        String lastSegment = normalized.substring(normalized.lastIndexOf('/') + 1);
+        return lastSegment.substring(lastSegment.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
     }
 
     private Path resolveStoredFile(String fileUrl) {

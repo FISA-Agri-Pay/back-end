@@ -3,6 +3,8 @@ package com.kkpp.core.credit.service;
 import com.kkpp.core.credit.domain.CropType;
 import com.kkpp.core.credit.domain.FarmerProfile;
 import com.kkpp.core.credit.dto.AssScoreResult;
+import com.kkpp.core.global.logging.LogMaskingUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -12,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class AssScoringService {
 
@@ -25,21 +28,55 @@ public class AssScoringService {
     );
 
     public AssScoreResult calculate(FarmerProfile profile, CropType cropType) {
-        BigDecimal estimatedIncome = calculateEstimatedIncome(profile.getFieldAreaM2(), cropType);
-        int incomeScore = calculateIncomeScore(estimatedIncome);
-        int insuranceScore = calculateInsuranceScore(profile.getHasCropInsurance());
-        int farmingCareerScore = calculateFarmingCareerScore(profile);
-        int totalScore = incomeScore + insuranceScore + farmingCareerScore;
+        // ASS 산정은 한도 접수의 핵심 판단 구간이라 입력 식별자와 산정 결과를 별도 이벤트로 남깁니다.
+        log.atInfo()
+                .addKeyValue("event", "credit.ass.scoring.started")
+                .addKeyValue("profilePublicId", LogMaskingUtils.maskIdentifier(profile.getPublicId()))
+                .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(profile.getUserPublicId()))
+                .addKeyValue("cropType", cropType)
+                .addKeyValue("hasCropInsurance", profile.getHasCropInsurance())
+                .log("ASS 점수 산정을 시작했습니다.");
 
-        return new AssScoreResult(
-                estimatedIncome,
-                LocalDate.now(),
-                incomeScore,
-                insuranceScore,
-                farmingCareerScore,
-                totalScore,
-                LocalDateTime.now()
-        );
+        try {
+            BigDecimal estimatedIncome = calculateEstimatedIncome(profile.getFieldAreaM2(), cropType);
+            int incomeScore = calculateIncomeScore(estimatedIncome);
+            int insuranceScore = calculateInsuranceScore(profile.getHasCropInsurance());
+            int farmingCareerScore = calculateFarmingCareerScore(profile);
+            int totalScore = incomeScore + insuranceScore + farmingCareerScore;
+
+            AssScoreResult result = new AssScoreResult(
+                    estimatedIncome,
+                    LocalDate.now(),
+                    incomeScore,
+                    insuranceScore,
+                    farmingCareerScore,
+                    totalScore,
+                    LocalDateTime.now()
+            );
+
+            // 점수 구성요소를 남겨 이후 심사 결과 문의나 산정 오류를 역추적할 수 있게 합니다.
+            log.atInfo()
+                    .addKeyValue("event", "credit.ass.scoring.completed")
+                    .addKeyValue("profilePublicId", LogMaskingUtils.maskIdentifier(profile.getPublicId()))
+                    .addKeyValue("cropType", cropType)
+                    .addKeyValue("incomeScore", incomeScore)
+                    .addKeyValue("insuranceScore", insuranceScore)
+                    .addKeyValue("farmingCareerScore", farmingCareerScore)
+                    .addKeyValue("totalScore", totalScore)
+                    .log("ASS 점수 산정을 완료했습니다.");
+            return result;
+        } catch (RuntimeException exception) {
+            // 산정 중 예외가 나면 입력 cropType과 실패 구간을 함께 남겨 재현 범위를 줄입니다.
+            log.atError()
+                    .addKeyValue("event", "credit.ass.scoring.failed")
+                    .addKeyValue("profilePublicId", LogMaskingUtils.maskIdentifier(profile.getPublicId()))
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(profile.getUserPublicId()))
+                    .addKeyValue("cropType", cropType)
+                    .addKeyValue("failureState", "CALCULATING_ASS_SCORE")
+                    .setCause(exception)
+                    .log("ASS 점수 산정 중 오류가 발생했습니다.");
+            throw exception;
+        }
     }
 
     private BigDecimal calculateEstimatedIncome(BigDecimal fieldAreaM2, CropType cropType) {

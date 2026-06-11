@@ -19,6 +19,10 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level trace_id=%X{trace_id:-} span_id=%X{span_id:-} %logger{36} %kvp - %msg%n"
+
 cloud:
   aws:
     s3:

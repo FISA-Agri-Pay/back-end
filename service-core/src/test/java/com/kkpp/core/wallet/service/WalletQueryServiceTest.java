@@ -83,7 +83,8 @@ class WalletQueryServiceTest {
                 creditLimitApplicationRepository,
                 interestLedgerRepository,
                 principalRepaymentLedgerRepository,
-                walletTransactionRepository
+                walletTransactionRepository,
+                new com.kkpp.core.global.tracing.TracingSupport()
         );
     }
 

@@ -5,6 +5,7 @@ import com.kkpp.common.security.annotation.AuthUser;
 import com.kkpp.common.security.auth.AuthUserInfo;
 import com.kkpp.core.wallet.dto.WalletCreditSummaryResponse;
 import com.kkpp.core.wallet.dto.WalletMeResponse;
+import com.kkpp.core.global.logging.MonitoredApiLogging;
 import com.kkpp.core.wallet.service.WalletQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -185,6 +186,7 @@ public class WalletController {
     })
     @GetMapping("/credit")
     @ResponseStatus(HttpStatus.OK)
+    @MonitoredApiLogging(event = "wallet.credit.summary.api", apiName = "한도 요약 조회")
     public ApiResponse<WalletCreditSummaryResponse> getMyCreditSummary(
             @Parameter(hidden = true) @AuthUser AuthUserInfo authUser
     ) {

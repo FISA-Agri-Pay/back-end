@@ -16,8 +16,12 @@ import com.kkpp.core.credit.dto.response.SubmitResponse;
 import com.kkpp.core.credit.exception.CreditErrorCode;
 import com.kkpp.core.credit.exception.CreditException;
 import com.kkpp.core.credit.repository.CreditLimitApplicationRepository;
+import com.kkpp.core.global.logging.LogMaskingUtils;
+import com.kkpp.core.global.tracing.TracingSupport;
 import com.kkpp.core.user.domain.User;
 import com.kkpp.core.user.repository.UserRepository;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -56,6 +60,7 @@ public class CreditApplicationService {
     private final CreditLimitApplicationRepository creditLimitApplicationRepository;
     private final FileStorageService fileStorageService;
     private final CreditSubmitPersistenceService creditSubmitPersistenceService;
+    private final TracingSupport tracingSupport;
 
     public StartSessionResponse startSession(Long userId) {
         UUID userPublicId = resolveUserPublicId(userId);
@@ -104,8 +109,43 @@ public class CreditApplicationService {
     }
 
     public SubmitResponse submit(Long userId, String sessionId, Map<String, MultipartFile> files) {
+        long startedAtNanos = System.nanoTime();
+        Span span = tracingSupport.startSpan("service-core.credit.submit");
+        try (Scope ignored = span.makeCurrent()) {
+            return submitWithSpan(userId, sessionId, files, startedAtNanos, span);
+        } catch (RuntimeException exception) {
+            tracingSupport.recordException(span, exception);
+            throw exception;
+        } finally {
+            span.end();
+        }
+    }
+
+    private SubmitResponse submitWithSpan(
+            Long userId,
+            String sessionId,
+            Map<String, MultipartFile> files,
+            long startedAtNanos,
+            Span span
+    ) {
         CreditApplicationDraft draft = getDraft(userId, sessionId, sessionId);
         UUID userPublicId = resolveUserPublicId(userId);
+        span.setAttribute("kkpp.event", "credit.application.submit");
+        span.setAttribute("kkpp.user.id", userId);
+        span.setAttribute("kkpp.user.public_id.masked", LogMaskingUtils.maskIdentifier(userPublicId));
+        span.setAttribute("kkpp.session.id.masked", LogMaskingUtils.maskIdentifier(sessionId));
+
+        // 최종 접수 API의 시작 로그입니다. 세션과 사용자 public id는 원문 대신 마스킹해서 남깁니다.
+        log.atInfo()
+                .addKeyValue("event", "credit.application.submit.started")
+                .addKeyValue("userId", userId)
+                .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(userPublicId))
+                .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
+                .addKeyValue("inputFileKeys", files == null ? "[]" : LogMaskingUtils.summarizeCollection(files.keySet()))
+                .addKeyValue("draftCropType", draft.getCropType())
+                .addKeyValue("draftHasInsurance", draft.getHasCropInsurance())
+                .addKeyValue("draftRequiredDocumentCount", safeSize(draft.getRequiredDocuments()))
+                .log("한도 심사 신청 처리를 시작했습니다.");
 
         if (hasInProgressApplication(userPublicId)) {
             throw new CreditException(CreditErrorCode.APPLICATION_DUPLICATE, userId);
@@ -116,6 +156,7 @@ public class CreditApplicationService {
         Map<RequiredDocumentType, MultipartFile> documentFiles = normalizeDocumentFiles(files);
         validateFiles(documentFiles);
         validateRequiredDocuments(draft, documentFiles);
+        span.setAttribute("kkpp.document.count", documentFiles.size());
 
         String lockToken = acquireSubmitLock(userId);
         List<UploadedDocument> uploadedDocuments = List.of();
@@ -131,9 +172,43 @@ public class CreditApplicationService {
                     uploadedDocuments
             );
             deleteDraft(draft.getSessionId());
-            log.info("한도 심사 신청 저장을 완료했습니다. applicationPublicId={}", application.getPublicId());
+            span.setAttribute("kkpp.application.public_id", application.getPublicId().toString());
+            span.setAttribute("kkpp.result.status", "UNDER_REVIEW");
+            span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+            log.atInfo()
+                    .addKeyValue("event", "credit.application.submit.completed")
+                    .addKeyValue("userId", userId)
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(userPublicId))
+                    .addKeyValue("applicationPublicId", application.getPublicId())
+                    .addKeyValue("uploadedDocumentCount", uploadedDocuments.size())
+                    .addKeyValue("resultStatus", "UNDER_REVIEW")
+                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .log("한도 심사 신청 처리를 완료했습니다.");
             return new SubmitResponse(application.getPublicId().toString(), "UNDER_REVIEW", "1~3일");
         } catch (RuntimeException exception) {
+            span.setAttribute("kkpp.failure_state", "SUBMITTING");
+            span.setAttribute("kkpp.duration_ms", elapsedMillis(startedAtNanos));
+            if (exception instanceof CreditException creditException) {
+                span.setAttribute("kkpp.error.code", creditException.getErrorCode().getCode());
+                span.setAttribute("kkpp.error.reason", creditException.getErrorCode().getMessage());
+            }
+            log.atError()
+                    .addKeyValue("event", "credit.application.submit.failed")
+                    .addKeyValue("userId", userId)
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(userPublicId))
+                    .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
+                    .addKeyValue("uploadedDocumentCount", uploadedDocuments.size())
+                    .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                    .addKeyValue("creditErrorCode", creditErrorCode(exception))
+                    .addKeyValue("failureReason", failureReason(exception))
+                    .addKeyValue("safeInputContext", safeInputContext(exception))
+                    .addKeyValue("draftCropType", draft.getCropType())
+                    .addKeyValue("draftHasInsurance", draft.getHasCropInsurance())
+                    .addKeyValue("draftRequiredDocumentCount", safeSize(draft.getRequiredDocuments()))
+                    .addKeyValue("failureState", "SUBMITTING")
+                    .addKeyValue("durationMs", elapsedMillis(startedAtNanos))
+                    .setCause(exception)
+                    .log("한도 심사 신청 처리 중 오류가 발생했습니다.");
             rollbackUploadedDocuments(uploadedDocuments);
             throw exception;
         } finally {
@@ -240,14 +315,33 @@ public class CreditApplicationService {
                 if (file == null || file.isEmpty()) {
                     continue;
                 }
+                // 파일명은 개인정보가 섞일 수 있어 남기지 않고, 문서 타입/크기/콘텐츠 타입만 기록합니다.
+                log.atInfo()
+                        .addKeyValue("event", "credit.document.upload.started")
+                        .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
+                        .addKeyValue("documentType", documentType)
+                        .addKeyValue("contentType", file.getContentType())
+                        .addKeyValue("fileSize", file.getSize())
+                        .log("한도 심사 서류 업로드를 시작했습니다.");
                 String fileUrl = fileStorageService.upload(sessionId, file);
-                log.info("한도 심사 서류 업로드를 완료했습니다. documentType={}, url={}",
-                        documentType,
-                        fileUrl);
+                log.atInfo()
+                        .addKeyValue("event", "credit.document.upload.completed")
+                        .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
+                        .addKeyValue("documentType", documentType)
+                        .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(fileUrl))
+                        .log("한도 심사 서류 업로드를 완료했습니다.");
                 uploadedDocuments.add(new UploadedDocument(documentType, fileUrl));
             }
             return uploadedDocuments;
         } catch (RuntimeException exception) {
+            // 부분 업로드 후 실패한 경우 롤백 대상 개수를 남겨 장애 대응 시 누락 여부를 확인합니다.
+            log.atError()
+                    .addKeyValue("event", "credit.document.upload.failed")
+                    .addKeyValue("sessionId", LogMaskingUtils.maskIdentifier(sessionId))
+                    .addKeyValue("uploadedDocumentCount", uploadedDocuments.size())
+                    .addKeyValue("failureState", "UPLOADING_DOCUMENT")
+                    .setCause(exception)
+                    .log("한도 심사 서류 업로드 중 오류가 발생했습니다.");
             rollbackUploadedDocuments(uploadedDocuments);
             throw exception;
         }
@@ -256,15 +350,21 @@ public class CreditApplicationService {
     private void rollbackUploadedDocuments(List<UploadedDocument> uploadedDocuments) {
         uploadedDocuments.forEach(uploadedDocument -> {
             try {
-                log.error("한도 심사 서류 업로드를 롤백합니다. documentType={}, url={}",
-                        uploadedDocument.documentType(),
-                        uploadedDocument.fileUrl());
+                // 저장소 key는 삭제에 사용하되 로그에는 마스킹된 값만 남깁니다.
+                log.atWarn()
+                        .addKeyValue("event", "credit.document.rollback.started")
+                        .addKeyValue("documentType", uploadedDocument.documentType())
+                        .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(uploadedDocument.fileUrl()))
+                        .log("한도 심사 서류 업로드 롤백을 시작했습니다.");
                 fileStorageService.delete(uploadedDocument.fileUrl());
             } catch (RuntimeException rollbackException) {
-                log.error("한도 심사 서류 롤백 삭제에 실패했습니다. documentType={}, url={}",
-                        uploadedDocument.documentType(),
-                        uploadedDocument.fileUrl(),
-                        rollbackException);
+                log.atError()
+                        .addKeyValue("event", "credit.document.rollback.failed")
+                        .addKeyValue("documentType", uploadedDocument.documentType())
+                        .addKeyValue("storageKey", LogMaskingUtils.maskStorageKey(uploadedDocument.fileUrl()))
+                        .addKeyValue("failureState", "ROLLBACK_DELETE")
+                        .setCause(rollbackException)
+                        .log("한도 심사 서류 업로드 롤백 삭제에 실패했습니다.");
             }
         });
     }
@@ -348,5 +448,34 @@ public class CreditApplicationService {
                 userPublicId,
                 IN_PROGRESS_STATUSES
         );
+    }
+
+    private long elapsedMillis(long startedAtNanos) {
+        return (System.nanoTime() - startedAtNanos) / 1_000_000;
+    }
+
+    private int safeSize(List<?> values) {
+        return values == null ? 0 : values.size();
+    }
+
+    private String creditErrorCode(RuntimeException exception) {
+        if (exception instanceof CreditException creditException) {
+            return creditException.getErrorCode().getCode();
+        }
+        return null;
+    }
+
+    private String failureReason(RuntimeException exception) {
+        if (exception instanceof CreditException creditException) {
+            return creditException.getErrorCode().getMessage();
+        }
+        return exception.getMessage();
+    }
+
+    private String safeInputContext(RuntimeException exception) {
+        if (exception instanceof CreditException creditException) {
+            return LogMaskingUtils.describeSafe(creditException.getInputValue());
+        }
+        return null;
     }
 }
