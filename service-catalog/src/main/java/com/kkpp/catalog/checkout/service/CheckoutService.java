@@ -72,14 +72,17 @@ public class CheckoutService {
                 .findByPublicIdAndUserPublicId(paymentRequestPublicId, userPublicId)
                 .orElse(null);
         if (existingRequest != null) {
-            log.info(
-                    "멱등 외상 결제 요청을 재사용합니다. userPublicId={}, paymentRequestPublicId={}, idempotencyKey={}, status={}",
+            log.warn(
+                    "이미 사용된 멱등성 키로 외상 결제 요청이 다시 들어왔습니다. userPublicId={}, paymentRequestPublicId={}, idempotencyKey={}, status={}",
                     userPublicId,
                     existingRequest.getPublicId(),
                     request.idempotencyKey(),
                     existingRequest.getRequestStatus()
             );
-            return CheckoutRequestResponse.from(existingRequest, orderPublicId(existingRequest.getPublicId()));
+            throw new BusinessException(
+                    ErrorCode.INVALID_REQUEST,
+                    "이미 사용된 idempotencyKey입니다. 새 결제 요청에는 새로운 idempotencyKey를 사용해 주세요."
+            );
         }
 
         paymentPinVerificationService.consumeForCheckout(
@@ -140,19 +143,22 @@ public class CheckoutService {
             UUID paymentRequestPublicId,
             DataIntegrityViolationException exception
     ) {
-        return bnplPaymentRequestRepository.findByPublicIdAndUserPublicId(paymentRequestPublicId, userPublicId)
-                .map(existingRequest -> {
-                    UUID orderPublicId = orderPublicId(existingRequest.getPublicId());
-                    log.info(
-                            "unique 제약 충돌 후 멱등 외상 결제 요청을 복구했습니다. userPublicId={}, paymentRequestPublicId={}, orderPublicId={}, status={}",
-                            userPublicId,
-                            existingRequest.getPublicId(),
-                            orderPublicId,
-                            existingRequest.getRequestStatus()
-                    );
-                    return CheckoutRequestResponse.from(existingRequest, orderPublicId);
-                })
+        BnplPaymentRequest existingRequest = bnplPaymentRequestRepository
+                .findByPublicIdAndUserPublicId(paymentRequestPublicId, userPublicId)
                 .orElseThrow(() -> exception);
+
+        UUID orderPublicId = orderPublicId(existingRequest.getPublicId());
+        log.info(
+                "unique 제약 충돌 후 이미 생성된 외상 결제 요청을 확인했습니다. userPublicId={}, paymentRequestPublicId={}, orderPublicId={}, status={}",
+                userPublicId,
+                existingRequest.getPublicId(),
+                orderPublicId,
+                existingRequest.getRequestStatus()
+        );
+        throw new BusinessException(
+                ErrorCode.INVALID_REQUEST,
+                "이미 사용된 idempotencyKey입니다. 새 결제 요청에는 새로운 idempotencyKey를 사용해 주세요."
+        );
     }
 
     public CheckoutRequestResponse getCheckoutRequest(UUID userPublicId, UUID paymentRequestPublicId) {
