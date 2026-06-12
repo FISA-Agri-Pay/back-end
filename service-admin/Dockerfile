@@ -1,9 +1,12 @@
-FROM gradle:8.10.2-jdk21 AS build
+ARG BUILDER_IMAGE=gradle:8.10.2-jdk21
+ARG RUNTIME_IMAGE=bellsoft/liberica-runtime-container:jre-21-slim-musl
+
+FROM ${BUILDER_IMAGE} AS build
 WORKDIR /workspace
 COPY . .
 RUN gradle :service-admin:bootJar --no-daemon -x test
 
-FROM gcr.io/distroless/java21-debian12:nonroot
+FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /workspace/service-admin/build/libs/*.jar app.jar
 EXPOSE 8080
