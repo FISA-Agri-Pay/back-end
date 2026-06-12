@@ -9,8 +9,12 @@ RUN jlink \
 
 FROM eclipse-temurin:21-jdk-alpine AS extractor
 WORKDIR /workspace
-COPY build/libs/*.jar app.jar
-RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
+COPY build/libs/*.jar build/libs/
+RUN set -eux; \
+    jar_file="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | sort | head -n 1)"; \
+    test -n "$jar_file"; \
+    cp "$jar_file" app.jar; \
+    java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 FROM alpine:3.23
 ENV JAVA_HOME=/opt/java/openjdk
