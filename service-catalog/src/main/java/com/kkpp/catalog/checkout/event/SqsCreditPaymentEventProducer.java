@@ -56,6 +56,7 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .addKeyValue("messageGroupId", LogMaskingUtils.maskIdentifier(request.messageGroupId()))
                     .addKeyValue("messageDeduplicationId", LogMaskingUtils.maskIdentifier(request.messageDeduplicationId()))
                     .addKeyValue("traceContextPropagated", request.messageAttributes().containsKey("traceparent"))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
                     .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
                     .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
                     .addKeyValue("totalAmount", event.totalAmount())

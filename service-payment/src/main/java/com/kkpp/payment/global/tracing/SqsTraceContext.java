@@ -33,7 +33,7 @@ public final class SqsTraceContext {
 
     /*
      * service-catalog가 SQS messageAttributes에 담은 traceparent/tracestate를 꺼냅니다.
-     * 값이 없으면 OpenTelemetry가 현재 context를 그대로 반환하므로 기존처럼 독립 trace로 처리됩니다.
+     * traceparent가 없는 예전 메시지는 현재 context를 그대로 사용하므로 독립 trace로 처리됩니다.
      */
     public static Context extract(Message message) {
         return GlobalOpenTelemetry.getPropagators()

@@ -4,8 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kkpp.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.payment.exception.PaymentProcessingException;
+import com.kkpp.payment.global.logging.LogMaskingUtils;
+import com.kkpp.payment.global.logging.MonitoredEventLogging;
 import com.kkpp.payment.global.tracing.SqsTraceContext;
+import com.kkpp.payment.global.tracing.TracingSupport;
 import com.kkpp.payment.service.CreditPaymentProcessingService;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import jakarta.annotation.PostConstruct;
@@ -29,9 +33,14 @@ import software.amazon.awssdk.services.sqs.model.SqsException;
 @ConditionalOnProperty(name = "payment-request.transport", havingValue = "sqs")
 public class SqsCreditPaymentRequestedConsumer {
 
+    /*
+     * service-catalog가 보낸 외상 결제 요청 SQS 메시지를 polling해서 DB 반영 서비스로 넘깁니다.
+     * messageAttributes의 traceparent를 복원해야 catalog -> SQS -> payment가 하나의 trace로 이어집니다.
+     */
     private final SqsClient sqsClient;
     private final ObjectMapper objectMapper;
     private final CreditPaymentProcessingService creditPaymentProcessingService;
+    private final TracingSupport tracingSupport;
 
     @Value("${payment-request.sqs.queue-url}")
     private String paymentRequestQueueUrl;
@@ -56,6 +65,11 @@ public class SqsCreditPaymentRequestedConsumer {
     }
 
     @Scheduled(fixedDelayString = "${payment-request.sqs.poll-delay-millis:1000}")
+    @MonitoredEventLogging(
+            event = "payment.credit-payment-request.sqs.poll",
+            operationName = "외상 결제 요청 SQS 메시지 수신",
+            spanName = "service-payment.credit-payment-request.sqs.poll"
+    )
     public void poll() {
         try {
             ReceiveMessageResponse response = sqsClient.receiveMessage(ReceiveMessageRequest.builder()
@@ -69,78 +83,122 @@ public class SqsCreditPaymentRequestedConsumer {
                 processMessage(sqsMessage);
             }
         } catch (SqsException exception) {
-            log.error(
-                    "외상 결제 요청 SQS 메시지 수신에 실패했습니다. queueUrl={}, awsErrorCode={}",
-                    paymentRequestQueueUrl,
-                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.poll.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("queueConfigured", true)
+                    .addKeyValue("failureState", "SQS_RECEIVE_FAILED")
+                    .addKeyValue("awsErrorCode", exception.awsErrorDetails() != null
+                            ? exception.awsErrorDetails().errorCode()
+                            : null)
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS 메시지 수신에 실패했습니다.");
         } catch (RuntimeException exception) {
-            log.error(
-                    "외상 결제 요청 SQS polling 중 알 수 없는 오류가 발생했습니다. queueUrl={}",
-                    paymentRequestQueueUrl,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.poll.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("queueConfigured", true)
+                    .addKeyValue("failureState", "UNEXPECTED_POLL_ERROR")
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS polling 중 예상하지 못한 오류가 발생했습니다.");
         }
     }
 
     private void processMessage(Message sqsMessage) {
         Context parentContext = SqsTraceContext.extract(sqsMessage);
-        try (Scope ignored = parentContext.makeCurrent()) {
-            processMessageWithTraceContext(sqsMessage);
+        try (Scope parentScope = parentContext.makeCurrent()) {
+            Span messageProcessSpan = tracingSupport.startSpan("service-payment.credit-payment-request.sqs.message.process");
+            try (Scope messageScope = messageProcessSpan.makeCurrent()) {
+                processMessageWithTraceContext(sqsMessage, messageProcessSpan);
+            } catch (RuntimeException exception) {
+                tracingSupport.recordException(messageProcessSpan, exception);
+                throw exception;
+            } finally {
+                messageProcessSpan.end();
+            }
         }
     }
 
-    private void processMessageWithTraceContext(Message sqsMessage) {
+    private void processMessageWithTraceContext(Message sqsMessage, Span messageProcessSpan) {
         CreditPaymentRequestedMessage message = null;
         try {
             message = objectMapper.readValue(sqsMessage.body(), CreditPaymentRequestedMessage.class);
-            log.info(
-                    "외상 결제 요청 SQS 메시지를 수신했습니다. messageId={}, eventId={}, paymentRequestPublicId={}",
-                    sqsMessage.messageId(),
-                    message.eventId(),
-                    message.paymentRequestPublicId()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.received")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("traceContextPresent", sqsMessage.messageAttributes().containsKey("traceparent"))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(message.eventId()))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(message.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskUuid(message.orderPublicId()))
+                    .log("외상 결제 요청 SQS 메시지를 수신했습니다.");
 
             creditPaymentProcessingService.process(message);
             deleteMessage(sqsMessage, message);
         } catch (JsonProcessingException exception) {
-            log.error(
-                    "외상 결제 요청 SQS 메시지 역직렬화에 실패했습니다. messageId={}",
-                    sqsMessage.messageId(),
-                    exception
-            );
+            tracingSupport.recordException(messageProcessSpan, exception);
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("traceContextPresent", sqsMessage.messageAttributes().containsKey("traceparent"))
+                    .addKeyValue("failureState", "JSON_DESERIALIZATION_FAILED")
+                    .addKeyValue("errorMessage", "결제 요청 SQS 메시지 본문을 해석할 수 없습니다.")
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS 메시지 역직렬화에 실패했습니다.");
         } catch (PaymentProcessingException exception) {
-            log.error(
-                    "외상 결제 요청 SQS 메시지 처리에 실패했습니다. messageId={}, paymentRequestPublicId={}, reason={}",
-                    sqsMessage.messageId(),
-                    message != null ? message.paymentRequestPublicId() : null,
-                    exception.getMessage(),
-                    exception
-            );
+            tracingSupport.recordException(messageProcessSpan, exception);
+            log.atWarn()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("paymentRequestPublicId", message != null
+                            ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                            : null)
+                    .addKeyValue("failureState", "PAYMENT_PROCESSING_FAILED")
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .log("외상 결제 요청 SQS 메시지 처리에 실패했습니다.");
         } catch (DataIntegrityViolationException exception) {
             if (creditPaymentProcessingService.isDuplicateKeyFailure(exception)) {
-                log.info(
-                        "중복 결제 요청 SQS 메시지를 정상 처리로 간주합니다. messageId={}, paymentRequestPublicId={}",
-                        sqsMessage.messageId(),
-                        message != null ? message.paymentRequestPublicId() : null
-                );
+                log.atInfo()
+                        .addKeyValue("event", "payment.credit-payment-request.sqs.message.duplicated")
+                        .addKeyValue("transport", "sqs")
+                        .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                        .addKeyValue("paymentRequestPublicId", message != null
+                                ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                                : null)
+                        .addKeyValue("resultStatus", "DUPLICATE_IGNORED")
+                        .log("중복 외상 결제 요청 SQS 메시지를 정상 처리로 간주합니다.");
                 deleteMessage(sqsMessage, message);
                 return;
             }
-            log.error(
-                    "외상 결제 요청 SQS 메시지 처리 중 데이터 제약 조건 오류가 발생했습니다. messageId={}, paymentRequestPublicId={}",
-                    sqsMessage.messageId(),
-                    message != null ? message.paymentRequestPublicId() : null,
-                    exception
-            );
+            tracingSupport.recordException(messageProcessSpan, exception);
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("paymentRequestPublicId", message != null
+                            ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                            : null)
+                    .addKeyValue("failureState", "DATA_INTEGRITY_FAILED")
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS 메시지 처리 중 데이터 제약 조건 오류가 발생했습니다.");
         } catch (RuntimeException exception) {
-            log.error(
-                    "외상 결제 요청 SQS 메시지 처리 중 알 수 없는 오류가 발생했습니다. messageId={}, paymentRequestPublicId={}",
-                    sqsMessage.messageId(),
-                    message != null ? message.paymentRequestPublicId() : null,
-                    exception
-            );
+            tracingSupport.recordException(messageProcessSpan, exception);
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("paymentRequestPublicId", message != null
+                            ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                            : null)
+                    .addKeyValue("failureState", "UNEXPECTED_PROCESS_ERROR")
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS 메시지 처리 중 예상하지 못한 오류가 발생했습니다.");
         }
     }
 
@@ -150,19 +208,28 @@ public class SqsCreditPaymentRequestedConsumer {
                     .queueUrl(paymentRequestQueueUrl)
                     .receiptHandle(sqsMessage.receiptHandle())
                     .build());
-            log.info(
-                    "외상 결제 요청 SQS 메시지를 삭제했습니다. messageId={}, paymentRequestPublicId={}",
-                    sqsMessage.messageId(),
-                    message != null ? message.paymentRequestPublicId() : null
-            );
+            log.atInfo()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.deleted")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("paymentRequestPublicId", message != null
+                            ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                            : null)
+                    .log("외상 결제 요청 SQS 메시지를 삭제했습니다.");
         } catch (SqsException exception) {
-            log.error(
-                    "외상 결제 요청 SQS 메시지 삭제에 실패했습니다. messageId={}, paymentRequestPublicId={}, awsErrorCode={}",
-                    sqsMessage.messageId(),
-                    message != null ? message.paymentRequestPublicId() : null,
-                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "payment.credit-payment-request.sqs.message.delete.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("paymentRequestPublicId", message != null
+                            ? LogMaskingUtils.maskUuid(message.paymentRequestPublicId())
+                            : null)
+                    .addKeyValue("awsErrorCode", exception.awsErrorDetails() != null
+                            ? exception.awsErrorDetails().errorCode()
+                            : null)
+                    .addKeyValue("errorMessage", exception.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 SQS 메시지 삭제에 실패했습니다.");
         }
     }
 }
