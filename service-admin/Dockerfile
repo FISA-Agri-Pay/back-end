@@ -1,7 +1,11 @@
-FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+FROM gradle:8.10.2-jdk21 AS build
+WORKDIR /workspace
+COPY . .
+RUN gradle :service-admin:bootJar --no-daemon -x test
+
+FROM gcr.io/distroless/java21-debian12:nonroot
 WORKDIR /app
-COPY --chown=appuser:appgroup build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=build --chown=65532:65532 /workspace/service-admin/build/libs/*.jar app.jar
 EXPOSE 8080
-USER appuser
-ENTRYPOINT ["java", "-jar", "app.jar"]
+USER 65532:65532
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/app.jar"]
