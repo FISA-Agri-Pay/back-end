@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kkpp.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.payment.exception.PaymentProcessingException;
 import com.kkpp.payment.global.logging.LogMaskingUtils;
-import com.kkpp.payment.global.logging.MonitoredEventLogging;
 import com.kkpp.payment.global.tracing.SqsTraceContext;
 import com.kkpp.payment.global.tracing.TracingSupport;
 import com.kkpp.payment.service.CreditPaymentProcessingService;
@@ -65,11 +64,6 @@ public class SqsCreditPaymentRequestedConsumer {
     }
 
     @Scheduled(fixedDelayString = "${payment-request.sqs.poll-delay-millis:1000}")
-    @MonitoredEventLogging(
-            event = "payment.credit-payment-request.sqs.poll",
-            operationName = "외상 결제 요청 SQS 메시지 수신",
-            spanName = "service-payment.credit-payment-request.sqs.poll"
-    )
     public void poll() {
         try {
             ReceiveMessageResponse response = sqsClient.receiveMessage(ReceiveMessageRequest.builder()
@@ -78,6 +72,10 @@ public class SqsCreditPaymentRequestedConsumer {
                     .waitTimeSeconds(waitTimeSeconds)
                     .messageAttributeNames(SqsTraceContext.ALL_MESSAGE_ATTRIBUTES)
                     .build());
+
+            if (response.messages().isEmpty()) {
+                return;
+            }
 
             for (Message sqsMessage : response.messages()) {
                 processMessage(sqsMessage);
@@ -109,7 +107,7 @@ public class SqsCreditPaymentRequestedConsumer {
     private void processMessage(Message sqsMessage) {
         Context parentContext = SqsTraceContext.extract(sqsMessage);
         try (Scope parentScope = parentContext.makeCurrent()) {
-            Span messageProcessSpan = tracingSupport.startSpan("service-payment.credit-payment-request.sqs.message.process");
+            Span messageProcessSpan = tracingSupport.startSpan("payment.sqs.consume");
             try (Scope messageScope = messageProcessSpan.makeCurrent()) {
                 processMessageWithTraceContext(sqsMessage, messageProcessSpan);
             } catch (RuntimeException exception) {
