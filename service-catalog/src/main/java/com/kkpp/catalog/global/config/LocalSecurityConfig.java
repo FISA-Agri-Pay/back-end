@@ -7,6 +7,7 @@ import com.kkpp.common.core.response.ErrorResponse;
 import com.kkpp.common.security.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @Profile("local")
 @RequiredArgsConstructor
+@Slf4j
 public class LocalSecurityConfig {
 
     @Bean
@@ -58,6 +60,15 @@ public class LocalSecurityConfig {
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint(ObjectMapper objectMapper) {
         return (request, response, authException) -> {
+            log.atWarn()
+                    .addKeyValue("event", "catalog.authentication.failed")
+                    .addKeyValue("method", request.getMethod())
+                    .addKeyValue("uri", request.getRequestURI())
+                    .addKeyValue("status", HttpServletResponse.SC_UNAUTHORIZED)
+                    .addKeyValue("errorCode", ErrorCode.UNAUTHORIZED.getCode())
+                    .addKeyValue("errorMessage", ErrorCode.UNAUTHORIZED.getMessage())
+                    .addKeyValue("exceptionType", authException.getClass().getSimpleName())
+                    .log("카탈로그 서비스 인증에 실패했습니다.");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             objectMapper.writeValue(

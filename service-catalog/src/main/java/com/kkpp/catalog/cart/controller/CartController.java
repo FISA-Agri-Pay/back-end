@@ -5,6 +5,7 @@ import com.kkpp.catalog.cart.dto.request.UpdateCartItemQuantityRequest;
 import com.kkpp.catalog.cart.dto.response.CartItemResponse;
 import com.kkpp.catalog.cart.dto.response.CartResponse;
 import com.kkpp.catalog.cart.service.CartService;
+import com.kkpp.catalog.global.logging.MonitoredApiLogging;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import com.kkpp.common.core.response.ApiResponse;
@@ -29,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/cart")
-@Tag(name = "장바구니 API", description = "농자재 상품을 장바구니에 담고 수량을 변경하거나 삭제합니다.")
+@Tag(name = "장바구니 API", description = "사용자의 상품을 장바구니에 담고 수량을 변경하거나 삭제합니다.")
 public class CartController {
 
     private final CartService cartService;
@@ -42,6 +43,7 @@ public class CartController {
     }
 
     @GetMapping
+    @MonitoredApiLogging(event = "catalog.cart.get.api", apiName = "장바구니 조회")
     @Operation(summary = "장바구니 조회", description = "사용자의 장바구니 상품 목록과 총 금액을 조회합니다.")
     public ApiResponse<CartResponse> getCart(@AuthUser AuthUserInfo authUser) {
         return ApiResponse.success(cartService.getCart(resolvePublicId(authUser)));
@@ -49,6 +51,7 @@ public class CartController {
 
     @PostMapping("/items")
     @ResponseStatus(HttpStatus.CREATED)
+    @MonitoredApiLogging(event = "catalog.cart.item.add.api", apiName = "장바구니 항목 추가")
     @Operation(summary = "장바구니 담기", description = "상품을 장바구니에 담습니다. 이미 담긴 상품이면 기존 수량에 더합니다.")
     public ApiResponse<CartItemResponse> addCartItem(
             @AuthUser AuthUserInfo authUser,
@@ -58,6 +61,7 @@ public class CartController {
     }
 
     @PatchMapping("/items/{cartItemId}")
+    @MonitoredApiLogging(event = "catalog.cart.item.update.api", apiName = "장바구니 항목 수량 변경")
     @Operation(summary = "장바구니 수량 변경", description = "장바구니 항목의 수량을 변경합니다.")
     public ApiResponse<CartItemResponse> updateQuantity(
             @AuthUser AuthUserInfo authUser,
@@ -68,6 +72,7 @@ public class CartController {
     }
 
     @DeleteMapping("/items/{cartItemId}")
+    @MonitoredApiLogging(event = "catalog.cart.item.delete.api", apiName = "장바구니 항목 삭제")
     @Operation(summary = "장바구니 삭제", description = "장바구니에서 특정 상품 항목을 삭제합니다.")
     public ApiResponse<Void> deleteCartItem(
             @AuthUser AuthUserInfo authUser,

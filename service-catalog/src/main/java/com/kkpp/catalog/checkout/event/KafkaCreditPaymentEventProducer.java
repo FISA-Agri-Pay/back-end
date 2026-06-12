@@ -2,6 +2,7 @@ package com.kkpp.catalog.checkout.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kkpp.catalog.global.logging.LogMaskingUtils;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
@@ -35,45 +36,65 @@ public class KafkaCreditPaymentEventProducer implements CreditPaymentEventProduc
     public void publish(CreditPaymentRequestedEvent event) {
         try {
             String payload = objectMapper.writeValueAsString(event);
-            log.info(
-                    "외상 결제 요청 이벤트를 Kafka로 발행합니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, totalAmount={}",
-                    paymentRequestTopic,
-                    event.paymentRequestPublicId(),
-                    event.orderPublicId(),
-                    event.eventId(),
-                    event.totalAmount()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.started")
+                    .addKeyValue("transport", "kafka")
+                    .addKeyValue("topic", paymentRequestTopic)
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("totalAmount", event.totalAmount())
+                    .log("외상 결제 요청 이벤트를 Kafka로 발행합니다.");
+
             SendResult<String, String> result = kafkaTemplate
                     .send(paymentRequestTopic, event.paymentRequestPublicId().toString(), payload)
                     .get(paymentRequestTimeoutSeconds, TimeUnit.SECONDS);
-            log.info(
-                    "외상 결제 요청 이벤트 Kafka 발행을 완료했습니다. topic={}, partition={}, offset={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
-                    result.getRecordMetadata().topic(),
-                    result.getRecordMetadata().partition(),
-                    result.getRecordMetadata().offset(),
-                    event.paymentRequestPublicId(),
-                    event.orderPublicId(),
-                    event.eventId()
-            );
+
+            log.atInfo()
+                    .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.completed")
+                    .addKeyValue("transport", "kafka")
+                    .addKeyValue("topic", result.getRecordMetadata().topic())
+                    .addKeyValue("partition", result.getRecordMetadata().partition())
+                    .addKeyValue("offset", result.getRecordMetadata().offset())
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("resultStatus", "SUCCESS")
+                    .log("외상 결제 요청 이벤트 Kafka 발행이 완료되었습니다.");
         } catch (JsonProcessingException exception) {
+            log.atError()
+                    .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.failed")
+                    .addKeyValue("transport", "kafka")
+                    .addKeyValue("failureState", "JSON_SERIALIZATION_FAILED")
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                    .addKeyValue("errorMessage", ErrorCode.INTERNAL_SERVER_ERROR.getMessage())
+                    .setCause(exception)
+                    .log("외상 결제 요청 이벤트 직렬화에 실패했습니다.");
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 생성에 실패했습니다.");
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw publishFailure(event, exception);
+            throw publishFailure(event, "KAFKA_PUBLISH_INTERRUPTED", exception);
         } catch (ExecutionException | TimeoutException | RuntimeException exception) {
-            throw publishFailure(event, exception);
+            throw publishFailure(event, "KAFKA_PUBLISH_FAILED", exception);
         }
     }
 
-    private BusinessException publishFailure(CreditPaymentRequestedEvent event, Exception exception) {
-        log.error(
-                "외상 결제 요청 이벤트 Kafka 발행에 실패했습니다. topic={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
-                paymentRequestTopic,
-                event.paymentRequestPublicId(),
-                event.orderPublicId(),
-                event.eventId(),
-                exception
-        );
+    private BusinessException publishFailure(CreditPaymentRequestedEvent event, String failureState, Exception exception) {
+        log.atError()
+                .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.failed")
+                .addKeyValue("transport", "kafka")
+                .addKeyValue("topic", paymentRequestTopic)
+                .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                .addKeyValue("failureState", failureState)
+                .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                .addKeyValue("errorMessage", ErrorCode.INTERNAL_SERVER_ERROR.getMessage())
+                .setCause(exception)
+                .log("외상 결제 요청 이벤트 Kafka 발행에 실패했습니다.");
         return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
     }
 }

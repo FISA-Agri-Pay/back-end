@@ -71,12 +71,15 @@ public class SecurityConfig {
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint(ObjectMapper objectMapper) {
         return (request, response, authException) -> {
-            log.warn(
-                    "카탈로그 서비스 인증 실패: 메서드={}, 경로={}, 사유={}",
-                    request.getMethod(),
-                    request.getRequestURI(),
-                    authException.getMessage()
-            );
+            log.atWarn()
+                    .addKeyValue("event", "catalog.authentication.failed")
+                    .addKeyValue("method", request.getMethod())
+                    .addKeyValue("uri", request.getRequestURI())
+                    .addKeyValue("status", HttpServletResponse.SC_UNAUTHORIZED)
+                    .addKeyValue("errorCode", ErrorCode.UNAUTHORIZED.getCode())
+                    .addKeyValue("errorMessage", ErrorCode.UNAUTHORIZED.getMessage())
+                    .addKeyValue("exceptionType", authException.getClass().getSimpleName())
+                    .log("카탈로그 서비스 인증에 실패했습니다.");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             objectMapper.writeValue(

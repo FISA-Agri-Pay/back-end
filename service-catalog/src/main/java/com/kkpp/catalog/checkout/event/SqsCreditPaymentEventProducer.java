@@ -2,6 +2,7 @@ package com.kkpp.catalog.checkout.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kkpp.catalog.global.logging.LogMaskingUtils;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
@@ -12,9 +13,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.SqsException;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
+import software.amazon.awssdk.services.sqs.model.SqsException;
 
 @Slf4j
 @Component
@@ -46,47 +47,61 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .messageDeduplicationId(event.paymentRequestPublicId().toString())
                     .build();
 
-            log.info(
-                    "외상 결제 요청 이벤트를 SQS로 발행합니다. queueUrl={}, messageGroupId={}, messageDeduplicationId={}, orderPublicId={}, eventId={}, totalAmount={}",
-                    paymentRequestQueueUrl,
-                    request.messageGroupId(),
-                    request.messageDeduplicationId(),
-                    event.orderPublicId(),
-                    event.eventId(),
-                    event.totalAmount()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.started")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("queueConfigured", true)
+                    .addKeyValue("messageGroupId", LogMaskingUtils.maskIdentifier(request.messageGroupId()))
+                    .addKeyValue("messageDeduplicationId", LogMaskingUtils.maskIdentifier(request.messageDeduplicationId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("totalAmount", event.totalAmount())
+                    .log("외상 결제 요청 이벤트를 SQS로 발행합니다.");
+
             SendMessageResponse response = sqsClient.sendMessage(request);
-            log.info(
-                    "외상 결제 요청 이벤트 SQS 발행을 완료했습니다. messageId={}, sequenceNumber={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
-                    response.messageId(),
-                    response.sequenceNumber(),
-                    event.paymentRequestPublicId(),
-                    event.orderPublicId(),
-                    event.eventId()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.completed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(response.messageId()))
+                    .addKeyValue("sequenceNumber", LogMaskingUtils.maskIdentifier(response.sequenceNumber()))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("resultStatus", "SUCCESS")
+                    .log("외상 결제 요청 이벤트 SQS 발행이 완료되었습니다.");
         } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 생성에 실패했습니다.");
+            throw publishFailure(event, "JSON_SERIALIZATION_FAILED", exception, null);
         } catch (SqsException exception) {
-            log.error(
-                    "외상 결제 요청 이벤트 SQS 발행에 실패했습니다. queueUrl={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}, awsErrorCode={}",
-                    paymentRequestQueueUrl,
-                    event.paymentRequestPublicId(),
-                    event.orderPublicId(),
-                    event.eventId(),
-                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
-                    exception
+            throw publishFailure(
+                    event,
+                    "SQS_SEND_FAILED",
+                    exception,
+                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null
             );
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
         } catch (RuntimeException exception) {
-            log.error(
-                    "외상 결제 요청 이벤트 SQS 발행 중 알 수 없는 오류가 발생했습니다. queueUrl={}, paymentRequestPublicId={}, orderPublicId={}, eventId={}",
-                    paymentRequestQueueUrl,
-                    event.paymentRequestPublicId(),
-                    event.orderPublicId(),
-                    event.eventId(),
-                    exception
-            );
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
+            throw publishFailure(event, "UNEXPECTED_PUBLISH_ERROR", exception, null);
         }
+    }
+
+    private BusinessException publishFailure(
+            CreditPaymentRequestedEvent event,
+            String failureState,
+            Exception exception,
+            String awsErrorCode
+    ) {
+        log.atError()
+                .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.failed")
+                .addKeyValue("transport", "sqs")
+                .addKeyValue("queueConfigured", true)
+                .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                .addKeyValue("failureState", failureState)
+                .addKeyValue("awsErrorCode", awsErrorCode)
+                .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                .addKeyValue("errorMessage", ErrorCode.INTERNAL_SERVER_ERROR.getMessage())
+                .setCause(exception)
+                .log("외상 결제 요청 이벤트 SQS 발행에 실패했습니다.");
+        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
     }
 }
