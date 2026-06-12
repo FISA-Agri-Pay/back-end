@@ -88,7 +88,6 @@ public class CheckoutService {
             span.setAttribute("kkpp.duration_ms", LoggingTimeUtils.elapsedMillis(startedAtNanos));
             return response;
         } catch (DataIntegrityViolationException exception) {
-            tracingSupport.recordException(span, exception);
             return recoverIdempotentPaymentRequest(userPublicId, paymentRequestPublicId, exception, startedAtNanos, span);
         }
     }
