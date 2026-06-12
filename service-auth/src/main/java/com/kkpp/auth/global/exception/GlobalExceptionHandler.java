@@ -22,17 +22,25 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /*
+     * 인증 도메인에 한정되지 않은 공통 예외 처리기입니다.
+     * 요청 형식 오류, validation 오류, 예상하지 못한 예외를 key-value 로그로 표준화합니다.
+     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(
             BusinessException exception,
             HttpServletRequest request
     ) {
         ErrorCode errorCode = exception.getErrorCode();
-        log.warn("비즈니스 예외가 발생했습니다. method={}, uri={}, code={}, message={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                errorCode.name(),
-                exception.getMessage());
+        log.atWarn()
+                .addKeyValue("event", "auth.business-exception.handled")
+                .addKeyValue("method", request.getMethod())
+                .addKeyValue("uri", request.getRequestURI())
+                .addKeyValue("status", errorCode.getStatus())
+                .addKeyValue("errorCode", errorCode.getCode())
+                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .log("비즈니스 예외가 발생했습니다.");
 
         return ResponseEntity
                 .status(errorCode.getStatus())
@@ -50,10 +58,17 @@ public class GlobalExceptionHandler {
                 .map(this::formatFieldError)
                 .collect(Collectors.joining(", "));
 
-        log.warn("요청 값 검증에 실패했습니다. method={}, uri={}, fields={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                fieldErrors);
+        // DTO validation 실패 로그입니다. 어떤 필드가 왜 실패했는지 invalidFields에 남깁니다.
+        log.atWarn()
+                .addKeyValue("event", "auth.validation.failed")
+                .addKeyValue("method", request.getMethod())
+                .addKeyValue("uri", request.getRequestURI())
+                .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
+                .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
+                .addKeyValue("errorMessage", fieldErrors)
+                .addKeyValue("invalidFields", fieldErrors)
+                .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .log("요청 값 검증에 실패했습니다.");
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -69,10 +84,15 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        log.warn("잘못된 요청입니다. method={}, uri={}, message={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                exception.getMessage());
+        log.atWarn()
+                .addKeyValue("event", "auth.invalid-request.handled")
+                .addKeyValue("method", request.getMethod())
+                .addKeyValue("uri", request.getRequestURI())
+                .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
+                .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
+                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .log("잘못된 요청입니다.");
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -84,10 +104,16 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception,
             HttpServletRequest request
     ) {
-        log.warn("요청 본문을 읽을 수 없습니다. method={}, uri={}, message={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                exception.getMessage());
+        // JSON 형식 오류처럼 요청 본문을 파싱할 수 없을 때 발생합니다. 본문 원문은 남기지 않습니다.
+        log.atWarn()
+                .addKeyValue("event", "auth.request-body.invalid")
+                .addKeyValue("method", request.getMethod())
+                .addKeyValue("uri", request.getRequestURI())
+                .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
+                .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
+                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .log("요청 본문을 읽을 수 없습니다.");
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -99,11 +125,16 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        log.error("처리되지 않은 예외가 발생했습니다. method={}, uri={}, message={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                exception.getMessage(),
-                exception);
+        log.atError()
+                .addKeyValue("event", "auth.unexpected-exception.handled")
+                .addKeyValue("method", request.getMethod())
+                .addKeyValue("uri", request.getRequestURI())
+                .addKeyValue("status", HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .setCause(exception)
+                .log("처리되지 않은 예외가 발생했습니다.");
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
