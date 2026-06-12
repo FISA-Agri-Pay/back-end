@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'PUSH_LATEST', defaultValue: true, description: 'Push the latest tag to ECR')
+    }
+
     environment {
         AWS_ACCOUNT_ID = credentials('aws-id')
         AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
@@ -16,6 +20,7 @@ pipeline {
         ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
         OTEL_AGENT_IMAGE = "${ECR_REGISTRY}/${OTEL_AGENT_ECR_REPO_NAME}:2.10.0"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
+        PUSH_LATEST = "${params.PUSH_LATEST ?: 'true'}"
         NAMESPACE_FILE = 'service-catalog/namespace.yaml'
         SERVICE_ACCOUNT_FILE = 'service-catalog/service-account.yaml'
         CONFIGMAP_FILE = 'service-catalog/configmap.yaml'
@@ -55,6 +60,7 @@ pipeline {
                     echo "Changed files since ${prevCommit}:\n${changedFiles}"
 
                     def watchPaths = ['service-catalog/', 'common-core/', 'common-security/']
+                    watchPaths += ['build.gradle', 'settings.gradle', 'gradle/']
                     def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
                         watchPaths.any { path -> file.startsWith(path) }
                     }
@@ -84,7 +90,7 @@ pipeline {
             steps {
                 script {
                     dir('service-catalog') {
-                        dockerImage = docker.build("${ECR_IMAGE}:${IMAGE_TAG}")
+                        dockerImage = docker.build("${ECR_IMAGE}:${IMAGE_TAG}", "--pull .")
                     }
                 }
             }
@@ -98,7 +104,9 @@ pipeline {
                 script {
                     docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:aws-s3-frontend-deploy") {
                         dockerImage.push()
-                        dockerImage.push('latest')
+                        if (env.PUSH_LATEST == 'true') {
+                            dockerImage.push('latest')
+                        }
                     }
                 }
             }
