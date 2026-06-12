@@ -78,7 +78,7 @@ pipeline {
                 )]) {
                     sh """
                         echo \${HARBOR_PASS} | docker login ${HARBOR_REGISTRY} -u \${HARBOR_USER} --password-stdin
-                        docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG} \
+                        docker build --pull -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG} \
                             -f ${SERVICE}/Dockerfile .
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG}
                         docker logout ${HARBOR_REGISTRY}
@@ -96,23 +96,26 @@ pipeline {
                 }
             }
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'gitlab-credentials',
-                    usernameVariable: 'GIT_USER',
-                    passwordVariable: 'GIT_PASS'
-                )]) {
-                    sh """
-                        rm -rf gitops
-                        git -c credential.helper="!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f" clone ${GITOPS_REPO_URL} gitops
-                        cd gitops
-                        git config credential.helper "!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f"
-                        sed -i "s|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:.*|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG}|" on-prem/${SERVICE}/cronjob.yaml
-                        git config user.email "jenkins@kkpp.com"
-                        git config user.name "Jenkins"
-                        git add .
-                        git diff --staged --quiet || git commit -m "ci: update ${SERVICE} image tag to ${env.IMAGE_TAG}"
-                        git push origin main
-                    """
+                retry(3) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'gitlab-credentials',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )]) {
+                        sh """
+                            rm -rf gitops
+                            git -c credential.helper="!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f" clone ${GITOPS_REPO_URL} gitops
+                            cd gitops
+                            git config credential.helper "!f() { echo username=\${GIT_USER}; echo password=\${GIT_PASS}; }; f"
+                            sed -i "s|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:.*|image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${SERVICE}:${env.IMAGE_TAG}|" on-prem/${SERVICE}/cronjob.yaml
+                            git config user.email "jenkins@kkpp.com"
+                            git config user.name "Jenkins"
+                            git add .
+                            git diff --staged --quiet || git commit -m "ci: update ${SERVICE} image tag to ${env.IMAGE_TAG}"
+                            git pull --rebase origin main
+                            git push origin main
+                        """
+                    }
                 }
             }
         }
