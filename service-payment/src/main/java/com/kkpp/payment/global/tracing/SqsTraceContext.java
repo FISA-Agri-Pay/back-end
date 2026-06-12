@@ -1,0 +1,43 @@
+package com.kkpp.payment.global.tracing;
+
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.propagation.TextMapGetter;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
+
+public final class SqsTraceContext {
+
+    public static final String ALL_MESSAGE_ATTRIBUTES = "All";
+
+    private static final TextMapGetter<Message> GETTER = new TextMapGetter<>() {
+        @Override
+        public Iterable<String> keys(Message carrier) {
+            return carrier == null || carrier.messageAttributes() == null
+                    ? java.util.List.of()
+                    : carrier.messageAttributes().keySet();
+        }
+
+        @Override
+        public String get(Message carrier, String key) {
+            if (carrier == null || carrier.messageAttributes() == null) {
+                return null;
+            }
+            MessageAttributeValue attribute = carrier.messageAttributes().get(key);
+            return attribute == null ? null : attribute.stringValue();
+        }
+    };
+
+    private SqsTraceContext() {
+    }
+
+    /*
+     * service-catalog가 SQS messageAttributes에 담은 traceparent/tracestate를 꺼냅니다.
+     * 값이 없으면 OpenTelemetry가 현재 context를 그대로 반환하므로 기존처럼 독립 trace로 처리됩니다.
+     */
+    public static Context extract(Message message) {
+        return GlobalOpenTelemetry.getPropagators()
+                .getTextMapPropagator()
+                .extract(Context.current(), message, GETTER);
+    }
+}

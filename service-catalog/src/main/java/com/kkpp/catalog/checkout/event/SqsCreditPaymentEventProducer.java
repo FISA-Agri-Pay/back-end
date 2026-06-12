@@ -3,6 +3,7 @@ package com.kkpp.catalog.checkout.event;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kkpp.catalog.global.logging.LogMaskingUtils;
+import com.kkpp.catalog.global.tracing.SqsTraceContext;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
@@ -45,6 +46,7 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .messageBody(payload)
                     .messageGroupId(event.userPublicId().toString())
                     .messageDeduplicationId(event.paymentRequestPublicId().toString())
+                    .messageAttributes(SqsTraceContext.currentMessageAttributes())
                     .build();
 
             log.atInfo()
@@ -53,6 +55,7 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .addKeyValue("queueConfigured", true)
                     .addKeyValue("messageGroupId", LogMaskingUtils.maskIdentifier(request.messageGroupId()))
                     .addKeyValue("messageDeduplicationId", LogMaskingUtils.maskIdentifier(request.messageDeduplicationId()))
+                    .addKeyValue("traceContextPropagated", request.messageAttributes().containsKey("traceparent"))
                     .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
                     .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
                     .addKeyValue("totalAmount", event.totalAmount())
