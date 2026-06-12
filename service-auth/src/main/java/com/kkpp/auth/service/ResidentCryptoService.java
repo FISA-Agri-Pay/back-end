@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class ResidentCryptoService {
 
+    // 주민등록번호 원문을 DB에 저장하지 않기 위한 암호화/HMAC 전담 서비스입니다.
     @Value("${resident-id.hmac-key}")
     private String residentIdHmacKey;
 
@@ -50,8 +51,14 @@ public class ResidentCryptoService {
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
             return "v2$" + Base64.getEncoder().encodeToString(combined);
-        } catch (GeneralSecurityException e) {
-            log.error("주민등록번호 암호화에 실패했습니다.", e);
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            // 암호화 실패 로그입니다. 주민등록번호 원문은 절대 남기지 않습니다.
+            log.atError()
+                    .addKeyValue("event", "auth.resident-id.encrypt.failed")
+                    .addKeyValue("failureState", "ENCRYPTION_FAILED")
+                    .addKeyValue("exceptionType", e.getClass().getSimpleName())
+                    .setCause(e)
+                    .log("주민등록번호 암호화에 실패했습니다.");
             throw new IllegalStateException("주민등록번호 암호화에 실패했습니다.", e);
         }
     }
@@ -61,7 +68,11 @@ public class ResidentCryptoService {
             return null;
         }
         if (!encrypted.startsWith("v2$")) {
-            log.warn("지원하지 않는 주민등록번호 암호문 형식입니다.");
+            // 지원하지 않는 암호문 버전 또는 형식이 들어온 경우입니다.
+            log.atWarn()
+                    .addKeyValue("event", "auth.resident-id.decrypt.failed")
+                    .addKeyValue("failureState", "UNSUPPORTED_CIPHERTEXT_FORMAT")
+                    .log("지원하지 않는 주민등록번호 암호문 형식입니다.");
             throw new IllegalArgumentException("지원하지 않는 주민등록번호 암호문 형식입니다.");
         }
         try {
@@ -72,8 +83,14 @@ public class ResidentCryptoService {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
-        } catch (GeneralSecurityException e) {
-            log.error("주민등록번호 복호화에 실패했습니다.", e);
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            // 복호화 실패 로그입니다. 암호문 내용도 식별 가능한 값이라 남기지 않습니다.
+            log.atError()
+                    .addKeyValue("event", "auth.resident-id.decrypt.failed")
+                    .addKeyValue("failureState", "DECRYPTION_FAILED")
+                    .addKeyValue("exceptionType", e.getClass().getSimpleName())
+                    .setCause(e)
+                    .log("주민등록번호 복호화에 실패했습니다.");
             throw new IllegalStateException("주민등록번호 복호화에 실패했습니다.", e);
         }
     }
@@ -88,7 +105,14 @@ public class ResidentCryptoService {
             byte[] hash = mac.doFinal(residentId.getBytes(StandardCharsets.UTF_8));
             return "v2$" + HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            log.error("HmacSHA256 알고리즘을 사용할 수 없습니다.", e);
+            // HMAC 생성 실패 로그입니다. 주민등록번호 원문과 key 값은 남기지 않습니다.
+            log.atError()
+                    .addKeyValue("event", "auth.resident-id.hmac.failed")
+                    .addKeyValue("algorithm", "HmacSHA256")
+                    .addKeyValue("failureState", "HMAC_FAILED")
+                    .addKeyValue("exceptionType", e.getClass().getSimpleName())
+                    .setCause(e)
+                    .log("주민등록번호 HMAC 생성에 실패했습니다.");
             throw new IllegalStateException("HmacSHA256 알고리즘을 사용할 수 없습니다.", e);
         }
     }

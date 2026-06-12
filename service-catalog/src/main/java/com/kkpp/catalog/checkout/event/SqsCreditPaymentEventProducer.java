@@ -2,6 +2,7 @@ package com.kkpp.catalog.checkout.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kkpp.catalog.global.logging.LogMaskingUtils;
 import com.kkpp.catalog.global.tracing.SqsTraceContext;
 import com.kkpp.common.core.event.CreditPaymentRequestedEvent;
 import com.kkpp.common.core.exception.BusinessException;
@@ -52,12 +53,12 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                     .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.started")
                     .addKeyValue("transport", "sqs")
                     .addKeyValue("queueConfigured", true)
-                    .addKeyValue("messageGroupId", maskIdentifier(request.messageGroupId()))
-                    .addKeyValue("messageDeduplicationId", maskIdentifier(request.messageDeduplicationId()))
+                    .addKeyValue("messageGroupId", LogMaskingUtils.maskIdentifier(request.messageGroupId()))
+                    .addKeyValue("messageDeduplicationId", LogMaskingUtils.maskIdentifier(request.messageDeduplicationId()))
                     .addKeyValue("traceContextPropagated", request.messageAttributes().containsKey("traceparent"))
-                    .addKeyValue("paymentRequestPublicId", maskIdentifier(event.paymentRequestPublicId()))
-                    .addKeyValue("orderPublicId", maskIdentifier(event.orderPublicId()))
-                    .addKeyValue("eventId", maskIdentifier(event.eventId()))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
                     .addKeyValue("totalAmount", event.totalAmount())
                     .log("외상 결제 요청 이벤트를 SQS로 발행합니다.");
 
@@ -65,11 +66,11 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
             log.atInfo()
                     .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.completed")
                     .addKeyValue("transport", "sqs")
-                    .addKeyValue("messageId", maskIdentifier(response.messageId()))
-                    .addKeyValue("sequenceNumber", maskIdentifier(response.sequenceNumber()))
-                    .addKeyValue("paymentRequestPublicId", maskIdentifier(event.paymentRequestPublicId()))
-                    .addKeyValue("orderPublicId", maskIdentifier(event.orderPublicId()))
-                    .addKeyValue("eventId", maskIdentifier(event.eventId()))
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(response.messageId()))
+                    .addKeyValue("sequenceNumber", LogMaskingUtils.maskIdentifier(response.sequenceNumber()))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
                     .addKeyValue("resultStatus", "SUCCESS")
                     .log("외상 결제 요청 이벤트 SQS 발행이 완료되었습니다.");
         } catch (JsonProcessingException exception) {
@@ -96,9 +97,9 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                 .addKeyValue("event", "catalog.bnpl.payment-request-event.publish.failed")
                 .addKeyValue("transport", "sqs")
                 .addKeyValue("queueConfigured", true)
-                .addKeyValue("paymentRequestPublicId", maskIdentifier(event.paymentRequestPublicId()))
-                .addKeyValue("orderPublicId", maskIdentifier(event.orderPublicId()))
-                .addKeyValue("eventId", maskIdentifier(event.eventId()))
+                .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskIdentifier(event.paymentRequestPublicId()))
+                .addKeyValue("orderPublicId", LogMaskingUtils.maskIdentifier(event.orderPublicId()))
+                .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
                 .addKeyValue("failureState", failureState)
                 .addKeyValue("awsErrorCode", awsErrorCode)
                 .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
@@ -106,16 +107,5 @@ public class SqsCreditPaymentEventProducer implements CreditPaymentEventProducer
                 .setCause(exception)
                 .log("외상 결제 요청 이벤트 SQS 발행에 실패했습니다.");
         return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "결제 요청 이벤트 발행에 실패했습니다.");
-    }
-
-    private String maskIdentifier(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String text = value.toString();
-        if (text.length() <= 8) {
-            return "****";
-        }
-        return text.substring(0, 4) + "****" + text.substring(text.length() - 4);
     }
 }

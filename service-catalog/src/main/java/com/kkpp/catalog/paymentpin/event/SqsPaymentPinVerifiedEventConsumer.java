@@ -2,6 +2,7 @@ package com.kkpp.catalog.paymentpin.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kkpp.catalog.global.logging.LogMaskingUtils;
 import com.kkpp.catalog.paymentpin.service.PaymentPinVerificationService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -63,14 +64,24 @@ public class SqsPaymentPinVerifiedEventConsumer {
                 processMessage(sqsMessage);
             }
         } catch (SqsException exception) {
-            log.error(
-                    "결제 PIN 검증 완료 SQS 메시지 수신에 실패했습니다. queueUrl={}, awsErrorCode={}",
-                    queueUrl,
-                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.poll.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("queueConfigured", true)
+                    .addKeyValue("awsErrorCode", exception.awsErrorDetails() != null
+                            ? exception.awsErrorDetails().errorCode()
+                            : null)
+                    .addKeyValue("failureState", "SQS_RECEIVE_FAILED")
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS 메시지 수신에 실패했습니다.");
         } catch (RuntimeException exception) {
-            log.error("결제 PIN 검증 완료 SQS polling 중 알 수 없는 오류가 발생했습니다. queueUrl={}", queueUrl, exception);
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.poll.failed")
+                    .addKeyValue("transport", "sqs")
+                    .addKeyValue("queueConfigured", true)
+                    .addKeyValue("failureState", "UNEXPECTED_POLL_ERROR")
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS polling 중 예상하지 못한 오류가 발생했습니다.");
         }
     }
 
@@ -78,48 +89,51 @@ public class SqsPaymentPinVerifiedEventConsumer {
         PaymentPinVerifiedEvent event = null;
         try {
             event = objectMapper.readValue(sqsMessage.body(), PaymentPinVerifiedEvent.class);
-            log.info(
-                    "결제 PIN 검증 완료 SQS 메시지를 수신했습니다. messageId={}, eventId={}, verificationId={}, userPublicId={}",
-                    sqsMessage.messageId(),
-                    event.eventId(),
-                    event.verificationId(),
-                    event.userPublicId()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.received")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                    .addKeyValue("verificationId", LogMaskingUtils.maskIdentifier(event.verificationId()))
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(event.userPublicId()))
+                    .log("결제 PIN 검증 완료 SQS 메시지를 수신했습니다.");
 
             paymentPinVerificationService.store(event);
             deleteMessage(sqsMessage, event);
         } catch (JsonProcessingException exception) {
-            log.error(
-                    "결제 PIN 검증 완료 SQS 메시지 역직렬화에 실패했습니다. messageId={}",
-                    sqsMessage.messageId(),
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.process.failed")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("failureState", "JSON_DESERIALIZATION_FAILED")
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS 메시지 역직렬화에 실패했습니다.");
         } catch (DataIntegrityViolationException exception) {
             if (event != null && paymentPinVerificationService.exists(event)) {
-                log.info(
-                        "중복 결제 PIN 검증 완료 SQS 메시지를 정상 처리로 간주합니다. messageId={}, eventId={}, verificationId={}",
-                        sqsMessage.messageId(),
-                        event.eventId(),
-                        event.verificationId()
-                );
+                log.atInfo()
+                        .addKeyValue("event", "catalog.payment-pin.verified-event.duplicated")
+                        .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                        .addKeyValue("eventId", LogMaskingUtils.maskIdentifier(event.eventId()))
+                        .addKeyValue("verificationId", LogMaskingUtils.maskIdentifier(event.verificationId()))
+                        .log("중복 결제 PIN 검증 완료 SQS 메시지를 정상 처리로 간주합니다.");
                 deleteMessage(sqsMessage, event);
                 return;
             }
-            log.error(
-                    "결제 PIN 검증 완료 SQS 메시지 저장 중 데이터 제약 조건 오류가 발생했습니다. messageId={}, eventId={}, verificationId={}",
-                    sqsMessage.messageId(),
-                    event != null ? event.eventId() : null,
-                    event != null ? event.verificationId() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.process.failed")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("eventId", event != null ? LogMaskingUtils.maskIdentifier(event.eventId()) : null)
+                    .addKeyValue("verificationId", event != null ? LogMaskingUtils.maskIdentifier(event.verificationId()) : null)
+                    .addKeyValue("failureState", "DATA_INTEGRITY_FAILED")
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS 메시지 저장 중 데이터 제약 조건 오류가 발생했습니다.");
         } catch (RuntimeException exception) {
-            log.error(
-                    "결제 PIN 검증 완료 SQS 메시지 처리 중 오류가 발생했습니다. messageId={}, eventId={}, verificationId={}",
-                    sqsMessage.messageId(),
-                    event != null ? event.eventId() : null,
-                    event != null ? event.verificationId() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.process.failed")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("eventId", event != null ? LogMaskingUtils.maskIdentifier(event.eventId()) : null)
+                    .addKeyValue("verificationId", event != null ? LogMaskingUtils.maskIdentifier(event.verificationId()) : null)
+                    .addKeyValue("failureState", "UNEXPECTED_PROCESS_ERROR")
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS 메시지 처리 중 오류가 발생했습니다.");
         }
     }
 
@@ -129,21 +143,23 @@ public class SqsPaymentPinVerifiedEventConsumer {
                     .queueUrl(queueUrl)
                     .receiptHandle(sqsMessage.receiptHandle())
                     .build());
-            log.info(
-                    "결제 PIN 검증 완료 SQS 메시지를 삭제했습니다. messageId={}, eventId={}, verificationId={}",
-                    sqsMessage.messageId(),
-                    event != null ? event.eventId() : null,
-                    event != null ? event.verificationId() : null
-            );
+            log.atInfo()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.deleted")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("eventId", event != null ? LogMaskingUtils.maskIdentifier(event.eventId()) : null)
+                    .addKeyValue("verificationId", event != null ? LogMaskingUtils.maskIdentifier(event.verificationId()) : null)
+                    .log("결제 PIN 검증 완료 SQS 메시지를 삭제했습니다.");
         } catch (SqsException exception) {
-            log.error(
-                    "결제 PIN 검증 완료 SQS 메시지 삭제에 실패했습니다. messageId={}, eventId={}, verificationId={}, awsErrorCode={}",
-                    sqsMessage.messageId(),
-                    event != null ? event.eventId() : null,
-                    event != null ? event.verificationId() : null,
-                    exception.awsErrorDetails() != null ? exception.awsErrorDetails().errorCode() : null,
-                    exception
-            );
+            log.atError()
+                    .addKeyValue("event", "catalog.payment-pin.verified-event.delete.failed")
+                    .addKeyValue("messageId", LogMaskingUtils.maskIdentifier(sqsMessage.messageId()))
+                    .addKeyValue("eventId", event != null ? LogMaskingUtils.maskIdentifier(event.eventId()) : null)
+                    .addKeyValue("verificationId", event != null ? LogMaskingUtils.maskIdentifier(event.verificationId()) : null)
+                    .addKeyValue("awsErrorCode", exception.awsErrorDetails() != null
+                            ? exception.awsErrorDetails().errorCode()
+                            : null)
+                    .setCause(exception)
+                    .log("결제 PIN 검증 완료 SQS 메시지 삭제에 실패했습니다.");
         }
     }
 }

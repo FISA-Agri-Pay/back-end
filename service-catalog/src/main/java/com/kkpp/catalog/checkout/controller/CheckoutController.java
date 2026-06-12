@@ -3,6 +3,7 @@ package com.kkpp.catalog.checkout.controller;
 import com.kkpp.catalog.checkout.dto.request.CreateCheckoutRequest;
 import com.kkpp.catalog.checkout.dto.response.CheckoutRequestResponse;
 import com.kkpp.catalog.checkout.service.CheckoutService;
+import com.kkpp.catalog.global.logging.MonitoredApiLogging;
 import com.kkpp.common.core.exception.BusinessException;
 import com.kkpp.common.core.exception.ErrorCode;
 import com.kkpp.common.core.response.ApiResponse;
@@ -39,6 +40,8 @@ public class CheckoutController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    // 외상 결제(BNPL) 요청 생성은 서비스 간 결제 흐름의 시작점이므로 AOP 공통 로그와 custom span을 함께 남깁니다.
+    @MonitoredApiLogging(event = "catalog.bnpl.checkout-request.create.api", apiName = "외상 결제 요청 생성")
     @Operation(
             summary = "외상 결제 요청 생성",
             description = "장바구니 항목과 배송지를 기반으로 BNPL 결제 요청을 생성합니다. 실제 주문 확정과 원장 생성은 service-core가 Kafka 이벤트를 받아 처리합니다."

@@ -32,100 +32,159 @@ spec:
 
     spec:
       serviceAccountName: service-catalog-sa
+
+      # non-root initContainer가 emptyDir 볼륨에 jar를 복사할 수 있도록 그룹 권한을 맞춥니다.
+      securityContext:
+        fsGroup: 10001
+
+      # OpenTelemetry Java Agent jar를 앱 컨테이너와 공유하기 위한 임시 볼륨입니다.
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+
+      # ECR의 Java Agent 전용 이미지에서 jar를 emptyDir 볼륨으로 복사합니다.
+      # 외부 GitHub 다운로드 없이 내부 ECR 이미지만 사용합니다.
+      initContainers:
+        - name: otel-agent
+          image: OTEL_AGENT_IMAGE_PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - cp /otel/opentelemetry-javaagent.jar /otel-agent/opentelemetry-javaagent.jar
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel-agent
+
       containers:
-      - name: service-catalog-container
-        # Jenkins 배포 단계에서 ECR 주소와 태그로 교체되어 실제로는 deployment.redered.yaml로 배포됩니다.
-        # ECR 주소를 숨기기 위한 조치입니다.
-        image: SERVICE_CATALOG_IMAGE_PLACEHOLDER
+        - name: service-catalog-container
+          # Jenkins 배포 단계에서 ECR 주소와 태그로 교체되어 실제로는 deployment.rendered.yaml로 배포됩니다.
+          # ECR 주소를 숨기기 위한 조치입니다.
+          image: SERVICE_CATALOG_IMAGE_PLACEHOLDER
 
-        # 컨테이너 내부에서 Spring Boot가 사용하는 포트입니다.
-        ports:
-        - containerPort: 8081
+          # 컨테이너 내부에서 Spring Boot가 사용하는 포트입니다.
+          ports:
+            - containerPort: 8081
 
-        # Spring Boot application-*.yml에서 참조하는 환경변수입니다.
-        env:
-        # 사용할 Spring profile입니다. application-dev.yml 설정이 적용됩니다.
-        - name: SPRING_PROFILES_ACTIVE
-          value: dev
+          # initContainer가 복사한 OpenTelemetry Java Agent jar를 앱 컨테이너에서 사용합니다.
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
 
-        # RDS PostgreSQL 접속 URL입니다.
-        - name: DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: service-catalog-db-secret
-              key: DB_URL
+          # Spring Boot application-*.yml에서 참조하는 환경변수입니다.
+          env:
+            # 사용할 Spring profile입니다. application-dev.yml 설정이 적용됩니다.
+            - name: SPRING_PROFILES_ACTIVE
+              value: dev
 
-        # RDS 접속 계정입니다. Kubernetes Secret에서 값을 읽습니다.
-        - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: service-catalog-db-secret
-              key: DB_USERNAME
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: service-catalog-db-secret
-              key: DB_PASSWORD
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: service-catalog-db-secret
-              key: JWT_SECRET
+            # OpenTelemetry Java Agent 설정입니다.
+            # AWS EKS 내부의 Tempo로 service-catalog Trace를 직접 전송합니다.
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel/opentelemetry-javaagent.jar"
+            - name: OTEL_SERVICE_NAME
+              value: "service-catalog"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://aws-otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"
 
-        # 같은 Pod 안의 Redis sidecar 컨테이너이므로 localhost로 접속합니다.
-        - name: REDIS_HOST
-          value: localhost
-        - name: REDIS_PORT
-          value: "6379"
+            # RDS PostgreSQL 접속 URL입니다.
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: service-catalog-db-secret
+                  key: DB_URL
 
-        # 허용할 CORS 출처입니다. 쉼표로 복수 도메인을 지정할 수 있습니다.
-        # CloudFront(현재), 구 S3(마이그레이션 과도기), 로컬 개발 포트를 함께 허용합니다.
-        - name: CORS_ALLOWED_ORIGINS
-          value: "https://d27uwxuknjrbcr.cloudfront.net,https://kkpp-s3-bucket.s3.ap-northeast-2.amazonaws.com,http://localhost:5173,http://localhost:3000"
+            # RDS 접속 계정입니다. Kubernetes Secret에서 값을 읽습니다.
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: service-catalog-db-secret
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: service-catalog-db-secret
+                  key: DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: service-catalog-db-secret
+                  key: JWT_SECRET
 
-        # Kafka producer 설정입니다.
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          valueFrom:
-            configMapKeyRef:
-              name: service-catalog-config
-              key: KAFKA_BOOTSTRAP_SERVERS
-        - name: PAYMENT_REQUEST_TOPIC
-          valueFrom:
-            configMapKeyRef:
-              name: service-catalog-config
-              key: PAYMENT_REQUEST_TOPIC
-        - name: PAYMENT_REQUEST_TRANSPORT
-          value: "PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER"
-        - name: PAYMENT_REQUEST_QUEUE_URL
-          value: "PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER"
-        - name: AWS_REGION
-          value: "AWS_REGION_PLACEHOLDER"
-        - name: PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED
-          value: "PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED_PLACEHOLDER"
-        - name: PAYMENT_PIN_VERIFIED_QUEUE_URL
-          value: "PAYMENT_PIN_VERIFIED_QUEUE_URL_PLACEHOLDER"
+            # 같은 Pod 안의 Redis sidecar 컨테이너이므로 localhost로 접속합니다.
+            - name: REDIS_HOST
+              value: localhost
+            - name: REDIS_PORT
+              value: "6379"
 
-        # 컨테이너가 정상적으로 요청을 받을 수 있는지 확인합니다.
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8081
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          failureThreshold: 6
+            # 허용할 CORS 출처입니다. 쉼표로 복수 도메인을 지정할 수 있습니다.
+            # CloudFront(현재), 구 S3(마이그레이션 과도기), 로컬 개발 포트를 함께 허용합니다.
+            - name: CORS_ALLOWED_ORIGINS
+              value: "https://d27uwxuknjrbcr.cloudfront.net,https://kkpp-s3-bucket.s3.ap-northeast-2.amazonaws.com,http://localhost:5173,http://localhost:3000"
 
-        # 컨테이너가 살아있는지 확인합니다. 실패 시 Pod를 재시작합니다.
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8081
-          initialDelaySeconds: 60
-          periodSeconds: 15
-          failureThreshold: 3
+            # Kafka producer 설정입니다.
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: service-catalog-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: PAYMENT_REQUEST_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: service-catalog-config
+                  key: PAYMENT_REQUEST_TOPIC
+            - name: PAYMENT_REQUEST_TRANSPORT
+              value: "PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER"
+            - name: PAYMENT_REQUEST_QUEUE_URL
+              value: "PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER"
+            - name: AWS_REGION
+              value: "AWS_REGION_PLACEHOLDER"
+            - name: PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED
+              value: "PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED_PLACEHOLDER"
+            - name: PAYMENT_PIN_VERIFIED_QUEUE_URL
+              value: "PAYMENT_PIN_VERIFIED_QUEUE_URL_PLACEHOLDER"
 
-      # service-catalog 전용 Redis sidecar입니다.
-      # 같은 Pod 안에서 앱 컨테이너가 localhost:6379로 접근합니다.
-      - name: redis-sidecar
-        image: redis:7-alpine
-        ports:
-        - containerPort: 6379
+          # 컨테이너가 정상적으로 요청을 받을 수 있는지 확인합니다.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+
+          # 컨테이너가 살아있는지 확인합니다. 실패 시 Pod를 재시작합니다.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+
+        # service-catalog 전용 Redis sidecar입니다.
+        # 같은 Pod 안에서 앱 컨테이너가 localhost:6379로 접근합니다.
+        - name: redis-sidecar
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379

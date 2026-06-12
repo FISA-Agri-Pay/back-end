@@ -11,8 +11,10 @@ pipeline {
         SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: ''}"
         K8S_NAMESPACE = 'service-catalog'
         ECR_REPO_NAME = 'service-catalog'
+        OTEL_AGENT_ECR_REPO_NAME = 'observability/opentelemetry-javaagent'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
+        OTEL_AGENT_IMAGE = "${ECR_REGISTRY}/${OTEL_AGENT_ECR_REPO_NAME}:2.10.0"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         NAMESPACE_FILE = 'service-catalog/namespace.yaml'
         SERVICE_ACCOUNT_FILE = 'service-catalog/service-account.yaml'
@@ -29,13 +31,56 @@ pipeline {
             }
         }
 
-        stage('2. Build Spring Boot') {
+        stage('2. Prepare') {
+            steps {
+                script {
+                    def prevCommit = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+                    if (!prevCommit) {
+                        echo "이전 성공 빌드 없음 - 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+
+                    def changedFiles
+                    try {
+                        changedFiles = sh(
+                            returnStdout: true,
+                            script: "git diff --name-only ${prevCommit} HEAD"
+                        ).trim()
+                    } catch (e) {
+                        echo "git diff 실패 (얕은 clone 또는 커밋 누락) — 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+                    echo "Changed files since ${prevCommit}:\n${changedFiles}"
+
+                    def watchPaths = ['service-catalog/', 'common-core/', 'common-security/']
+                    def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
+                        watchPaths.any { path -> file.startsWith(path) }
+                    }
+
+                    env.SKIP_BUILD = hasChanges ? 'false' : 'true'
+                    if (env.SKIP_BUILD == 'true') {
+                        echo "${watchPaths} 관련 변경 없음 - 빌드 스킵"
+                        currentBuild.result = 'NOT_BUILT'
+                    }
+                }
+            }
+        }
+
+        stage('3. Build Spring Boot') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 sh './gradlew :service-catalog:clean :service-catalog:build -x test'
             }
         }
 
-        stage('3. Build Docker Image') {
+        stage('4. Build Docker Image') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 script {
                     dir('service-catalog') {
@@ -45,7 +90,10 @@ pipeline {
             }
         }
 
-        stage('4. Push to ECR') {
+        stage('5. Push to ECR') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 script {
                     docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:aws-s3-frontend-deploy") {
@@ -56,7 +104,10 @@ pipeline {
             }
         }
 
-        stage('5. Deploy to EKS') {
+        stage('6. Deploy to EKS') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
             steps {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
@@ -77,6 +128,7 @@ pipeline {
                             # deployment.yaml의 aws id를 숨기기 위한 조치
 
                             sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} \\
+                            | sed "s|OTEL_AGENT_IMAGE_PLACEHOLDER|${OTEL_AGENT_IMAGE}|g" \\
                             | sed "s|PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER|${PAYMENT_REQUEST_TRANSPORT}|g" \\
                             | sed "s|PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER|${PAYMENT_REQUEST_QUEUE_URL}|g" \\
                             | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
