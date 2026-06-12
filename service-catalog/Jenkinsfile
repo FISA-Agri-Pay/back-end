@@ -104,7 +104,19 @@ pipeline {
             }
         }
 
-        stage('6. Deploy to EKS') {
+        stage('6. Cleanup Local Image') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
+            steps {
+                sh """
+                    docker rmi ${ECR_IMAGE}:${IMAGE_TAG} || true
+                    docker rmi ${ECR_IMAGE}:latest || true
+                """
+            }
+        }
+
+        stage('7. Deploy to EKS') {
             when {
                 expression { env.SKIP_BUILD != 'true' }
             }
