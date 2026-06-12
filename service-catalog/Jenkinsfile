@@ -11,8 +11,10 @@ pipeline {
         SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: ''}"
         K8S_NAMESPACE = 'service-catalog'
         ECR_REPO_NAME = 'service-catalog'
+        OTEL_AGENT_ECR_REPO_NAME = 'observability/opentelemetry-javaagent'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
+        OTEL_AGENT_IMAGE = "${ECR_REGISTRY}/${OTEL_AGENT_ECR_REPO_NAME}:2.10.0"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         NAMESPACE_FILE = 'service-catalog/namespace.yaml'
         SERVICE_ACCOUNT_FILE = 'service-catalog/service-account.yaml'
@@ -126,6 +128,7 @@ pipeline {
                             # deployment.yaml의 aws id를 숨기기 위한 조치
 
                             sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} \\
+                            | sed "s|OTEL_AGENT_IMAGE_PLACEHOLDER|${OTEL_AGENT_IMAGE}|g" \\
                             | sed "s|PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER|${PAYMENT_REQUEST_TRANSPORT}|g" \\
                             | sed "s|PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER|${PAYMENT_REQUEST_QUEUE_URL}|g" \\
                             | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
