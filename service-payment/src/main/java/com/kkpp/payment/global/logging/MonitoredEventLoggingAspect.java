@@ -80,7 +80,7 @@ public class MonitoredEventLoggingAspect {
             long startedAtNanos,
             Throwable exception
     ) {
-        log.atWarn()
+        log.atError()
                 .addKeyValue("event", annotation.event() + ".failed")
                 .addKeyValue("operationName", annotation.operationName())
                 .addKeyValue("messageContext", messageContext(joinPoint.getArgs()))

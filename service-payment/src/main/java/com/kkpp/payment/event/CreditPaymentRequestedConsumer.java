@@ -64,16 +64,6 @@ public class CreditPaymentRequestedConsumer {
                     exception
             );
         } catch (PaymentProcessingException exception) {
-            log.atWarn()
-                    .addKeyValue("event", "payment.credit-payment-request.kafka.message.failed")
-                    .addKeyValue("transport", "kafka")
-                    .addKeyValue("topic", record.topic())
-                    .addKeyValue("partition", record.partition())
-                    .addKeyValue("offset", record.offset())
-                    .addKeyValue("key", LogMaskingUtils.maskIdentifier(record.key()))
-                    .addKeyValue("failureState", "PAYMENT_PROCESSING_FAILED")
-                    .addKeyValue("errorMessage", exception.getMessage())
-                    .log("외상 결제 요청 Kafka 메시지 처리에 실패했습니다.");
             throw exception;
         } catch (DataIntegrityViolationException exception) {
             if (creditPaymentProcessingService.isDuplicateKeyFailure(exception)) {

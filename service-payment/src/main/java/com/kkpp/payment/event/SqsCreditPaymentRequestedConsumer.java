@@ -111,7 +111,7 @@ public class SqsCreditPaymentRequestedConsumer {
         try (Scope parentScope = parentContext.makeCurrent()) {
             Span messageProcessSpan = tracingSupport.startSpan("service-payment.credit-payment-request.sqs.message.process");
             try (Scope messageScope = messageProcessSpan.makeCurrent()) {
-                processMessageWithTraceContext(sqsMessage);
+                processMessageWithTraceContext(sqsMessage, messageProcessSpan);
             } catch (RuntimeException exception) {
                 tracingSupport.recordException(messageProcessSpan, exception);
                 throw exception;
@@ -121,7 +121,7 @@ public class SqsCreditPaymentRequestedConsumer {
         }
     }
 
-    private void processMessageWithTraceContext(Message sqsMessage) {
+    private void processMessageWithTraceContext(Message sqsMessage, Span messageProcessSpan) {
         CreditPaymentRequestedMessage message = null;
         try {
             message = objectMapper.readValue(sqsMessage.body(), CreditPaymentRequestedMessage.class);
@@ -138,6 +138,7 @@ public class SqsCreditPaymentRequestedConsumer {
             creditPaymentProcessingService.process(message);
             deleteMessage(sqsMessage, message);
         } catch (JsonProcessingException exception) {
+            tracingSupport.recordException(messageProcessSpan, exception);
             log.atError()
                     .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
                     .addKeyValue("transport", "sqs")
@@ -148,6 +149,7 @@ public class SqsCreditPaymentRequestedConsumer {
                     .setCause(exception)
                     .log("외상 결제 요청 SQS 메시지 역직렬화에 실패했습니다.");
         } catch (PaymentProcessingException exception) {
+            tracingSupport.recordException(messageProcessSpan, exception);
             log.atWarn()
                     .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
                     .addKeyValue("transport", "sqs")
@@ -172,6 +174,7 @@ public class SqsCreditPaymentRequestedConsumer {
                 deleteMessage(sqsMessage, message);
                 return;
             }
+            tracingSupport.recordException(messageProcessSpan, exception);
             log.atError()
                     .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
                     .addKeyValue("transport", "sqs")
@@ -184,6 +187,7 @@ public class SqsCreditPaymentRequestedConsumer {
                     .setCause(exception)
                     .log("외상 결제 요청 SQS 메시지 처리 중 데이터 제약 조건 오류가 발생했습니다.");
         } catch (RuntimeException exception) {
+            tracingSupport.recordException(messageProcessSpan, exception);
             log.atError()
                     .addKeyValue("event", "payment.credit-payment-request.sqs.message.failed")
                     .addKeyValue("transport", "sqs")

@@ -138,6 +138,7 @@ public class CreditPaymentProcessingService {
                             .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(userPublicId))
                             .addKeyValue("failureState", "ACTIVE_CREDIT_LIMIT_NOT_FOUND")
                             .addKeyValue("errorMessage", "활성 한도를 찾을 수 없습니다.")
+                            .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                             .log("외상 결제 DB 반영 중 활성 한도를 찾지 못했습니다.");
                     return new PaymentProcessingException("활성 한도를 찾을 수 없습니다.");
                 });
@@ -233,7 +234,7 @@ public class CreditPaymentProcessingService {
         }
         validateDeliveryAddress(message.deliveryAddress());
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다.");
+            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
         }
     }
 
