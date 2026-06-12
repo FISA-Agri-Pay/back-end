@@ -13,8 +13,12 @@ public final class LogMaskingUtils {
         }
 
         String digits = phone.replaceAll("\\D", "");
-        if (digits.length() < 7) {
+        if (digits.length() <= 7) {
             return "****";
+        }
+
+        if (digits.length() < 11) {
+            return digits.substring(0, 2) + "****" + digits.substring(digits.length() - 2);
         }
 
         return digits.substring(0, 3) + "****" + digits.substring(digits.length() - 4);

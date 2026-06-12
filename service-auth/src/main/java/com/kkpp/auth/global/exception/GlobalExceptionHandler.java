@@ -38,8 +38,9 @@ public class GlobalExceptionHandler {
                 .addKeyValue("uri", request.getRequestURI())
                 .addKeyValue("status", errorCode.getStatus())
                 .addKeyValue("errorCode", errorCode.getCode())
-                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("errorMessage", errorCode.getMessage())
                 .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .setCause(exception)
                 .log("비즈니스 예외가 발생했습니다.");
 
         return ResponseEntity
@@ -65,9 +66,10 @@ public class GlobalExceptionHandler {
                 .addKeyValue("uri", request.getRequestURI())
                 .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
                 .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
-                .addKeyValue("errorMessage", fieldErrors)
+                .addKeyValue("errorMessage", ErrorCode.INVALID_REQUEST.getMessage())
                 .addKeyValue("invalidFields", fieldErrors)
                 .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .setCause(exception)
                 .log("요청 값 검증에 실패했습니다.");
 
         return ResponseEntity
@@ -90,8 +92,9 @@ public class GlobalExceptionHandler {
                 .addKeyValue("uri", request.getRequestURI())
                 .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
                 .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
-                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("errorMessage", ErrorCode.INVALID_REQUEST.getMessage())
                 .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .setCause(exception)
                 .log("잘못된 요청입니다.");
 
         return ResponseEntity
@@ -111,8 +114,9 @@ public class GlobalExceptionHandler {
                 .addKeyValue("uri", request.getRequestURI())
                 .addKeyValue("status", HttpStatus.BAD_REQUEST.value())
                 .addKeyValue("errorCode", ErrorCode.INVALID_REQUEST.getCode())
-                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("errorMessage", ErrorCode.INVALID_REQUEST.getMessage())
                 .addKeyValue("exceptionType", exception.getClass().getSimpleName())
+                .setCause(exception)
                 .log("요청 본문을 읽을 수 없습니다.");
 
         return ResponseEntity
@@ -131,7 +135,7 @@ public class GlobalExceptionHandler {
                 .addKeyValue("uri", request.getRequestURI())
                 .addKeyValue("status", HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
-                .addKeyValue("errorMessage", exception.getMessage())
+                .addKeyValue("errorMessage", ErrorCode.INTERNAL_SERVER_ERROR.getMessage())
                 .addKeyValue("exceptionType", exception.getClass().getSimpleName())
                 .setCause(exception)
                 .log("처리되지 않은 예외가 발생했습니다.");

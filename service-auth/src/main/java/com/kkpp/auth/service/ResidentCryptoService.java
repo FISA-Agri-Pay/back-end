@@ -51,7 +51,7 @@ public class ResidentCryptoService {
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
             return "v2$" + Base64.getEncoder().encodeToString(combined);
-        } catch (GeneralSecurityException e) {
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
             // 암호화 실패 로그입니다. 주민등록번호 원문은 절대 남기지 않습니다.
             log.atError()
                     .addKeyValue("event", "auth.resident-id.encrypt.failed")
@@ -83,7 +83,7 @@ public class ResidentCryptoService {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
-        } catch (GeneralSecurityException e) {
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
             // 복호화 실패 로그입니다. 암호문 내용도 식별 가능한 값이라 남기지 않습니다.
             log.atError()
                     .addKeyValue("event", "auth.resident-id.decrypt.failed")

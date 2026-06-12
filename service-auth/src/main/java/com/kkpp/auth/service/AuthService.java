@@ -206,6 +206,7 @@ public class AuthService {
         } catch (RuntimeException exception) {
             // PIN은 맞았지만 이벤트 발행이 실패한 경우입니다. 결제 흐름 단절 지점이라 error 로그로 남깁니다.
             AuthErrorCode errorCode = AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED;
+            tracingSupport.recordException(span, exception);
             span.setAttribute("kkpp.result", "FAILED");
             span.setAttribute("kkpp.failure_state", "EVENT_PUBLISH_FAILED");
             log.atError()
@@ -219,7 +220,7 @@ public class AuthService {
                     .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
                     .setCause(exception)
                     .log("결제 PIN 검증 완료 이벤트 발행에 실패했습니다.");
-            throw new AuthException(errorCode);
+            throw new AuthException(errorCode, exception);
         }
 
         span.setAttribute("kkpp.result", "SUCCESS");

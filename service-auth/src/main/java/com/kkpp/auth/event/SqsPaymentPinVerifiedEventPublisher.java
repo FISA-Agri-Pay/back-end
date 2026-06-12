@@ -80,7 +80,7 @@ public class SqsPaymentPinVerifiedEventPublisher implements PaymentPinVerifiedEv
                     .addKeyValue("errorMessage", errorCode.getMessage())
                     .setCause(exception)
                     .log("결제 PIN 검증 완료 이벤트 직렬화에 실패했습니다.");
-            throw new AuthException(errorCode);
+            throw new AuthException(errorCode, exception);
         } catch (SqsException exception) {
             // AWS SQS 호출이 실패한 경우입니다. AWS 에러 코드만 남겨 원인 분석에 사용합니다.
             AuthErrorCode errorCode = AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED;
@@ -98,7 +98,7 @@ public class SqsPaymentPinVerifiedEventPublisher implements PaymentPinVerifiedEv
                     .addKeyValue("errorMessage", errorCode.getMessage())
                     .setCause(exception)
                     .log("결제 PIN 검증 완료 이벤트 SQS 발행에 실패했습니다.");
-            throw new AuthException(errorCode);
+            throw new AuthException(errorCode, exception);
         } catch (RuntimeException exception) {
             // JSON/SQS 외 예기치 못한 발행 실패입니다.
             AuthErrorCode errorCode = AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED;
@@ -113,7 +113,7 @@ public class SqsPaymentPinVerifiedEventPublisher implements PaymentPinVerifiedEv
                     .addKeyValue("errorMessage", errorCode.getMessage())
                     .setCause(exception)
                     .log("결제 PIN 검증 완료 이벤트 발행 중 예상하지 못한 오류가 발생했습니다.");
-            throw new AuthException(errorCode);
+            throw new AuthException(errorCode, exception);
         }
     }
 }
