@@ -4,9 +4,11 @@ dependencies {
     implementation 'software.amazon.awssdk:sqs'
     implementation 'software.amazon.awssdk:sts'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'io.opentelemetry:opentelemetry-api:1.62.0'
     runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
