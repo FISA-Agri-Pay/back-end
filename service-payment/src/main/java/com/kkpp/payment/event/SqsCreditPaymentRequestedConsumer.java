@@ -4,7 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kkpp.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.payment.exception.PaymentProcessingException;
+import com.kkpp.payment.global.tracing.SqsTraceContext;
 import com.kkpp.payment.service.CreditPaymentProcessingService;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +62,7 @@ public class SqsCreditPaymentRequestedConsumer {
                     .queueUrl(paymentRequestQueueUrl)
                     .maxNumberOfMessages(maxNumberOfMessages)
                     .waitTimeSeconds(waitTimeSeconds)
+                    .messageAttributeNames(SqsTraceContext.ALL_MESSAGE_ATTRIBUTES)
                     .build());
 
             for (Message sqsMessage : response.messages()) {
@@ -81,6 +85,13 @@ public class SqsCreditPaymentRequestedConsumer {
     }
 
     private void processMessage(Message sqsMessage) {
+        Context parentContext = SqsTraceContext.extract(sqsMessage);
+        try (Scope ignored = parentContext.makeCurrent()) {
+            processMessageWithTraceContext(sqsMessage);
+        }
+    }
+
+    private void processMessageWithTraceContext(Message sqsMessage) {
         CreditPaymentRequestedMessage message = null;
         try {
             message = objectMapper.readValue(sqsMessage.body(), CreditPaymentRequestedMessage.class);
