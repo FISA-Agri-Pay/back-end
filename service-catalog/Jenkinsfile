@@ -159,4 +159,17 @@ pipeline {
             }
         }
     }
+
+    post {
+        always {
+            script {
+                if (env.SKIP_BUILD != 'true') {
+                    sh """
+                        docker rmi ${ECR_IMAGE}:${IMAGE_TAG} || true
+                        docker rmi ${ECR_IMAGE}:latest || true
+                    """
+                }
+            }
+        }
+    }
 }
