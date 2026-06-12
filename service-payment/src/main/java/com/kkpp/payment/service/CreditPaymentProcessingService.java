@@ -7,6 +7,9 @@ import com.kkpp.payment.domain.PaymentEventProcessLog;
 import com.kkpp.payment.domain.PrincipalRepaymentLedger;
 import com.kkpp.payment.dto.CreditPaymentRequestedMessage;
 import com.kkpp.payment.exception.PaymentProcessingException;
+import com.kkpp.payment.global.logging.LogMaskingUtils;
+import com.kkpp.payment.global.logging.LoggingTimeUtils;
+import com.kkpp.payment.global.logging.MonitoredEventLogging;
 import com.kkpp.payment.repository.CreditLimitRepository;
 import com.kkpp.payment.repository.CreditUsageLedgerRepository;
 import com.kkpp.payment.repository.OrderRepository;
@@ -45,30 +48,56 @@ public class CreditPaymentProcessingService {
     private final PrincipalRepaymentLedgerRepository principalRepaymentLedgerRepository;
     private final PaymentEventProcessLogRepository paymentEventProcessLogRepository;
 
+    /*
+     * 외상 결제 요청 이벤트를 실제 DB 상태로 반영하는 핵심 처리입니다.
+     * AOP가 메서드 전체의 시작/완료/실패와 custom span을 남기고, 이 메서드는 단계별 업무 상태를 남깁니다.
+     */
     @Transactional
+    @MonitoredEventLogging(
+            event = "payment.credit-payment-request.db-apply",
+            operationName = "외상 결제 요청 DB 반영",
+            spanName = "service-payment.credit-payment-request.db-apply"
+    )
     public void process(CreditPaymentRequestedMessage message) {
+        long startedAtNanos = System.nanoTime();
         validateMessage(message);
 
         UUID eventId = parseEventId(message.eventId());
         UUID paymentRequestPublicId = message.paymentRequestPublicId();
+
+        log.atInfo()
+                .addKeyValue("event", "payment.credit-payment-request.db-apply.started")
+                .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                .addKeyValue("orderPublicId", LogMaskingUtils.maskUuid(message.orderPublicId()))
+                .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(message.userPublicId()))
+                .addKeyValue("totalAmount", message.totalAmount())
+                .addKeyValue("items", LogMaskingUtils.summarizeCollection(message.items()))
+                .log("외상 결제 요청 DB 반영을 시작했습니다.");
+
         if (paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(eventId, paymentRequestPublicId)) {
-            log.info(
-                    "이미 처리된 외상 결제 요청 이벤트입니다. eventId={}, paymentRequestPublicId={}, idempotencyKey={}",
-                    eventId,
-                    paymentRequestPublicId,
-                    message.idempotencyKey()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "payment.credit-payment-request.db-apply.duplicated")
+                    .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                    .addKeyValue("idempotencyKey", LogMaskingUtils.maskIdentifier(message.idempotencyKey()))
+                    .addKeyValue("resultStatus", "DUPLICATE_IGNORED")
+                    .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
+                    .log("이미 처리된 외상 결제 요청 이벤트라 DB 반영을 건너뜁니다.");
             return;
         }
 
         Order order = orderRepository.findByPaymentRequestPublicId(paymentRequestPublicId)
                 .orElse(null);
         if (order != null && creditUsageLedgerRepository.existsByOrderPublicIdAndUsageType(order.getPublicId(), PURCHASE)) {
-            log.info(
-                    "주문에 대한 외상 사용 원장이 이미 존재합니다. eventId={}, orderPublicId={}",
-                    eventId,
-                    order.getPublicId()
-            );
+            log.atInfo()
+                    .addKeyValue("event", "payment.credit-payment-request.db-apply.ledger-already-exists")
+                    .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskUuid(order.getPublicId()))
+                    .addKeyValue("usageType", PURCHASE)
+                    .addKeyValue("resultStatus", "DUPLICATE_IGNORED")
+                    .log("주문에 대한 외상 사용 원장이 이미 존재해 처리 로그만 저장합니다.");
             paymentEventProcessLogRepository.save(PaymentEventProcessLog.processed(
                     eventId,
                     paymentRequestPublicId,
@@ -89,26 +118,58 @@ public class CreditPaymentProcessingService {
                     message.items(),
                     Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now())
             ));
+            log.atInfo()
+                    .addKeyValue("event", "payment.credit-payment-request.order.persisted")
+                    .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                    .addKeyValue("orderPublicId", LogMaskingUtils.maskUuid(order.getPublicId()))
+                    .addKeyValue("totalAmount", order.getTotalAmount())
+                    .addKeyValue("orderStatus", order.getOrderStatus())
+                    .addKeyValue("deliveryStatus", order.getDeliveryStatus())
+                    .log("외상 결제 주문 정보를 저장했습니다.");
         }
+
         CreditLimit creditLimit = creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(userPublicId, ACTIVE)
-                .orElseThrow(() -> new PaymentProcessingException("활성 한도를 찾을 수 없습니다. userPublicId=" + userPublicId));
+                .orElseThrow(() -> {
+                    log.atWarn()
+                            .addKeyValue("event", "payment.credit-payment-request.db-apply.failed")
+                            .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                            .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                            .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(userPublicId))
+                            .addKeyValue("failureState", "ACTIVE_CREDIT_LIMIT_NOT_FOUND")
+                            .addKeyValue("errorMessage", "활성 한도를 찾을 수 없습니다.")
+                            .log("외상 결제 DB 반영 중 활성 한도를 찾지 못했습니다.");
+                    return new PaymentProcessingException("활성 한도를 찾을 수 없습니다.");
+                });
 
         LocalDate today = LocalDate.now();
         if (!creditLimit.isActive(today)) {
-            throw new PaymentProcessingException(
-                    "사용할 수 없는 한도 상태입니다. userPublicId=" + userPublicId
-                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
-                            + ", status=" + creditLimit.getStatus()
-                            + ", expiresAt=" + creditLimit.getExpiresAt()
-            );
+            log.atWarn()
+                    .addKeyValue("event", "payment.credit-payment-request.db-apply.failed")
+                    .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(userPublicId))
+                    .addKeyValue("creditLimitPublicId", LogMaskingUtils.maskUuid(creditLimit.getPublicId()))
+                    .addKeyValue("creditLimitStatus", creditLimit.getStatus())
+                    .addKeyValue("expiresAt", creditLimit.getExpiresAt())
+                    .addKeyValue("failureState", "CREDIT_LIMIT_NOT_ACTIVE")
+                    .addKeyValue("errorMessage", "사용할 수 없는 한도 상태입니다.")
+                    .log("외상 결제 DB 반영 중 한도 상태가 유효하지 않습니다.");
+            throw new PaymentProcessingException("사용할 수 없는 한도 상태입니다.");
         }
         if (!creditLimit.canUse(message.totalAmount())) {
-            throw new PaymentProcessingException(
-                    "사용 가능 한도가 부족합니다. userPublicId=" + userPublicId
-                            + ", creditLimitPublicId=" + creditLimit.getPublicId()
-                            + ", availableAmount=" + creditLimit.availableAmount()
-                            + ", requestedAmount=" + message.totalAmount()
-            );
+            log.atWarn()
+                    .addKeyValue("event", "payment.credit-payment-request.db-apply.failed")
+                    .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                    .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(userPublicId))
+                    .addKeyValue("creditLimitPublicId", LogMaskingUtils.maskUuid(creditLimit.getPublicId()))
+                    .addKeyValue("availableAmount", creditLimit.availableAmount())
+                    .addKeyValue("requestedAmount", message.totalAmount())
+                    .addKeyValue("failureState", "INSUFFICIENT_CREDIT_LIMIT")
+                    .addKeyValue("errorMessage", "사용 가능한 한도가 부족합니다.")
+                    .log("외상 결제 DB 반영 중 사용 가능한 한도가 부족합니다.");
+            throw new PaymentProcessingException("사용 가능한 한도가 부족합니다.");
         }
 
         LocalDateTime usedAt = Objects.requireNonNullElse(message.occurredAt(), LocalDateTime.now());
@@ -133,14 +194,19 @@ public class CreditPaymentProcessingService {
                 message.idempotencyKey()
         ));
 
-        log.info(
-                "외상 결제 요청 이벤트 처리를 완료했습니다. eventId={}, paymentRequestPublicId={}, userPublicId={}, creditLimitPublicId={}, amount={}",
-                eventId,
-                paymentRequestPublicId,
-                userPublicId,
-                creditLimit.getPublicId(),
-                message.totalAmount()
-        );
+        log.atInfo()
+                .addKeyValue("event", "payment.credit-payment-request.db-apply.completed")
+                .addKeyValue("eventId", LogMaskingUtils.maskUuid(eventId))
+                .addKeyValue("paymentRequestPublicId", LogMaskingUtils.maskUuid(paymentRequestPublicId))
+                .addKeyValue("orderPublicId", LogMaskingUtils.maskUuid(order.getPublicId()))
+                .addKeyValue("userPublicId", LogMaskingUtils.maskUuid(userPublicId))
+                .addKeyValue("creditLimitPublicId", LogMaskingUtils.maskUuid(creditLimit.getPublicId()))
+                .addKeyValue("usedAmount", message.totalAmount())
+                .addKeyValue("availableAmountAfterUse", creditLimit.availableAmount())
+                .addKeyValue("principalDueDate", creditLimit.getPrincipalDueDate())
+                .addKeyValue("durationMs", LoggingTimeUtils.elapsedMillis(startedAtNanos))
+                .addKeyValue("resultStatus", "SUCCESS")
+                .log("외상 결제 요청 이벤트 DB 반영을 완료했습니다.");
     }
 
     private void validateMessage(CreditPaymentRequestedMessage message) {
@@ -167,7 +233,7 @@ public class CreditPaymentProcessingService {
         }
         validateDeliveryAddress(message.deliveryAddress());
         if (message.totalAmount() == null || message.totalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다. amount=" + message.totalAmount());
+            throw new PaymentProcessingException("결제 요청 금액이 올바르지 않습니다.");
         }
     }
 
@@ -194,7 +260,7 @@ public class CreditPaymentProcessingService {
         try {
             return UUID.fromString(eventId);
         } catch (IllegalArgumentException exception) {
-            throw new PaymentProcessingException("결제 요청 메시지 eventId가 UUID 형식이 아닙니다. eventId=" + eventId, exception);
+            throw new PaymentProcessingException("결제 요청 메시지 eventId가 UUID 형식이 아닙니다.", exception);
         }
     }
 
