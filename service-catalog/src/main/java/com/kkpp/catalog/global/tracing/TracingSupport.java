@@ -17,6 +17,9 @@ public class TracingSupport {
 
     // OTel Java Agent가 붙어 있으면 현재 요청 trace 아래에 service-catalog 전용 custom span을 생성합니다.
     public Span startSpan(String spanName) {
+        if (spanName == null || spanName.isBlank()) {
+            throw new IllegalArgumentException("spanName must not be null or blank");
+        }
         return tracer.spanBuilder(spanName).startSpan();
     }
 
