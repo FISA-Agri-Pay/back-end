@@ -33,6 +33,10 @@ spec:
     spec:
       serviceAccountName: service-catalog-sa
 
+      # non-root initContainer가 emptyDir 볼륨에 jar를 복사할 수 있도록 그룹 권한을 맞춥니다.
+      securityContext:
+        fsGroup: 10001
+
       # OpenTelemetry Java Agent jar를 앱 컨테이너와 공유하기 위한 임시 볼륨입니다.
       volumes:
         - name: otel-agent
@@ -48,6 +52,19 @@ spec:
             - sh
             - -c
             - cp /otel/opentelemetry-javaagent.jar /otel-agent/opentelemetry-javaagent.jar
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
           volumeMounts:
             - name: otel-agent
               mountPath: /otel-agent
