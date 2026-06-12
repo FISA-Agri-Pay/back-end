@@ -151,6 +151,28 @@ pipeline {
     }
 
     post {
+        success {
+            script {
+                if (env.SKIP_BUILD != 'true' && (env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev')) {
+                    withCredentials([string(credentialsId: 'ARGOCD_PASSWORD', variable: 'ARGOCD_PASS')]) {
+                        sh """
+                            argocd login argocd.dev6.fisa \
+                                --username admin \
+                                --password \${ARGOCD_PASS} \
+                                --insecure \
+                                --grpc-web
+
+                            argocd app sync service-core --grpc-web
+                            argocd app wait service-core --health --timeout 300 --grpc-web
+                        """
+                    }
+                    def duration = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 1000
+                    echo "========================================="
+                    echo "E2E 배포 시간: ${duration}초"
+                    echo "========================================="
+                }
+            }
+        }
         always {
             sh 'rm -rf gitops'
             cleanWs()
