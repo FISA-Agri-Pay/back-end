@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -57,8 +56,8 @@ public class MonitoredApiLoggingAspect {
                     .log("카탈로그 API 요청 처리가 완료되었습니다.");
             return result;
         } catch (Throwable exception) {
-            LoggingEventBuilder builder = exception instanceof BusinessException ? log.atInfo() : log.atWarn();
-            builder.addKeyValue("event", monitoredApiLogging.event() + ".failed")
+            log.atWarn()
+                    .addKeyValue("event", monitoredApiLogging.event() + ".failed")
                     .addKeyValue("apiName", monitoredApiLogging.apiName())
                     .addKeyValue("method", method)
                     .addKeyValue("uri", uri)
