@@ -9,7 +9,7 @@ RUN jlink \
 
 FROM eclipse-temurin:21-jdk-alpine AS extractor
 WORKDIR /workspace
-COPY build/libs/*-SNAPSHOT.jar app.jar
+COPY build/libs/*.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 FROM alpine:3.23
