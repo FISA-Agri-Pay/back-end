@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
 public final class SqsTraceContext {
 
     public static final String ALL_MESSAGE_ATTRIBUTES = "All";
+    private static final String TRACEPARENT = "traceparent";
 
     private static final TextMapGetter<Message> GETTER = new TextMapGetter<>() {
         @Override
@@ -33,11 +34,20 @@ public final class SqsTraceContext {
 
     /*
      * service-catalog가 SQS messageAttributes에 담은 traceparent/tracestate를 꺼냅니다.
-     * traceparent가 없는 예전 메시지는 현재 context를 그대로 사용하므로 독립 trace로 처리됩니다.
+     * traceparent가 없는 예전 메시지는 root context를 사용해 독립 trace로 처리됩니다.
      */
     public static Context extract(Message message) {
+        if (!hasTraceparent(message)) {
+            return Context.root();
+        }
         return GlobalOpenTelemetry.getPropagators()
                 .getTextMapPropagator()
-                .extract(Context.current(), message, GETTER);
+                .extract(Context.root(), message, GETTER);
+    }
+
+    public static boolean hasTraceparent(Message message) {
+        return message != null
+                && message.messageAttributes() != null
+                && message.messageAttributes().containsKey(TRACEPARENT);
     }
 }
