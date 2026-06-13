@@ -162,13 +162,23 @@ class CreditReviewServiceTest {
                 LocalDateTime.now()
         );
         when(applicationRepository.findReviewSummaries(eq(CreditReviewStatus.PENDING), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(java.util.List.of(summary)));
+                .thenAnswer(invocation -> new PageImpl<>(
+                        java.util.List.of(summary),
+                        invocation.getArgument(1),
+                        1
+                ));
 
         var response = creditReviewService.getReviews(CreditReviewStatus.PENDING, -1, 0);
 
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(applicationRepository).findReviewSummaries(eq(CreditReviewStatus.PENDING), pageableCaptor.capture());
+        Pageable capturedPageable = pageableCaptor.getValue();
+
         assertThat(response.reviews()).hasSize(1);
-        assertThat(response.page()).isZero();
-        assertThat(response.size()).isEqualTo(1);
+        assertThat(capturedPageable.getPageNumber()).isZero();
+        assertThat(capturedPageable.getPageSize()).isEqualTo(20);
+        assertThat(response.page()).isEqualTo(capturedPageable.getPageNumber());
+        assertThat(response.size()).isEqualTo(capturedPageable.getPageSize());
     }
 
     @Test

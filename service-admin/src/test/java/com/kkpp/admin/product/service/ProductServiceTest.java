@@ -151,7 +151,7 @@ class ProductServiceTest {
     }
 
     @Test
-    void updateProductThrowsWhenProductDoesNotExist() {
+    void stopSellingProductThrowsWhenProductDoesNotExist() {
         when(productRepository.findByPublicId(PRODUCT_PUBLIC_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productService.stopSellingProduct(PRODUCT_PUBLIC_ID))

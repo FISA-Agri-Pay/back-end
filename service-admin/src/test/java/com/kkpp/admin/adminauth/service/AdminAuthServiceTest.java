@@ -82,6 +82,7 @@ class AdminAuthServiceTest {
 
         AdminAuthUser userRole = adminAuthUser(ADMIN_PUBLIC_ID, "USER", "ACTIVE");
         when(adminAuthUserRepository.findByEmailIgnoreCase("user@kkpp.com")).thenReturn(Optional.of(userRole));
+        when(passwordEncoder.matches("password", "encoded-password")).thenReturn(true);
 
         assertThatThrownBy(() -> adminAuthService.login(new AdminLoginRequest("user@kkpp.com", "password")))
                 .isInstanceOf(BusinessException.class);
