@@ -9,7 +9,7 @@ ext {
     mapstructVersion = '1.5.5.Final'
     lombokMapstructBindingVersion = '0.2.0'
     jjwtVersion = '0.12.6'
-    springdocOpenapiVersion = '2.5.0'
+    springdocOpenapiVersion = '2.8.17'
     awsSdkVersion = '2.26.7'
     onPremSpringBootVersion = '3.5.14'
     tomcatVersion = '10.1.55'
