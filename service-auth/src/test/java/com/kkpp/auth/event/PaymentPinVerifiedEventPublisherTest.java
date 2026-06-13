@@ -1,6 +1,7 @@
 package com.kkpp.auth.event;
 
 import static com.kkpp.auth.testsupport.AuthTestEntityFactory.USER_PUBLIC_ID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -65,10 +66,10 @@ class PaymentPinVerifiedEventPublisherTest {
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(sqsClient).sendMessage(requestCaptor.capture());
         SendMessageRequest request = requestCaptor.getValue();
-        org.assertj.core.api.Assertions.assertThat(request.queueUrl()).contains("queue.fifo");
-        org.assertj.core.api.Assertions.assertThat(request.messageBody()).isEqualTo("{\"eventId\":\"test\"}");
-        org.assertj.core.api.Assertions.assertThat(request.messageGroupId()).isEqualTo(USER_PUBLIC_ID.toString());
-        org.assertj.core.api.Assertions.assertThat(request.messageDeduplicationId()).isEqualTo(VERIFICATION_ID.toString());
+        assertThat(request.queueUrl()).contains("queue.fifo");
+        assertThat(request.messageBody()).isEqualTo("{\"eventId\":\"test\"}");
+        assertThat(request.messageGroupId()).isEqualTo(USER_PUBLIC_ID.toString());
+        assertThat(request.messageDeduplicationId()).isEqualTo(VERIFICATION_ID.toString());
     }
 
     @Test
@@ -96,7 +97,7 @@ class PaymentPinVerifiedEventPublisherTest {
 
         assertThatThrownBy(() -> sqsPublisher.publish(event()))
                 .isInstanceOfSatisfying(AuthException.class, exception ->
-                        org.assertj.core.api.Assertions.assertThat(exception.getErrorCode())
+                        assertThat(exception.getErrorCode())
                                 .isEqualTo(AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED));
     }
 
@@ -109,7 +110,7 @@ class PaymentPinVerifiedEventPublisherTest {
 
         assertThatThrownBy(() -> sqsPublisher.publish(event()))
                 .isInstanceOfSatisfying(AuthException.class, exception ->
-                        org.assertj.core.api.Assertions.assertThat(exception.getErrorCode())
+                        assertThat(exception.getErrorCode())
                                 .isEqualTo(AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED));
     }
 
@@ -120,7 +121,7 @@ class PaymentPinVerifiedEventPublisherTest {
 
         assertThatThrownBy(() -> sqsPublisher.publish(event()))
                 .isInstanceOfSatisfying(AuthException.class, exception ->
-                        org.assertj.core.api.Assertions.assertThat(exception.getErrorCode())
+                        assertThat(exception.getErrorCode())
                                 .isEqualTo(AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED));
     }
 
@@ -131,7 +132,7 @@ class PaymentPinVerifiedEventPublisherTest {
 
         assertThatThrownBy(() -> sqsPublisher.publish(event()))
                 .isInstanceOfSatisfying(AuthException.class, exception ->
-                        org.assertj.core.api.Assertions.assertThat(exception.getErrorCode())
+                        assertThat(exception.getErrorCode())
                                 .isEqualTo(AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED));
     }
 

@@ -11,8 +11,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -273,6 +273,7 @@ class AuthServiceTest {
         verify(paymentPinVerifiedEventPublisher).publish(eventCaptor.capture());
         assertThat(eventCaptor.getValue().userPublicId()).isEqualTo(USER_PUBLIC_ID);
         assertThat(eventCaptor.getValue().verificationType()).isEqualTo("PAYMENT_PIN");
+        verify(scope).close();
         verify(span).end();
     }
 
@@ -328,7 +329,9 @@ class AuthServiceTest {
                 .isInstanceOfSatisfying(AuthException.class, exception ->
                         assertThat(exception.getErrorCode())
                                 .isEqualTo(AuthErrorCode.PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED));
-        verify(tracingSupport, atLeastOnce()).recordException(eq(span), any(RuntimeException.class));
+        verify(tracingSupport, times(2)).recordException(eq(span), any(RuntimeException.class));
+        verify(scope).close();
+        verify(span).end();
     }
 
     private RegisterRequest registerRequest() {

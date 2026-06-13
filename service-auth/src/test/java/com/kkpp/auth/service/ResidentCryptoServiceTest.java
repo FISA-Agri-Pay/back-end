@@ -64,6 +64,6 @@ class ResidentCryptoServiceTest {
         ReflectionTestUtils.setField(residentCryptoService, "residentIdEncryptionKey", null);
 
         assertThatThrownBy(() -> residentCryptoService.encrypt("9001011234567"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(NullPointerException.class);
     }
 }
