@@ -1,3 +1,7 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     // AWS SDK BOM으로 S3 및 의존 모듈의 버전을 일괄 관리함
     implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
@@ -34,4 +38,36 @@ dependencies {
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/AdminApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/dto/**',
+                '**/mapper/**',
+                '**/repository/**',
+                '**/storage/**',
+                '**/global/**',
+                '**/*DocumentUrlService*'
+        ])
+    }))
 }
