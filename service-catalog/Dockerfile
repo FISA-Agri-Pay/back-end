@@ -11,8 +11,14 @@ FROM eclipse-temurin:21-jdk-alpine AS extractor
 WORKDIR /workspace
 COPY build/libs/*.jar build/libs/
 RUN set -eux; \
-    jar_file="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | sort | head -n 1)"; \
-    test -n "$jar_file"; \
+    find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | sort > /tmp/app-jars.txt; \
+    jar_count="$(wc -l < /tmp/app-jars.txt | tr -d ' ')"; \
+    if [ "$jar_count" -ne 1 ]; then \
+        echo "Expected exactly one executable jar, but found $jar_count:"; \
+        cat /tmp/app-jars.txt; \
+        exit 1; \
+    fi; \
+    jar_file="$(cat /tmp/app-jars.txt)"; \
     cp "$jar_file" app.jar; \
     java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
