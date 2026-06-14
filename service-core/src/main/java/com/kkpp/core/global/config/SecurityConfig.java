@@ -92,7 +92,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://api-auth.dev6.fisa",
+                "http://api-core.dev6.fisa",
+                "https://api-auth.dev6.fisa",
+                "https://api-core.dev6.fisa",
+                "https://kongkongpatpat.shop",
+                "https://www.kongkongpatpat.shop"
+        ));
         configuration.setAllowedMethods(List.of(
                 HttpMethod.GET.name(),
                 HttpMethod.POST.name(),

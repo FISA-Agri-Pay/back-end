@@ -98,7 +98,8 @@ public class SecurityConfig {
                 "http://api-core.dev6.fisa",
                 "https://api-auth.dev6.fisa",
                 "https://api-core.dev6.fisa",
-                "https://d27uwxuknjrbcr.cloudfront.net"
+                "https://kongkongpatpat.shop",
+                "https://www.kongkongpatpat.shop"
         ));
         configuration.setAllowedMethods(List.of(
                 HttpMethod.GET.name(),
