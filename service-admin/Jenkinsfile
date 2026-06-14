@@ -155,16 +155,21 @@ pipeline {
             script {
                 if (env.SKIP_BUILD != 'true' && (env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev')) {
                     withCredentials([string(credentialsId: 'ARGOCD_TOKEN', variable: 'ARGOCD_AUTH_TOKEN')]) {
+                        def syncStart = System.currentTimeMillis()
                         sh """
                             export ARGOCD_SERVER=argocd.dev6.fisa
+                            argocd app terminate-op service-admin --insecure --grpc-web || true
+                            argocd app wait service-admin --operation --insecure --grpc-web || true
                             argocd app sync service-admin --insecure --grpc-web
                             argocd app wait service-admin --health --timeout 300 --insecure --grpc-web
                         """
+                        def syncDuration = (System.currentTimeMillis() - syncStart) / 1000
+                        def totalDuration = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 1000
+                        echo "========================================="
+                        echo "ArgoCD 배포 시간: ${syncDuration}초"
+                        echo "E2E 총 배포 시간: ${totalDuration}초"
+                        echo "========================================="
                     }
-                    def duration = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 1000
-                    echo "========================================="
-                    echo "E2E 배포 시간: ${duration}초"
-                    echo "========================================="
                 }
             }
         }
