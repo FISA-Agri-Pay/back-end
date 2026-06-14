@@ -32,6 +32,7 @@ import com.kkpp.payment.repository.PrincipalRepaymentLedgerRepository;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -152,6 +153,36 @@ class CreditPaymentProcessingServiceTest {
     }
 
     @Test
+    void processAcceptsNullOccurredAtAndUsesFallbackTime() {
+        CreditLimit creditLimit = activeCreditLimit();
+        CreditPaymentRequestedMessage nullOccurredAtMessage = new CreditPaymentRequestedMessage(
+                EVENT_ID.toString(),
+                "CREDIT_PAYMENT_REQUESTED",
+                null,
+                PAYMENT_REQUEST_PUBLIC_ID,
+                USER_PUBLIC_ID,
+                ORDER_PUBLIC_ID,
+                new BigDecimal("120000"),
+                deliveryAddress(),
+                java.util.List.of(),
+                "idem-key-001"
+        );
+        when(paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(EVENT_ID, PAYMENT_REQUEST_PUBLIC_ID))
+                .thenReturn(false);
+        when(orderRepository.findByPaymentRequestPublicId(PAYMENT_REQUEST_PUBLIC_ID)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(creditLimitRepository.findFirstByUserPublicIdAndStatusOrderByIdDesc(USER_PUBLIC_ID, "ACTIVE"))
+                .thenReturn(Optional.of(creditLimit));
+
+        service.process(nullOccurredAtMessage);
+
+        verify(orderRepository).save(any(Order.class));
+        verify(creditUsageLedgerRepository).save(any(CreditUsageLedger.class));
+        verify(principalRepaymentLedgerRepository).save(any(PrincipalRepaymentLedger.class));
+        verify(paymentEventProcessLogRepository).save(any(PaymentEventProcessLog.class));
+    }
+
+    @Test
     void processThrowsWhenActiveCreditLimitDoesNotExist() {
         when(paymentEventProcessLogRepository.existsByEventIdOrPaymentRequestPublicId(EVENT_ID, PAYMENT_REQUEST_PUBLIC_ID))
                 .thenReturn(false);
@@ -186,7 +217,7 @@ class CreditPaymentProcessingServiceTest {
         assertThatThrownBy(() -> service.process(messageWith(EVENT_ID.toString(), null, USER_PUBLIC_ID,
                 ORDER_PUBLIC_ID, BigDecimal.ONE, deliveryAddress()))).isInstanceOf(PaymentProcessingException.class);
         assertThatThrownBy(() -> service.process(new CreditPaymentRequestedMessage(
-                EVENT_ID.toString(), "CREDIT_PAYMENT_REQUESTED", null, PAYMENT_REQUEST_PUBLIC_ID, USER_PUBLIC_ID,
+                EVENT_ID.toString(), "CREDIT_PAYMENT_REQUESTED", LocalDateTime.of(2026, 6, 14, 10, 30), PAYMENT_REQUEST_PUBLIC_ID, USER_PUBLIC_ID,
                 ORDER_PUBLIC_ID, BigDecimal.ONE, deliveryAddress(), java.util.List.of(), null
         ))).isInstanceOf(PaymentProcessingException.class);
         assertThatThrownBy(() -> service.process(messageWith(EVENT_ID.toString(), PAYMENT_REQUEST_PUBLIC_ID, null,
@@ -200,7 +231,7 @@ class CreditPaymentProcessingServiceTest {
         assertThatThrownBy(() -> service.process(messageWith(EVENT_ID.toString(), PAYMENT_REQUEST_PUBLIC_ID, USER_PUBLIC_ID,
                 ORDER_PUBLIC_ID, BigDecimal.ZERO, deliveryAddress()))).isInstanceOf(PaymentProcessingException.class);
         assertThatThrownBy(() -> service.process(new CreditPaymentRequestedMessage(
-                EVENT_ID.toString(), "CREDIT_PAYMENT_REQUESTED", null, PAYMENT_REQUEST_PUBLIC_ID, USER_PUBLIC_ID,
+                EVENT_ID.toString(), "CREDIT_PAYMENT_REQUESTED", LocalDateTime.of(2026, 6, 14, 10, 30), PAYMENT_REQUEST_PUBLIC_ID, USER_PUBLIC_ID,
                 ORDER_PUBLIC_ID, BigDecimal.ONE, deliveryAddress(), java.util.List.of(), " "
         ))).isInstanceOf(PaymentProcessingException.class);
     }
