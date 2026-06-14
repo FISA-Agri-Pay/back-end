@@ -150,16 +150,11 @@ pipeline {
         success {
             script {
                 if (env.SKIP_BUILD != 'true' && (env.GIT_BRANCH == 'dev' || env.GIT_BRANCH == 'origin/dev')) {
-                    withCredentials([string(credentialsId: 'ARGOCD_PASSWORD', variable: 'ARGOCD_PASS')]) {
+                    withCredentials([string(credentialsId: 'ARGOCD_TOKEN', variable: 'ARGOCD_AUTH_TOKEN')]) {
                         sh """
-                            argocd login argocd.dev6.fisa \
-                                --username admin \
-                                --password \${ARGOCD_PASS} \
-                                --insecure \
-                                --grpc-web
-
-                            argocd app sync service-auth --grpc-web
-                            argocd app wait service-auth --health --timeout 300 --grpc-web
+                            export ARGOCD_SERVER=argocd.dev6.fisa
+                            argocd app sync service-auth --insecure --grpc-web
+                            argocd app wait service-auth --health --timeout 300 --insecure --grpc-web
                         """
                     }
                     def duration = (System.currentTimeMillis() - currentBuild.startTimeInMillis) / 1000
