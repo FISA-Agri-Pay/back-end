@@ -26,6 +26,19 @@ catalog:
   kafka:
     payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
 
+payment-request:
+  sqs:
+    queue-url: ${PAYMENT_REQUEST_QUEUE_URL:http://localhost:4566/000000000000/credit-payment-requested.fifo}
+
+payment-pin-verification:
+  sqs:
+    queue-url: ${PAYMENT_PIN_VERIFIED_QUEUE_URL:http://localhost:4566/000000000000/payment-pin-verified.fifo}
+
+cloud:
+  aws:
+    sqs:
+      endpoint: ${CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level trace_id=%X{trace_id:-} span_id=%X{span_id:-} %logger{36} %kvp - %msg%n"

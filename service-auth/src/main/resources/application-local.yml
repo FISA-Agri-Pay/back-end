@@ -18,6 +18,13 @@ cookie:
 
 payment-pin-verification:
   transport: ${PAYMENT_PIN_VERIFICATION_TRANSPORT:none}
+  sqs:
+    queue-url: ${PAYMENT_PIN_VERIFIED_QUEUE_URL:http://localhost:4566/000000000000/payment-pin-verified.fifo}
+
+cloud:
+  aws:
+    sqs:
+      endpoint: ${CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
 
 logging:
   pattern:
