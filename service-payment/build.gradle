@@ -1,3 +1,7 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
     implementation project(':common-core')
@@ -13,6 +17,36 @@ dependencies {
 
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/PaymentApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/repository/**',
+                '**/global/**'
+        ])
+    }))
 }
 
 tasks.withType(JavaCompile).configureEach {
