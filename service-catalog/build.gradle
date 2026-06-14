@@ -1,3 +1,7 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
     implementation project(':common-core')
@@ -21,4 +25,36 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/CatalogApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/dto/**',
+                '**/repository/**',
+                '**/event/**',
+                '**/global/**'
+        ])
+    }))
 }
