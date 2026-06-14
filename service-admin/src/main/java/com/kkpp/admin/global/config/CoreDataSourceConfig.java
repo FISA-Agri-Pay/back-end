@@ -15,6 +15,8 @@ import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 
@@ -30,6 +32,8 @@ import org.springframework.util.StringUtils;
     transactionManagerRef = "coreTransactionManager"
 )
 public class CoreDataSourceConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(CoreDataSourceConfig.class);
 
     // core DB의 primary 접속 정보입니다.
     // 기존 DB_URL, DB_USERNAME, DB_PASSWORD 값이 여기에 바인딩됩니다.
@@ -123,6 +127,7 @@ public class CoreDataSourceConfig {
         // DB_REPLICA_URL이 설정되지 않은 환경에서는 replica 분리를 비활성화하고 primary만 사용합니다.
         // 이 덕분에 local/dev/prod 설정에 replica 값을 넣지 않아도 애플리케이션은 기존처럼 실행됩니다.
         if (!StringUtils.hasText(replicaProperties.getUrl())) {
+            log.warn("core replica URL이 비어 있어 PRIMARY로 폴백합니다. readOnly 트랜잭션도 PRIMARY를 사용합니다.");
             return primaryDataSource;
         }
         return replicaProperties.initializeDataSourceBuilder().build();
