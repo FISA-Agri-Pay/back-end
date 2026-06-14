@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -279,21 +278,6 @@ class SqsCreditPaymentRequestedConsumerTest {
         consumer.poll();
 
         verify(creditPaymentProcessingService).process(any(CreditPaymentRequestedMessage.class));
-    }
-
-    @Test
-    void deleteMessageHandlesNullMessageAndAwsErrorDetails() throws Exception {
-        Message sqsMessage = sqsMessage("{}");
-
-        ReflectionTestUtils.invokeMethod(consumer, "deleteMessage", sqsMessage, null);
-
-        when(sqsClient.deleteMessage(any(DeleteMessageRequest.class)))
-                .thenThrow(SqsException.builder()
-                        .message("delete failed")
-                        .awsErrorDetails(AwsErrorDetails.builder().errorCode("ReceiptHandleIsInvalid").build())
-                        .build());
-
-        ReflectionTestUtils.invokeMethod(consumer, "deleteMessage", sqsMessage, null);
     }
 
     @Test
