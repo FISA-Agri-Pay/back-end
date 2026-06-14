@@ -10,8 +10,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -77,9 +75,15 @@ public final class CatalogTestEntityFactory {
     }
 
     public static PaymentPinVerification expiredPaymentPinVerification(UUID verificationId, UUID userPublicId) {
-        PaymentPinVerification verification = PaymentPinVerification.from(paymentPinVerifiedEvent(EVENT_ID, verificationId, userPublicId));
-        set(verification, "expiresAt", LocalDateTime.ofInstant(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
-        return verification;
+        Instant verifiedAt = Instant.parse("2026-01-01T00:00:00Z");
+        return PaymentPinVerification.from(new PaymentPinVerifiedEvent(
+                EVENT_ID,
+                verificationId,
+                userPublicId,
+                verifiedAt,
+                verifiedAt.plusSeconds(300),
+                PaymentPinVerification.TYPE_PAYMENT_PIN
+        ));
     }
 
     private static <T> T instantiate(Class<T> type) {

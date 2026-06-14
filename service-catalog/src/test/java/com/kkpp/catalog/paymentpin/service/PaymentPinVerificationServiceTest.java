@@ -10,6 +10,7 @@ import static com.kkpp.catalog.testsupport.CatalogTestEntityFactory.paymentPinVe
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +51,8 @@ class PaymentPinVerificationServiceTest {
         paymentPinVerificationService.store(event);
         paymentPinVerificationService.store(event);
 
-        verify(paymentPinVerificationRepository).save(org.mockito.ArgumentMatchers.any(PaymentPinVerification.class));
+        verify(paymentPinVerificationRepository, times(1))
+                .save(org.mockito.ArgumentMatchers.any(PaymentPinVerification.class));
     }
 
     @Test
