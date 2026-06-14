@@ -1,11 +1,19 @@
 spring:
   datasource:
     core:
+      # core primary DB 접속 정보입니다. 쓰기 트랜잭션과 readOnly가 아닌 트랜잭션이 사용합니다.
       url: ${DB_URL}
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
+      replica:
+        # core replica DB 접속 정보입니다. @Transactional(readOnly = true) 조회 트랜잭션이 사용합니다.
+        url: ${DB_REPLICA_URL:}
+        username: ${DB_REPLICA_USERNAME:${DB_USERNAME}}
+        password: ${DB_REPLICA_PASSWORD:${DB_PASSWORD}}
+        driver-class-name: org.postgresql.Driver
     catalog:
+      # catalog DB는 단일 DB 구성이므로 read/write 라우팅을 적용하지 않습니다.
       url: ${CATALOG_DB_URL}
       username: ${CATALOG_DB_USERNAME}
       password: ${CATALOG_DB_PASSWORD}
