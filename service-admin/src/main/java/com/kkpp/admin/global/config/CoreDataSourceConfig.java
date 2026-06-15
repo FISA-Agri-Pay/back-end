@@ -1,5 +1,7 @@
 package com.kkpp.admin.global.config;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,6 +54,15 @@ public class CoreDataSourceConfig {
         return new DataSourceProperties();
     }
 
+    // spring.datasource.core.hikari 하위의 풀 설정을 바인딩하는 홀더입니다.
+    // primary/replica 두 풀에 동일하게 적용되며, 커스텀 DataSource라 자동 설정이 닿지 않으므로
+    // 여기서 명시적으로 읽어 buildHikariDataSource()에서 각 풀에 복사합니다.
+    @Bean
+    @ConfigurationProperties("spring.datasource.core.hikari")
+    public HikariConfig coreHikariConfig() {
+        return new HikariConfig();
+    }
+
     // JPA가 바라보는 DataSource Bean입니다.
     // 외부에서는 하나의 DataSource처럼 보이지만, 내부에서는 트랜잭션 readOnly 여부에 따라
     // primary 또는 replica 중 실제 접속 대상을 동적으로 선택합니다.
@@ -59,9 +70,10 @@ public class CoreDataSourceConfig {
     @Bean
     public DataSource coreDataSource(
         @Qualifier("corePrimaryDataSourceProperties") DataSourceProperties primaryProperties,
-        @Qualifier("coreReplicaDataSourceProperties") DataSourceProperties replicaProperties
+        @Qualifier("coreReplicaDataSourceProperties") DataSourceProperties replicaProperties,
+        HikariConfig hikariConfig
     ) {
-        return routingDataSource(primaryProperties, replicaProperties);
+        return routingDataSource(primaryProperties, replicaProperties, hikariConfig);
     }
 
     @Primary
@@ -95,13 +107,14 @@ public class CoreDataSourceConfig {
 
     private DataSource routingDataSource(
         DataSourceProperties primaryProperties,
-        DataSourceProperties replicaProperties
+        DataSourceProperties replicaProperties,
+        HikariConfig hikariConfig
     ) {
         // 쓰기 작업과 readOnly가 아닌 트랜잭션이 사용할 primary DB입니다.
-        DataSource primaryDataSource = primaryProperties.initializeDataSourceBuilder().build();
+        DataSource primaryDataSource = buildHikariDataSource(primaryProperties, hikariConfig);
 
         // 읽기 전용 트랜잭션이 사용할 replica DB입니다.
-        DataSource replicaDataSource = createReplicaDataSourceOrFallback(replicaProperties, primaryDataSource);
+        DataSource replicaDataSource = createReplicaDataSourceOrFallback(replicaProperties, primaryDataSource, hikariConfig);
 
         Map<Object, Object> targetDataSources = new HashMap<>();
         targetDataSources.put(DataSourceLookupKey.PRIMARY, primaryDataSource);
@@ -122,7 +135,8 @@ public class CoreDataSourceConfig {
 
     private DataSource createReplicaDataSourceOrFallback(
         DataSourceProperties replicaProperties,
-        DataSource primaryDataSource
+        DataSource primaryDataSource,
+        HikariConfig hikariConfig
     ) {
         // DB_REPLICA_URL이 설정되지 않은 환경에서는 replica 분리를 비활성화하고 primary만 사용합니다.
         // 이 덕분에 local/dev/prod 설정에 replica 값을 넣지 않아도 애플리케이션은 기존처럼 실행됩니다.
@@ -130,6 +144,24 @@ public class CoreDataSourceConfig {
             log.warn("core replica URL이 비어 있어 PRIMARY로 폴백합니다. readOnly 트랜잭션도 PRIMARY를 사용합니다.");
             return primaryDataSource;
         }
-        return replicaProperties.initializeDataSourceBuilder().build();
+        return buildHikariDataSource(replicaProperties, hikariConfig);
+    }
+
+    // DataSourceProperties로 HikariDataSource를 만든 뒤 coreHikariConfig의 풀 설정만 복사합니다.
+    // 접속 정보(jdbcUrl/username/password)는 각 properties에서 이미 채워졌으므로 건드리지 않고,
+    // 풀 관련 설정만 명시적으로 덮어써 primary/replica에 동일한 풀 정책을 적용합니다.
+    // (HikariConfig#copyStateTo는 jdbcUrl 등 모든 필드를 덮어쓰므로 사용하지 않습니다.)
+    // minimum-idle은 의도적으로 복사하지 않습니다. 미설정 시 HikariCP가 maximum-pool-size와 동일하게
+    // 취급하여 고정 크기 풀로 동작합니다.
+    private DataSource buildHikariDataSource(DataSourceProperties properties, HikariConfig hikariConfig) {
+        HikariDataSource dataSource = properties.initializeDataSourceBuilder()
+            .type(HikariDataSource.class)
+            .build();
+        dataSource.setMaximumPoolSize(hikariConfig.getMaximumPoolSize());
+        dataSource.setMaxLifetime(hikariConfig.getMaxLifetime());
+        dataSource.setKeepaliveTime(hikariConfig.getKeepaliveTime());
+        dataSource.setConnectionTimeout(hikariConfig.getConnectionTimeout());
+        dataSource.setLeakDetectionThreshold(hikariConfig.getLeakDetectionThreshold());
+        return dataSource;
     }
 }
