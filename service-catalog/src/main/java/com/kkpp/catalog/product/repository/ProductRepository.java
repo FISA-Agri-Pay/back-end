@@ -28,4 +28,23 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             where p.publicId = :publicId
             """)
     Optional<Product> findByPublicIdWithCategory(@Param("publicId") UUID publicId);
+
+    @Query("""
+            select p
+            from Product p
+            join fetch p.category
+            where p.publicId in :publicIds
+              and p.status = 'ON_SALE'
+              and p.stockQuantity > 0
+            """)
+    List<Product> findSellableByPublicIds(@Param("publicIds") List<UUID> publicIds);
+
+    @Query("""
+            select p
+            from Product p
+            join fetch p.category
+            where p.status = 'ON_SALE'
+              and p.stockQuantity > 0
+            """)
+    List<Product> findAllSellable();
 }
