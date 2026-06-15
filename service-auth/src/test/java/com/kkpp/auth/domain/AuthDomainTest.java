@@ -5,6 +5,7 @@ import static com.kkpp.auth.testsupport.AuthTestEntityFactory.USER_PUBLIC_ID;
 import static com.kkpp.auth.testsupport.AuthTestEntityFactory.user;
 import static com.kkpp.auth.testsupport.AuthTestEntityFactory.userAuth;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +32,27 @@ class AuthDomainTest {
         assertThat(created.getAddressDetail()).isEqualTo("101호");
         assertThat(created.getZipCode()).isEqualTo("12345");
         assertThat(created.getStatus()).isEqualTo(UserStatus.ACTIVE.name());
+    }
+
+    @Test
+    void updateAddressChangesAddressFields() {
+        User user = user();
+
+        user.updateAddress("부산시 해운대구", null, "67890");
+
+        assertThat(user.getAddress()).isEqualTo("부산시 해운대구");
+        assertThat(user.getAddressDetail()).isNull();
+        assertThat(user.getZipCode()).isEqualTo("67890");
+    }
+
+    @Test
+    void updateAddressRejectsBlankAddressOrZipCode() {
+        User user = user();
+
+        assertThatThrownBy(() -> user.updateAddress(" ", "101호", "12345"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> user.updateAddress("서울시 강남구", "101호", null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
