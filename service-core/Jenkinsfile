@@ -42,6 +42,7 @@ pipeline {
                         'common-security/',
                         'build.gradle',
                         'settings.gradle',
+                        'gradle.properties',
                         'gradle/'
                     ]
                     def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
