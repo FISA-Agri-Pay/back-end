@@ -194,6 +194,21 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginRejectsWithdrawnUser() {
+        User user = user();
+        user.withdraw();
+        UserAuth userAuth = userAuth(user);
+        when(userRepository.findByPhone(PHONE)).thenReturn(Optional.of(user));
+        when(userAuthRepository.findByUser(user)).thenReturn(Optional.of(userAuth));
+        when(passwordEncoder.matches("password12", "encoded-password")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest(PHONE, "password12")))
+                .isInstanceOfSatisfying(AuthException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.USER_WITHDRAWN));
+        assertThat(userAuth.getLastLoginAt()).isNull();
+    }
+
+    @Test
     void refreshValidatesTokenAndIssuesNewTokens() {
         User user = user();
         UserAuth userAuth = userAuth(user);

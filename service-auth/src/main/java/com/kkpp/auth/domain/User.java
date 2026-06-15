@@ -70,5 +70,19 @@ public class User extends BaseEntity {
         user.status = UserStatus.ACTIVE.name();
         return user;
     }
+
+    public void updateAddress(String address, String addressDetail, String zipCode) {
+        this.address = address;
+        this.addressDetail = addressDetail;
+        this.zipCode = zipCode;
+    }
+
+    public void withdraw() {
+        this.status = UserStatus.INACTIVE.name();
+    }
+
+    public boolean isActive() {
+        return UserStatus.ACTIVE.name().equals(this.status);
+    }
 }
 
