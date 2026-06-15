@@ -90,9 +90,10 @@ class UserServiceTest {
     }
 
     @Test
-    void withdrawDeactivatesUserWhenPasswordMatches() {
+    void withdrawDeactivatesUserAndClearsSessionWhenPasswordMatches() {
         User user = user();
         UserAuth userAuth = AuthTestEntityFactory.userAuth(user);
+        userAuth.updateRefreshToken("refresh-hash");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(userAuthRepository.findByUser(user)).thenReturn(Optional.of(userAuth));
         when(passwordEncoder.matches("password12", "encoded-password")).thenReturn(true);
@@ -100,6 +101,30 @@ class UserServiceTest {
         userService.withdraw(USER_ID, new WithdrawRequest("password12"));
 
         assertThat(user.isActive()).isFalse();
+        assertThat(userAuth.getRefreshToken()).isNull();
+    }
+
+    @Test
+    void updateUserProfileThrowsWhenUserAlreadyWithdrawn() {
+        User user = user();
+        user.withdraw();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        var request = new UpdateUserProfileRequest("부산시 해운대구", "202호", "67890");
+
+        assertThatThrownBy(() -> userService.updateUserProfile(USER_ID, request))
+                .isInstanceOfSatisfying(AuthException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.USER_WITHDRAWN));
+    }
+
+    @Test
+    void withdrawThrowsWhenUserAlreadyWithdrawn() {
+        User user = user();
+        user.withdraw();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.withdraw(USER_ID, new WithdrawRequest("password12")))
+                .isInstanceOfSatisfying(AuthException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.USER_WITHDRAWN));
     }
 
     @Test

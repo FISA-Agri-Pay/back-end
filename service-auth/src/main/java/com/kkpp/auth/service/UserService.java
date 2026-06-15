@@ -37,6 +37,7 @@ public class UserService {
     public UserProfileResponse updateUserProfile(Long userId, UpdateUserProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+        requireActive(user);
         user.updateAddress(request.address(), request.addressDetail(), request.zipCode());
         return UserProfileResponse.from(user);
     }
@@ -45,6 +46,7 @@ public class UserService {
     public void withdraw(Long userId, WithdrawRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+        requireActive(user);
         UserAuth userAuth = userAuthRepository.findByUser(user)
                 .orElseThrow(UserNotFoundException::new);
 
@@ -62,6 +64,8 @@ public class UserService {
         }
 
         user.withdraw();
+        // 탈퇴 직후 기존 refresh token으로 토큰이 재발급되지 않도록 세션을 무효화합니다.
+        userAuth.clearRefreshToken();
         // 회원 탈퇴(Soft Delete) 성공 로그입니다.
         log.atInfo()
                 .addKeyValue("event", "auth.withdraw.completed")
@@ -69,5 +73,11 @@ public class UserService {
                 .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(user.getPublicId()))
                 .addKeyValue("resultStatus", "SUCCESS")
                 .log("회원 탈퇴가 완료되었습니다.");
+    }
+
+    private void requireActive(User user) {
+        if (!user.isActive()) {
+            throw new AuthException(AuthErrorCode.USER_WITHDRAWN);
+        }
     }
 }
