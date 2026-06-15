@@ -60,7 +60,7 @@ pipeline {
                     echo "Changed files since ${prevCommit}:\n${changedFiles}"
 
                     def watchPaths = ['service-catalog/', 'common-core/', 'common-security/']
-                    watchPaths += ['build.gradle', 'settings.gradle', 'gradle/']
+                    watchPaths += ['build.gradle', 'settings.gradle', 'gradle.properties', 'gradle/']
                     def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
                         watchPaths.any { path -> file.startsWith(path) }
                     }
