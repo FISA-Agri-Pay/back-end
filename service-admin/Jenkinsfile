@@ -63,7 +63,9 @@ pipeline {
                 expression { env.SKIP_BUILD != 'true' }
             }
             steps {
-                sh './gradlew :service-admin:bootJar -x test'
+                // Jenkins 환경에서 Gradle daemon의 파일 시스템 감시가 워크스페이스 이벤트를 잘못 처리하며
+                // daemon disappeared 오류가 발생할 수 있어, CI 빌드에서는 daemon과 VFS watching을 끕니다.
+                sh './gradlew --no-daemon -Dorg.gradle.vfs.watch=false :service-admin:bootJar -x test'
             }
         }
 
