@@ -1,5 +1,6 @@
 package com.kkpp.admin.global.config;
 
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -28,11 +29,14 @@ public class CatalogDataSourceConfig {
         return new DataSourceProperties();
     }
 
+    // spring.datasource.catalog.hikari 하위의 풀 설정(maximum-pool-size, max-lifetime 등)을 바인딩합니다.
+    // 커스텀 DataSource 빈이라 Spring Boot 자동 설정이 적용되지 않으므로 명시적으로 @ConfigurationProperties를 붙입니다.
     @Bean
+    @ConfigurationProperties("spring.datasource.catalog.hikari")
     public DataSource catalogDataSource(
         @Qualifier("catalogDataSourceProperties") DataSourceProperties properties
     ) {
-        return properties.initializeDataSourceBuilder().build();
+        return properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
     }
 
     @Bean
