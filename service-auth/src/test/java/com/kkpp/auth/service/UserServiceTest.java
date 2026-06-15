@@ -7,15 +7,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import com.kkpp.auth.domain.User;
+import com.kkpp.auth.domain.UserAuth;
 import com.kkpp.auth.dto.request.UpdateUserProfileRequest;
+import com.kkpp.auth.dto.request.WithdrawRequest;
+import com.kkpp.auth.exception.AuthErrorCode;
+import com.kkpp.auth.exception.AuthException;
 import com.kkpp.auth.exception.UserNotFoundException;
+import com.kkpp.auth.repository.UserAuthRepository;
 import com.kkpp.auth.repository.UserRepository;
+import com.kkpp.auth.testsupport.AuthTestEntityFactory;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -23,11 +30,17 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserAuthRepository userAuthRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository);
+        userService = new UserService(userRepository, userAuthRepository, passwordEncoder);
     }
 
     @Test
@@ -77,20 +90,37 @@ class UserServiceTest {
     }
 
     @Test
-    void withdrawDeactivatesUser() {
+    void withdrawDeactivatesUserWhenPasswordMatches() {
         User user = user();
+        UserAuth userAuth = AuthTestEntityFactory.userAuth(user);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userAuthRepository.findByUser(user)).thenReturn(Optional.of(userAuth));
+        when(passwordEncoder.matches("password12", "encoded-password")).thenReturn(true);
 
-        userService.withdraw(USER_ID);
+        userService.withdraw(USER_ID, new WithdrawRequest("password12"));
 
         assertThat(user.isActive()).isFalse();
+    }
+
+    @Test
+    void withdrawThrowsWhenPasswordDoesNotMatch() {
+        User user = user();
+        UserAuth userAuth = AuthTestEntityFactory.userAuth(user);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userAuthRepository.findByUser(user)).thenReturn(Optional.of(userAuth));
+        when(passwordEncoder.matches("wrong-password", "encoded-password")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.withdraw(USER_ID, new WithdrawRequest("wrong-password")))
+                .isInstanceOfSatisfying(AuthException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.PASSWORD_MISMATCH));
+        assertThat(user.isActive()).isTrue();
     }
 
     @Test
     void withdrawThrowsWhenUserDoesNotExist() {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.withdraw(USER_ID))
+        assertThatThrownBy(() -> userService.withdraw(USER_ID, new WithdrawRequest("password12")))
                 .isInstanceOf(UserNotFoundException.class);
     }
 }

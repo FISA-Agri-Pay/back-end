@@ -1,6 +1,7 @@
 package com.kkpp.auth.controller;
 
 import com.kkpp.auth.dto.request.UpdateUserProfileRequest;
+import com.kkpp.auth.dto.request.WithdrawRequest;
 import com.kkpp.auth.dto.response.UserProfileResponse;
 import com.kkpp.auth.service.UserService;
 import com.kkpp.common.core.response.ApiResponse;
@@ -51,14 +52,18 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    @Operation(summary = "회원 탈퇴", description = "JWT 토큰으로 인증된 사용자를 탈퇴 처리(비활성화)합니다. 데이터는 보존되며 재로그인이 차단됩니다.")
+    @Operation(summary = "회원 탈퇴", description = "계정 비밀번호를 확인한 뒤 인증된 사용자를 탈퇴 처리(비활성화)합니다. 데이터는 보존되며 재로그인이 차단됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원 탈퇴 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 검증 실패 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 또는 비밀번호 불일치"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
-    public ApiResponse<Void> withdraw(@AuthUser AuthUserInfo authUser) {
-        userService.withdraw(authUser.userId());
+    public ApiResponse<Void> withdraw(
+            @AuthUser AuthUserInfo authUser,
+            @RequestBody @Valid WithdrawRequest request
+    ) {
+        userService.withdraw(authUser.userId(), request);
         return ApiResponse.success(null, "회원 탈퇴가 완료되었습니다.");
     }
 }

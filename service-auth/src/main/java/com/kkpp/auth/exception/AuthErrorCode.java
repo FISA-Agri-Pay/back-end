@@ -14,7 +14,8 @@ public enum AuthErrorCode {
     PAYMENT_PIN_NOT_REGISTERED(400, "USR-005", "결제 PIN이 등록되어 있지 않습니다."),
     PAYMENT_PIN_MISMATCH(401, "USR-006", "결제 PIN이 일치하지 않습니다."),
     PAYMENT_PIN_VERIFICATION_EVENT_PUBLISH_FAILED(500, "USR-007", "결제 PIN 검증 완료 이벤트 발행에 실패했습니다."),
-    USER_WITHDRAWN(403, "USR-008", "이미 탈퇴한 사용자입니다.");
+    USER_WITHDRAWN(403, "USR-008", "이미 탈퇴한 사용자입니다."),
+    PASSWORD_MISMATCH(401, "USR-009", "비밀번호가 일치하지 않습니다.");
 
     private final int status;
     private final String code;
