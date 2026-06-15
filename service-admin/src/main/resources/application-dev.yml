@@ -6,6 +6,13 @@ spring:
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
+      # core primary/replica 두 풀에 동일하게 적용됩니다 (CoreDataSourceConfig 참고).
+      hikari:
+        maximum-pool-size: 5             # 고정 크기 풀. replica 분리 시 primary+replica로 풀이 2개가 됩니다.
+        max-lifetime: 300000             # 5분. PostgreSQL이 idle 커넥션을 끊기 전에 풀에서 먼저 폐기
+        keepalive-time: 60000            # 1분마다 커넥션 유효성 확인하여 죽은 커넥션 재사용 방지
+        connection-timeout: 3000         # 커넥션 획득 3초 대기 후 타임아웃
+        leak-detection-threshold: 30000  # 커넥션을 30초 이상 반납하지 않으면 경고 로그 (누수 진단용, 안정화 후 제거 고려)
       replica:
         # core replica DB 접속 정보입니다. @Transactional(readOnly = true) 조회 트랜잭션이 사용합니다.
         url: ${DB_REPLICA_URL:}
@@ -18,6 +25,12 @@ spring:
       username: ${CATALOG_DB_USERNAME}
       password: ${CATALOG_DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 5             # 고정 크기 풀 (max_connections 대비 여유 확보)
+        max-lifetime: 300000             # 5분. PostgreSQL이 idle 커넥션을 끊기 전에 풀에서 먼저 폐기
+        keepalive-time: 60000            # 1분마다 커넥션 유효성 확인하여 죽은 커넥션 재사용 방지
+        connection-timeout: 3000         # 커넥션 획득 3초 대기 후 타임아웃
+        leak-detection-threshold: 30000  # 커넥션을 30초 이상 반납하지 않으면 경고 로그 (누수 진단용, 안정화 후 제거 고려)
   servlet:
     multipart:
       max-file-size: 10MB
