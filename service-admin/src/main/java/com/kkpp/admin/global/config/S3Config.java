@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
-@Profile("prod | dev")
+@Profile("prod | dev | s3")
 public class S3Config {
 
     @Bean

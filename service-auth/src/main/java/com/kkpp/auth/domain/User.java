@@ -11,6 +11,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.util.StringUtils;
 
 @Entity
 @Table(name = "users", schema = "core")
@@ -69,6 +70,26 @@ public class User extends BaseEntity {
         user.zipCode = zipCode;
         user.status = UserStatus.ACTIVE.name();
         return user;
+    }
+
+    public void updateAddress(String address, String addressDetail, String zipCode) {
+        if (!StringUtils.hasText(address)) {
+            throw new IllegalArgumentException("주소는 비어 있을 수 없습니다.");
+        }
+        if (!StringUtils.hasText(zipCode)) {
+            throw new IllegalArgumentException("우편번호는 비어 있을 수 없습니다.");
+        }
+        this.address = address;
+        this.addressDetail = addressDetail;
+        this.zipCode = zipCode;
+    }
+
+    public void withdraw() {
+        this.status = UserStatus.INACTIVE.name();
+    }
+
+    public boolean isActive() {
+        return UserStatus.ACTIVE.name().equals(this.status);
     }
 }
 

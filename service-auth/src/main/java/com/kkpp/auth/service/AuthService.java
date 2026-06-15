@@ -283,6 +283,19 @@ public class AuthService {
             throw new AuthException(AuthErrorCode.LOGIN_FAILED);
         }
 
+        if (!user.isActive()) {
+            // 탈퇴(INACTIVE) 등 비활성 사용자가 로그인을 시도한 경우입니다. 자격 증명은 맞지만 로그인을 차단합니다.
+            log.atWarn()
+                    .addKeyValue("event", "auth.login.failed")
+                    .addKeyValue("userId", user.getId())
+                    .addKeyValue("userPublicId", LogMaskingUtils.maskIdentifier(user.getPublicId()))
+                    .addKeyValue("failureState", "USER_WITHDRAWN")
+                    .addKeyValue("errorCode", AuthErrorCode.USER_WITHDRAWN.getCode())
+                    .addKeyValue("errorMessage", AuthErrorCode.USER_WITHDRAWN.getMessage())
+                    .log("탈퇴한 사용자가 로그인을 시도했습니다.");
+            throw new AuthException(AuthErrorCode.USER_WITHDRAWN);
+        }
+
         userAuth.recordLogin();
         TokenResponse tokenResponse = issueTokens(userAuth);
         // 로그인 성공 로그입니다. 토큰 원문은 응답에만 포함하고 로그에는 남기지 않습니다.

@@ -56,6 +56,10 @@ public class UserAuth extends BaseEntity {
         this.refreshToken = refreshToken;
     }
 
+    public void clearRefreshToken() {
+        this.refreshToken = null;
+    }
+
     public void updatePin(String pinHash) {
         this.pinHash = pinHash;
         this.pinChangedAt = LocalDateTime.now();
