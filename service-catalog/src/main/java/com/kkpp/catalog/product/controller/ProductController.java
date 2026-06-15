@@ -32,6 +32,13 @@ public class ProductController {
         return ApiResponse.success(productService.getProducts(categoryId, keyword));
     }
 
+    @GetMapping("/recommendations")
+    @Operation(summary = "오늘의 추천 기자재 조회",
+            description = "오늘 구매가 많은 순으로 추천 상품을 조회합니다. 구매 데이터가 부족하면 판매중인 상품으로 채워 항상 최대 3개를 반환합니다.")
+    public ApiResponse<List<ProductSummaryResponse>> getRecommendations() {
+        return ApiResponse.success(productService.getRecommendations());
+    }
+
     @GetMapping("/{productId}")
     @Operation(summary = "상품 상세 조회", description = "상품 publicId로 상품 상세 정보, 가격, 재고, 판매 상태를 조회합니다.")
     public ApiResponse<ProductDetailResponse> getProduct(@PathVariable UUID productId) {
