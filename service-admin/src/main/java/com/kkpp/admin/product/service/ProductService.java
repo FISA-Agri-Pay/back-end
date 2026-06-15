@@ -64,7 +64,7 @@ public class ProductService {
     }
 
     // 활성 카테고리인지 확인한 뒤 새 상품을 생성함
-    @Transactional
+    @Transactional(transactionManager = "catalogTransactionManager")
     public ProductResponse createProduct(CreateProductRequest request) {
         Category category = getActiveCategory(request.categoryId());
         Product product = Product.create(
@@ -82,7 +82,7 @@ public class ProductService {
     }
 
     // 상품 publicId로 기존 상품을 찾고 요청에 포함된 값만 갱신함
-    @Transactional
+    @Transactional(transactionManager = "catalogTransactionManager")
     public ProductResponse updateProduct(UUID productPublicId, UpdateProductRequest request) {
         Product product = getProduct(productPublicId);
         Category category = request.categoryId() == null ? null : getActiveCategory(request.categoryId());
@@ -101,14 +101,14 @@ public class ProductService {
     }
 
     // 판매 중지 요청은 상품을 삭제하지 않고 HIDDEN 상태로 변경함
-    @Transactional
+    @Transactional(transactionManager = "catalogTransactionManager")
     public void stopSellingProduct(UUID productPublicId) {
         Product product = getProduct(productPublicId);
         product.stopSelling();
     }
 
     // 삭제 요청은 상품을 실제 DB에서 삭제함
-    @Transactional
+    @Transactional(transactionManager = "catalogTransactionManager")
     public void deleteProduct(UUID productPublicId) {
         Product product = getProduct(productPublicId);
         try {
