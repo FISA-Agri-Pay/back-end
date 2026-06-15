@@ -1,4 +1,4 @@
 credit-docs:
   s3:
-    bucket: ${CREDIT_DOCS_S3_BUCKET:kkpp-secure-credit-docs-bucket}
+    bucket: ${CREDIT_DOCS_S3_BUCKET}
     presigned-url-expiry-minutes: 15
