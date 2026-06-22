@@ -1,16 +1,60 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
     implementation project(':common-core')
     implementation project(':common-security')
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:sts'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'io.opentelemetry:opentelemetry-api:1.62.0'
     implementation "org.mapstruct:mapstruct:${mapstructVersion}"
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocOpenapiVersion}"
+    implementation 'io.opentelemetry:opentelemetry-api:1.62.0'
     runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/CatalogApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/dto/**',
+                '**/repository/**',
+                '**/event/**',
+                '**/global/**'
+        ])
+    }))
 }

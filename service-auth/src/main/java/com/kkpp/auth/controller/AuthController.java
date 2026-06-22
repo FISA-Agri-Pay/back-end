@@ -1,0 +1,183 @@
+package com.kkpp.auth.controller;
+
+import com.kkpp.auth.dto.request.LoginRequest;
+import com.kkpp.auth.dto.request.RefreshTokenRequest;
+import com.kkpp.auth.dto.request.RegisterRequest;
+import com.kkpp.auth.dto.request.SetPaymentPinRequest;
+import com.kkpp.auth.dto.request.VerifyPaymentPinRequest;
+import com.kkpp.auth.dto.response.PaymentPinVerificationResponse;
+import com.kkpp.auth.dto.response.TokenResponse;
+import com.kkpp.auth.exception.AuthErrorCode;
+import com.kkpp.auth.exception.AuthException;
+import com.kkpp.auth.global.logging.MonitoredApiLogging;
+import com.kkpp.auth.service.AuthService;
+import com.kkpp.common.core.response.ApiResponse;
+import com.kkpp.common.security.annotation.AuthUser;
+import com.kkpp.common.security.auth.AuthUserInfo;
+import com.kkpp.common.security.jwt.JwtTokenProvider;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import java.time.Duration;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Tag(name = "인증", description = "회원가입, 로그인, 토큰, 결제 PIN 관리 API")
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+
+    private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Value("${cookie.secure}")
+    private boolean cookieSecure;
+
+    @Operation(
+            summary = "회원가입",
+            description = "휴대폰 번호, 이름, 주소, 주민등록번호, 계정 비밀번호를 등록합니다. 회원가입 시 토큰은 발급하지 않습니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "회원가입 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 검증 실패 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 가입된 사용자")
+    })
+    @SecurityRequirements
+    @PostMapping("/register")
+    // 회원가입 API의 시작/완료/실패는 AOP 공통 로그로 남고, 중복 가입 같은 상세 실패 원인은 AuthService에서 남깁니다.
+    @MonitoredApiLogging(event = "auth.register.api", apiName = "회원가입")
+    public ResponseEntity<ApiResponse<Void>> register(
+            @RequestBody @Valid RegisterRequest request
+    ) {
+        authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<Void>success(null, "회원가입이 완료되었습니다. 로그인 후 서비스를 이용해 주세요."));
+    }
+
+    @Operation(
+            summary = "결제 PIN 등록",
+            description = "인증된 사용자의 6자리 결제 PIN을 등록하거나 재등록합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 PIN 등록 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "PIN 형식 오류 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+    })
+    @PostMapping("/register/payment-pin")
+    // 결제 PIN 등록 API의 공통 흐름 로그 대상입니다. PIN 원문은 AOP와 서비스 로그 모두에 남기지 않습니다.
+    @MonitoredApiLogging(event = "auth.payment-pin.register.api", apiName = "결제 PIN 등록")
+    public ResponseEntity<ApiResponse<Void>> setPaymentPin(
+            @AuthUser AuthUserInfo authUser,
+            @RequestBody @Valid SetPaymentPinRequest request
+    ) {
+        authService.setPaymentPin(authUser.userId(), request);
+        return ResponseEntity.ok(ApiResponse.<Void>success(null, "결제 PIN이 등록되었습니다."));
+    }
+
+    @Operation(
+            summary = "결제 PIN 검증",
+            description = "인증된 사용자의 결제 PIN을 검증하고, 검증 성공 시 SQS 검증 완료 이벤트를 발행합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 PIN 검증 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "PIN 형식 오류, PIN 미등록 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 또는 결제 PIN 불일치"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "결제 PIN 검증 완료 이벤트 발행 실패")
+    })
+    @PostMapping("/payment-pin/verify")
+    // 결제 PIN 검증 API의 공통 흐름 로그 대상입니다. PIN 일치/불일치 상세 결과는 AuthService에서 별도 로그로 남깁니다.
+    @MonitoredApiLogging(event = "auth.payment-pin.verify.api", apiName = "결제 PIN 검증")
+    public ResponseEntity<ApiResponse<PaymentPinVerificationResponse>> verifyPaymentPin(
+            @AuthUser AuthUserInfo authUser,
+            @RequestBody @Valid VerifyPaymentPinRequest request
+    ) {
+        PaymentPinVerificationResponse response = authService.verifyPaymentPin(authUser.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success(response, "결제 PIN 검증이 완료되었습니다."));
+    }
+
+    @Operation(
+            summary = "로그인",
+            description = "휴대폰 번호와 계정 비밀번호로 로그인하고 access token과 refresh token을 발급합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청 값 검증 실패 또는 잘못된 요청 본문"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "휴대폰 번호 또는 비밀번호 불일치")
+    })
+    @SecurityRequirements
+    @PostMapping("/login")
+    // 로그인 API의 공통 흐름 로그 대상입니다. 비밀번호 불일치 같은 상세 실패 원인은 AuthService에서 남깁니다.
+    @MonitoredApiLogging(event = "auth.login.api", apiName = "로그인")
+    public ResponseEntity<ApiResponse<TokenResponse>> login(
+            @RequestBody @Valid LoginRequest request,
+            HttpServletResponse response
+    ) {
+        TokenResponse tokenResponse = authService.login(request);
+        addRefreshTokenCookie(response, tokenResponse.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(tokenResponse, "로그인이 완료되었습니다."));
+    }
+
+    @Operation(
+            summary = "Access Token 재발급",
+            description = "HttpOnly refreshToken 쿠키를 검증한 뒤 새로운 access token과 refresh token을 발급합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 재발급 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "refreshToken 쿠키 누락 또는 유효하지 않은 refresh token")
+    })
+    @SecurityRequirements
+    @PostMapping("/refresh")
+    // 토큰 재발급 API의 공통 흐름 로그 대상입니다. refresh token 원문은 로그에 남기지 않습니다.
+    @MonitoredApiLogging(event = "auth.refresh.api", apiName = "토큰 재발급")
+    public ResponseEntity<ApiResponse<TokenResponse>> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        String refreshToken = readRefreshTokenCookie(request);
+        TokenResponse tokenResponse = authService.refresh(new RefreshTokenRequest(refreshToken));
+        addRefreshTokenCookie(response, tokenResponse.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(tokenResponse, "토큰이 재발급되었습니다."));
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenExpirySeconds()))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String readRefreshTokenCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        for (Cookie cookie : cookies) {
+            if (REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+    }
+}

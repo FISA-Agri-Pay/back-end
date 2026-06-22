@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-catalog-config
+  namespace: service-catalog
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "10.30.4.21:9092"
+  PAYMENT_REQUEST_TOPIC: "credit-payment-requested"

@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5             # 고정 크기 풀. minimum-idle 미설정 → maximum-pool-size와 동일하게 동작
+      max-lifetime: 300000             # 5분. PostgreSQL이 idle 커넥션을 끊기 전에 풀에서 먼저 폐기
+      keepalive-time: 60000            # 1분마다 커넥션 유효성 확인하여 죽은 커넥션 재사용 방지
+      connection-timeout: 3000         # 커넥션 획득 3초 대기 후 타임아웃
+      leak-detection-threshold: 30000  # 커넥션을 30초 이상 반납하지 않으면 경고 로그 (누수 진단용, 안정화 후 제거 고려)
+  jpa:
+    properties:
+      hibernate:
+        default_schema: core
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+core:
+  kafka:
+    payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
+    payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-payment}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level trace_id=%X{trace_id:-} span_id=%X{span_id:-} %logger{36} %kvp - %msg%n"

@@ -1,16 +1,73 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
+    // AWS SDK BOM으로 S3 및 의존 모듈의 버전을 일괄 관리함
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+    // prod 프로필에서 상품 이미지를 S3(또는 MinIO)에 업로드하기 위한 의존성
+    implementation 'software.amazon.awssdk:s3'
+
+    // 공통 응답, 예외, BaseEntity 등을 사용하기 위한 모듈 의존성
     implementation project(':common-core')
+    // JWT 필터와 인증 사용자 객체를 공유하기 위한 보안 공통 모듈
     implementation project(':common-security')
+
+    // 관리자 API를 REST 컨트롤러로 제공하기 위한 Spring MVC 의존성
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    // products, categories 테이블을 JPA 엔티티로 조회/저장하기 위한 의존성
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // service-admin에서 SecurityFilterChain을 직접 선언하기 위한 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    // 상품 등록/수정 요청 DTO의 @Valid 검증을 사용하기 위한 의존성
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // 향후 관리자 작업 이벤트 연동을 위한 Kafka 의존성
     implementation 'org.springframework.kafka:spring-kafka'
+    // 상품 엔티티를 응답 DTO로 변환하기 위한 MapStruct 의존성
     implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+    // Swagger/OpenAPI 문서를 노출하기 위한 의존성
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocOpenapiVersion}"
+    // PostgreSQL 접속용 JDBC 드라이버
     runtimeOnly 'org.postgresql:postgresql'
 
+    // Lombok 애노테이션은 컴파일 시에만 필요함
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    // Lombok과 MapStruct 코드 생성을 위한 annotation processor 설정
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/AdminApplication*',
+                '**/*Controller*',
+                '**/*Config*',
+                '**/dto/**',
+                '**/mapper/**',
+                '**/repository/**',
+                '**/storage/**',
+                '**/global/**',
+                '**/*DocumentUrlService*'
+        ])
+    }))
 }

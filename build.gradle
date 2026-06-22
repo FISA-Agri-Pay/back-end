@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.3.4' apply false
+    id 'org.springframework.boot' version '3.5.14' apply false
     id 'io.spring.dependency-management' version '1.1.6' apply false
 }
 
@@ -9,7 +9,16 @@ ext {
     mapstructVersion = '1.5.5.Final'
     lombokMapstructBindingVersion = '0.2.0'
     jjwtVersion = '0.12.6'
-    springdocOpenapiVersion = '2.5.0'
+    springdocOpenapiVersion = '2.8.17'
+    awsSdkVersion = '2.26.7'
+    onPremSpringBootVersion = '3.5.14'
+    tomcatVersion = '10.1.55'
+    nettyVersion = '4.1.135.Final'
+    kafkaClientsVersion = '3.9.2'
+    postgresqlVersion = '42.7.11'
+    lz4JavaVersion = '1.8.1'
+    commonsLang3Version = '3.18.0'
+    logbackVersion = '1.5.25'
 }
 
 allprojects {
@@ -40,5 +49,37 @@ subprojects {
 
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
+    }
+}
+
+def onPremServiceProjects = [
+        project(':service-admin'),
+        project(':service-auth'),
+        project(':service-batch'),
+        project(':service-core'),
+        project(':service-payment')
+]
+
+configure(onPremServiceProjects) {
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${onPremSpringBootVersion}"
+            mavenBom "io.netty:netty-bom:${nettyVersion}"
+        }
+        dependencies {
+            dependency "org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}"
+            dependency "org.apache.tomcat.embed:tomcat-embed-el:${tomcatVersion}"
+            dependency "org.apache.tomcat.embed:tomcat-embed-websocket:${tomcatVersion}"
+            dependency "org.apache.kafka:kafka-clients:${kafkaClientsVersion}"
+            dependency "org.postgresql:postgresql:${postgresqlVersion}"
+            dependency "org.lz4:lz4-java:${lz4JavaVersion}"
+            dependency "org.apache.commons:commons-lang3:${commonsLang3Version}"
+            dependency "ch.qos.logback:logback-core:${logbackVersion}"
+            dependency "ch.qos.logback:logback-classic:${logbackVersion}"
+        }
+    }
+
+    dependencies {
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 }

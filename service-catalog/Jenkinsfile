@@ -1,0 +1,183 @@
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(name: 'PUSH_LATEST', defaultValue: true, description: 'Push the latest tag to ECR')
+    }
+
+    environment {
+        AWS_ACCOUNT_ID = credentials('aws-id')
+        AWS_REGION = "${params.AWS_REGION ?: 'ap-northeast-2'}"
+        PAYMENT_REQUEST_TRANSPORT = "${params.PAYMENT_REQUEST_TRANSPORT ?: 'kafka'}"
+        PAYMENT_REQUEST_QUEUE_URL = "${params.PAYMENT_REQUEST_QUEUE_URL ?: ''}"
+        PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED = "${params.PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED ?: 'false'}"
+        PAYMENT_PIN_VERIFIED_QUEUE_URL = "${params.PAYMENT_PIN_VERIFIED_QUEUE_URL ?: ''}"
+        SERVICE_CATALOG_IRSA_ROLE_ARN = "${params.SERVICE_CATALOG_IRSA_ROLE_ARN ?: ''}"
+        K8S_NAMESPACE = 'service-catalog'
+        ECR_REPO_NAME = 'service-catalog'
+        OTEL_AGENT_ECR_REPO_NAME = 'observability/opentelemetry-javaagent'
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
+        OTEL_AGENT_IMAGE = "${ECR_REGISTRY}/${OTEL_AGENT_ECR_REPO_NAME}:2.10.0"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        PUSH_LATEST = "${params.PUSH_LATEST ?: 'true'}"
+        NAMESPACE_FILE = 'service-catalog/namespace.yaml'
+        SERVICE_ACCOUNT_FILE = 'service-catalog/service-account.yaml'
+        CONFIGMAP_FILE = 'service-catalog/configmap.yaml'
+        DEPLOYMENT_FILE = 'service-catalog/deployment.yaml'
+        SERVICE_FILE = 'service-catalog/service.yaml'
+        INGRESS_FILE = 'service-catalog/ingress.yaml'
+    }
+
+    stages {
+        stage('1. Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('2. Prepare') {
+            steps {
+                script {
+                    def prevCommit = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+                    if (!prevCommit) {
+                        echo "이전 성공 빌드 없음 - 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+
+                    def changedFiles
+                    try {
+                        changedFiles = sh(
+                            returnStdout: true,
+                            script: "git diff --name-only ${prevCommit} HEAD"
+                        ).trim()
+                    } catch (e) {
+                        echo "git diff 실패 (얕은 clone 또는 커밋 누락) — 전체 빌드 실행"
+                        env.SKIP_BUILD = 'false'
+                        return
+                    }
+                    echo "Changed files since ${prevCommit}:\n${changedFiles}"
+
+                    def watchPaths = ['service-catalog/', 'common-core/', 'common-security/']
+                    watchPaths += ['build.gradle', 'settings.gradle', 'gradle.properties', 'gradle/']
+                    def hasChanges = !changedFiles.isEmpty() && changedFiles.split('\n').any { file ->
+                        watchPaths.any { path -> file.startsWith(path) }
+                    }
+
+                    env.SKIP_BUILD = hasChanges ? 'false' : 'true'
+                    if (env.SKIP_BUILD == 'true') {
+                        echo "${watchPaths} 관련 변경 없음 - 빌드 스킵"
+                        currentBuild.result = 'NOT_BUILT'
+                    }
+                }
+            }
+        }
+
+        stage('3. Build Spring Boot') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
+            steps {
+                sh './gradlew :service-catalog:clean :service-catalog:build -x test'
+            }
+        }
+
+        stage('4. Build Docker Image') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
+            steps {
+                script {
+                    dir('service-catalog') {
+                        dockerImage = docker.build("${ECR_IMAGE}:${IMAGE_TAG}", "--pull .")
+                    }
+                }
+            }
+        }
+
+        stage('5. Push to ECR') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
+            steps {
+                script {
+                    docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:aws-s3-frontend-deploy") {
+                        dockerImage.push()
+                        if (env.PUSH_LATEST == 'true') {
+                            dockerImage.push('latest')
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('6. Deploy to EKS') {
+            when {
+                expression { env.SKIP_BUILD != 'true' }
+            }
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-s3-frontend-deploy',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    withKubeConfig([credentialsId: 'eks-kubeconfig']) {
+                        sh '''
+                            set -e
+
+                            if [ -z "${SERVICE_CATALOG_IRSA_ROLE_ARN}" ]; then
+                                echo 'SERVICE_CATALOG_IRSA_ROLE_ARN is required.'
+                                exit 1
+                            fi
+                            
+                            # deployment.yaml 파일에서 SERVICE_CATALOG_IMAGE_PLACEHOLDER를 찾아 실제 ECR 주소로 교체 후 deployment.rendered.yaml 파일에 복사
+                            # deployment.yaml의 aws id를 숨기기 위한 조치
+
+                            sed "s|SERVICE_CATALOG_IMAGE_PLACEHOLDER|${ECR_IMAGE}:${IMAGE_TAG}|g" ${DEPLOYMENT_FILE} \\
+                            | sed "s|OTEL_AGENT_IMAGE_PLACEHOLDER|${OTEL_AGENT_IMAGE}|g" \\
+                            | sed "s|PAYMENT_REQUEST_TRANSPORT_PLACEHOLDER|${PAYMENT_REQUEST_TRANSPORT}|g" \\
+                            | sed "s|PAYMENT_REQUEST_QUEUE_URL_PLACEHOLDER|${PAYMENT_REQUEST_QUEUE_URL}|g" \\
+                            | sed "s|AWS_REGION_PLACEHOLDER|${AWS_REGION}|g" \\
+                            | sed "s|PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED_PLACEHOLDER|${PAYMENT_PIN_VERIFICATION_CONSUMER_ENABLED}|g" \\
+                            | sed "s|PAYMENT_PIN_VERIFIED_QUEUE_URL_PLACEHOLDER|${PAYMENT_PIN_VERIFIED_QUEUE_URL}|g" \\
+                            > service-catalog/deployment.rendered.yaml
+
+                            sed "s|SERVICE_CATALOG_IRSA_ROLE_ARN_PLACEHOLDER|${SERVICE_CATALOG_IRSA_ROLE_ARN}|g" ${SERVICE_ACCOUNT_FILE} \\
+                            > service-catalog/service-account.rendered.yaml
+
+                            kubectl apply -f ${NAMESPACE_FILE}
+                            kubectl apply -f service-catalog/service-account.rendered.yaml
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${CONFIGMAP_FILE}
+                            kubectl apply -n ${K8S_NAMESPACE} -f service-catalog/deployment.rendered.yaml
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${SERVICE_FILE}
+                            kubectl apply -n ${K8S_NAMESPACE} -f ${INGRESS_FILE}
+
+                            if ! kubectl rollout status -n ${K8S_NAMESPACE} deployment/service-catalog-deployment --timeout=5m; then
+                                echo 'Rollout failed or timed out. Printing Kubernetes diagnostics.'
+                                kubectl describe -n ${K8S_NAMESPACE} deployment service-catalog-deployment || true
+                                kubectl get -n ${K8S_NAMESPACE} rs,pods -o wide | grep service-catalog || true
+                                kubectl get -n ${K8S_NAMESPACE} events --sort-by=.lastTimestamp | tail -50 || true
+                                exit 1
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                if (env.SKIP_BUILD != 'true') {
+                    sh """
+                        docker rmi ${ECR_IMAGE}:${IMAGE_TAG} || true
+                        docker rmi ${ECR_IMAGE}:latest || true
+                    """
+                }
+            }
+        }
+    }
+}

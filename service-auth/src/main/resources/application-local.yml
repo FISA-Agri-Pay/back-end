@@ -1,0 +1,31 @@
+jwt:
+  secret: ${JWT_SECRET:local-dev-secret-key-do-not-use-in-production-min32}
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
+    username: ${DB_USERNAME:kkpp}
+    password: ${DB_PASSWORD:kkpp}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+cookie:
+  secure: false
+
+payment-pin-verification:
+  transport: ${PAYMENT_PIN_VERIFICATION_TRANSPORT:none}
+  sqs:
+    queue-url: ${PAYMENT_PIN_VERIFIED_QUEUE_URL:http://localhost:4566/000000000000/payment-pin-verified.fifo}
+
+cloud:
+  aws:
+    sqs:
+      endpoint: ${CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level trace_id=%X{trace_id:-} span_id=%X{span_id:-} %logger{36} %kvp - %msg%n"

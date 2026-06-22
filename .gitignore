@@ -20,5 +20,31 @@ Thumbs.db
 # Logs
 *.log
 
+# Local file uploads
+uploads/
+docs/kkpp-04-test-coverage-guide.md
+docs/kkpp-05-service-batch-test-result.md
+docs/kkpp-06-service-core-test-result.md
+docs/kkpp-07-service-admin-test-result.md
+docs/kkpp-08-service-auth-test-result.md
+docs/kkpp-09-service-catalog-test-result.md
+docs/kkpp-10-service-payment-test-result.md
+docs/kkpp-11-integration-test-result.md
+
 # Env
 .env
+*.local.env
+
+# Local Docker overrides
+docker-compose.override.yml
+
+# k8s secret
+secret.yaml
+**/secret.yaml
+
+# eks kubeconfig
+kkpp-eks-kubeconfig
+**/kkpp-eks-kubeconfig
+
+# 실제 EKS 배포시 사용하는 deployment.redered.yaml
+**/deployment.rendered.yaml

@@ -1,0 +1,196 @@
+package com.kkpp.core.wallet.controller;
+
+import com.kkpp.common.core.response.ApiResponse;
+import com.kkpp.common.security.annotation.AuthUser;
+import com.kkpp.common.security.auth.AuthUserInfo;
+import com.kkpp.core.wallet.dto.WalletCreditSummaryResponse;
+import com.kkpp.core.wallet.dto.WalletMeResponse;
+import com.kkpp.core.global.logging.MonitoredApiLogging;
+import com.kkpp.core.wallet.service.WalletQueryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@Tag(name = "지갑")
+@RestController
+@RequestMapping("/api/v1/core/wallet")
+@RequiredArgsConstructor
+public class WalletController {
+
+    private final WalletQueryService walletQueryService;
+
+    @Operation(
+            summary = "내 지갑 조회",
+            description = """
+                    인증 사용자 기준으로 내 지갑 화면에 필요한 정보를 조회합니다.
+                    지갑 잔액, 입금 계좌, 이번 달 이자 예정 금액, 원금 잔액, 다음 상환 예정일,
+                    상환 및 납부 내역을 반환합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "내 지갑 조회 성공",
+                    content = @Content(
+                            schema = @Schema(implementation = WalletMeResponse.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "status": "SUCCESS",
+                                      "data": {
+                                        "walletPublicId": "11111111-1111-4111-8111-111111111111",
+                                        "depositBankName": "우리은행",
+                                        "depositAccountNumber": "352-0000-0000-00",
+                                        "balance": 200000.00,
+                                        "nextRepaymentDate": "2026-06-11",
+                                        "monthlyInterest": {
+                                          "dueDate": "2026-06-11",
+                                          "amount": 100000.00,
+                                          "status": "UPCOMING"
+                                        },
+                                        "principal": {
+                                          "dueDate": "2026-12-11",
+                                          "remainingAmount": 3000000.00,
+                                          "status": "UPCOMING"
+                                        },
+                                        "transactions": [
+                                          {
+                                            "transactionPublicId": "22222222-2222-4222-8222-222222222222",
+                                            "transactionType": "INTEREST_PAYMENT",
+                                            "title": "4월 이자 상환",
+                                            "amount": -100000.00,
+                                            "transactedAt": "2026-05-11T10:00:00"
+                                          }
+                                        ]
+                                      },
+                                      "message": "내 지갑 정보를 조회했습니다."
+                                    }
+                                    """)
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "지갑 없음"
+            )
+    })
+    @GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<WalletMeResponse> getMyWallet(@Parameter(hidden = true) @AuthUser AuthUserInfo authUser) {
+        WalletMeResponse response = walletQueryService.getMyWallet(authUser.userId());
+        return ApiResponse.success(response, "내 지갑 정보를 조회했습니다.");
+    }
+
+    @Operation(
+            summary = "홈 화면 한도 요약 조회",
+            description = """
+                    인증 사용자 기준으로 홈 화면 한도 카드에 필요한 정보를 조회합니다.
+                    현재 외상 금액, 총 승인 한도, 사용 금액, 잔여 한도, 한도 사용률, 한도 상태를 반환합니다.
+                    활성 한도가 없으면 hasActiveLimit=false와 0원 금액으로 정상 응답합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "홈 화면 한도 요약 조회 성공",
+                    content = @Content(
+                            schema = @Schema(implementation = WalletCreditSummaryResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "활성 한도 있음", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "name": "홍길동",
+                                                "hasActiveLimit": true,
+                                                "creditLimitPublicId": "11111111-1111-4111-8111-111111111111",
+                                                "totalLimit": 4000000.00,
+                                                "usedAmount": 2500000.00,
+                                                "remainingAmount": 1500000.00,
+                                                "usageRate": 62.5,
+                                                "status": "ACTIVE",
+                                                "applicationStatus": "APPROVED"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "심사 중", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "name": "홍길동",
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null,
+                                                "applicationStatus": "PENDING"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "반려됨", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "name": "홍길동",
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null,
+                                                "applicationStatus": "REJECTED"
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """),
+                                    @ExampleObject(name = "신청 이력 없음", value = """
+                                            {
+                                              "status": "SUCCESS",
+                                              "data": {
+                                                "name": "홍길동",
+                                                "hasActiveLimit": false,
+                                                "creditLimitPublicId": null,
+                                                "totalLimit": 0,
+                                                "usedAmount": 0,
+                                                "remainingAmount": 0,
+                                                "usageRate": 0.0,
+                                                "status": null,
+                                                "applicationStatus": null
+                                              },
+                                              "message": "홈 화면 한도 요약 정보를 조회했습니다."
+                                            }
+                                            """)
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패"
+            )
+    })
+    @GetMapping("/credit")
+    @ResponseStatus(HttpStatus.OK)
+    @MonitoredApiLogging(event = "wallet.credit.summary.api", apiName = "한도 요약 조회")
+    public ApiResponse<WalletCreditSummaryResponse> getMyCreditSummary(
+            @Parameter(hidden = true) @AuthUser AuthUserInfo authUser
+    ) {
+        WalletCreditSummaryResponse response = walletQueryService.getMyCreditSummary(authUser.userId());
+        return ApiResponse.success(response, "홈 화면 한도 요약 정보를 조회했습니다.");
+    }
+}

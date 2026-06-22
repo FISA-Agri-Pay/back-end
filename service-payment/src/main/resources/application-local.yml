@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kkpp}
+    username: ${DB_USERNAME:kkpp}
+    password: ${DB_PASSWORD:kkpp}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+core:
+  kafka:
+    payment-request-topic: ${PAYMENT_REQUEST_TOPIC:credit-payment-requested}
+    payment-request-consumer-group: ${PAYMENT_REQUEST_CONSUMER_GROUP:service-payment}
+
+payment-request:
+  sqs:
+    queue-url: ${PAYMENT_REQUEST_QUEUE_URL:http://localhost:4566/000000000000/credit-payment-requested.fifo}
+
+cloud:
+  aws:
+    sqs:
+      endpoint: ${CLOUD_AWS_SQS_ENDPOINT:http://localhost:4566}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level trace_id=%X{trace_id:-} span_id=%X{span_id:-} %logger{36} %kvp - %msg%n"

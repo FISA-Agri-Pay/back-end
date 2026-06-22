@@ -1,8 +1,11 @@
+plugins {
+    id 'jacoco'
+}
+
 dependencies {
     implementation project(':common-core')
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.kafka:spring-kafka'
     implementation "org.mapstruct:mapstruct:${mapstructVersion}"
     runtimeOnly 'org.postgresql:postgresql'
 
@@ -10,4 +13,35 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
     annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        html.required = true
+        xml.required = true
+        csv.required = false
+    }
+
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                '**/*Application*',
+                '**/*Config*',
+                '**/*JobConfig*',
+                '**/bss/domain/BssScore*',
+                '**/repository/**',
+                '**/dto/**'
+        ])
+    }))
 }
