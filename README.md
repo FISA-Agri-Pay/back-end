@@ -14,6 +14,30 @@
 
 ---
 
+## 목차
+
+- [프로젝트 개요](#overview)
+- [백엔드 모듈 구성](#modules)
+- [핵심 업무 흐름](#workflow)
+- [핵심 기능](#features)
+  - [농업 데이터 기반 대안신용평가](#scoring)
+  - [AWS SQS 기반 BNPL 결제 이벤트 처리](#sqs-payment)
+  - [배치 처리](#batch)
+  - [CQRS 기반 관리자 조회 최적화](#cqrs)
+  - [인증 및 보안](#security)
+  - [Observability](#observability)
+- [테스트 시나리오](#test-scenarios)
+- [운영 이슈 해결 사례](#troubleshooting)
+- [CI/CD 및 배포 기준](#cicd)
+- [기술 스택](#tech-stack)
+- [디렉터리 구조](#directory)
+- [관련 레포지토리](#repositories)
+- [팀원 소개](#team)
+
+---
+
+<a id="overview"></a>
+
 ## 📌 프로젝트 개요
 
 농업인은 파종·생육·수확 시점에 따라 소득이 불규칙하게 발생합니다.
@@ -45,6 +69,8 @@ FISA-Agri-Pay 백엔드는 농업 데이터를 활용해 농업인의 신용 한
 > 전체 프로젝트의 하이브리드 클라우드, 예측 기반 오토스케일링, Observability 구성은 [FISA-Agri-Pay 조직 프로필](https://github.com/FISA-Agri-Pay)을 참고하세요.
 
 ---
+
+<a id="modules"></a>
 
 ## 🏗️ 백엔드 모듈 구성
 
@@ -91,6 +117,8 @@ flowchart LR
 
 ---
 
+<a id="workflow"></a>
+
 ## 🔁 핵심 업무 흐름
 
 ```text
@@ -110,7 +138,11 @@ flowchart LR
 
 ---
 
+<a id="features"></a>
+
 ## 🔍 핵심 기능
+
+<a id="scoring"></a>
 
 ### 1. 농업 데이터 기반 대안신용평가
 
@@ -131,6 +163,8 @@ flowchart LR
 * [`CreditReviewService.java`](service-admin/src/main/java/com/kkpp/admin/credit/service/CreditReviewService.java)
 
 ---
+
+<a id="sqs-payment"></a>
 
 ### 2. AWS SQS 기반 BNPL 결제 이벤트 처리
 
@@ -157,7 +191,6 @@ sequenceDiagram
 
 최종 배포 환경에서는 `service-catalog`와 `service-payment` 간 결제 요청 연계를 **AWS SQS 기반 비동기 이벤트 처리 구조**로 구성했습니다.
 
-
 #### 설계 포인트
 
 | 항목 | 설명 |
@@ -178,6 +211,8 @@ sequenceDiagram
 * [`PaymentEventProcessLog.java`](service-payment/src/main/java/com/kkpp/payment/domain/PaymentEventProcessLog.java)
 
 ---
+
+<a id="batch"></a>
 
 ### 3. 배치 처리
 
@@ -200,6 +235,8 @@ sequenceDiagram
 * [`OverdueDetectionJobConfig.java`](service-batch/src/main/java/com/kkpp/batch/overdue/job/OverdueDetectionJobConfig.java)
 
 ---
+
+<a id="cqrs"></a>
 
 ### 4. CQRS 기반 관리자 조회 최적화
 
@@ -236,6 +273,8 @@ sequenceDiagram
 
 ---
 
+<a id="security"></a>
+
 ### 5. 인증 및 보안
 
 금융 서비스 특성을 고려해 인증 토큰, 민감정보, 결제 인증 흐름을 분리했습니다.
@@ -251,6 +290,8 @@ sequenceDiagram
 | 이미지 보안 | Trivy 기반 컨테이너 이미지 취약점 스캔 |
 
 ---
+
+<a id="observability"></a>
 
 ### 6. Observability
 
@@ -273,6 +314,8 @@ service-catalog checkout
 
 ---
 
+<a id="test-scenarios"></a>
+
 ## ✅ 테스트 시나리오
 
 본 프로젝트는 단순 API 호출 성공 여부뿐 아니라, BNPL 금융 도메인의 데이터 정합성을 중심으로 테스트했습니다.
@@ -294,6 +337,8 @@ service-catalog checkout
 
 ---
 
+<a id="troubleshooting"></a>
+
 ## 🧯 운영 이슈 해결 사례
 
 프로젝트 진행 중 Kubernetes 배포 환경과 다중 DB 구조에서 발생한 운영 이슈를 분석하고 개선했습니다.
@@ -307,6 +352,8 @@ service-catalog checkout
 | CORS 운영 도메인 이슈 | 신규 운영 도메인과 origin 설정 불일치 | 서비스별 allowlist 정리로 API 호출 차단 해결 |
 
 ---
+
+<a id="cicd"></a>
 
 ## 🚀 CI/CD 및 배포 기준
 
@@ -348,6 +395,8 @@ flowchart LR
 
 ---
 
+<a id="tech-stack"></a>
+
 ## 🛠️ 기술 스택
 
 | 영역 | 스택 |
@@ -362,6 +411,8 @@ flowchart LR
 | Security | JWT, HttpOnly Cookie, CORS Allowlist, Trivy |
 
 ---
+
+<a id="directory"></a>
 
 ## 📂 디렉터리 구조
 
@@ -384,6 +435,8 @@ back-end/
 
 ---
 
+<a id="repositories"></a>
+
 ## 🔗 관련 레포지토리
 
 | 레포 | 설명 |
@@ -397,6 +450,8 @@ back-end/
 | [`git-ops`](https://github.com/FISA-Agri-Pay/git-ops) | ArgoCD GitOps 배포 매니페스트 |
 
 ---
+
+<a id="team"></a>
 
 ## 👥 팀원 소개
 
