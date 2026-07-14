@@ -1,4 +1,4 @@
-# 🌾 FISA-Agri-Pay · Back-end
+# 🌱 콩콩팥팥 · back-end
 
 > 농업 데이터 기반 **BNPL(Buy Now, Pay Later) 플랫폼**의 백엔드입니다.
 > 농업인의 영농 주기와 소득 특성을 반영해 **신용 한도 산정, 외상 결제, 원장 기록, 상환/연체 배치**를 처리하는 Spring Boot 멀티모듈 MSA입니다.
@@ -16,29 +16,22 @@
 
 ## 목차
 
-- [프로젝트 개요](#overview)
-- [백엔드 모듈 구성](#modules)
-- [핵심 업무 흐름](#workflow)
-- [핵심 기능](#features)
-  - [농업 데이터 기반 대안신용평가](#scoring)
-  - [AWS SQS 기반 BNPL 결제 이벤트 처리](#sqs-payment)
-  - [배치 처리](#batch)
-  - [CQRS 기반 관리자 조회 최적화](#cqrs)
-  - [인증 및 보안](#security)
-  - [Observability](#observability)
-- [테스트 시나리오](#test-scenarios)
-- [운영 이슈 해결 사례](#troubleshooting)
-- [CI/CD 및 배포 기준](#cicd)
-- [기술 스택](#tech-stack)
-- [디렉터리 구조](#directory)
-- [관련 레포지토리](#repositories)
-- [팀원 소개](#team)
+- [1. 프로젝트 개요](#overview)
+- [2. 백엔드 모듈 구성](#modules)
+- [3. ERD](#erd)
+- [4. 핵심 업무 흐름](#workflow)
+- [5. 핵심 기능](#features)
+- [6. 테스트 시나리오](#test-scenarios)
+- [7. 운영 이슈 해결 사례](#troubleshooting)
+- [8. CI/CD 및 배포 기준](#cicd)
+- [9. 기술 스택](#tech-stack)
+- [10. 디렉터리 구조](#directory)
 
 ---
 
 <a id="overview"></a>
 
-## 📌 프로젝트 개요
+## 1. 📌 프로젝트 개요
 
 농업인은 파종·생육·수확 시점에 따라 소득이 불규칙하게 발생합니다.
 기존 금융권의 일반적인 신용평가 방식은 이러한 **계절성 소득 구조**와 **영농 데이터**를 충분히 반영하기 어렵습니다.
@@ -66,13 +59,12 @@ FISA-Agri-Pay 백엔드는 농업 데이터를 활용해 농업인의 신용 한
 | 배포 최적화 | 전체 CI/CD 파이프라인 약 42% 단축 |
 | 이미지 보안 | Trivy 기준 컨테이너 이미지 취약점 128개 → 0개 |
 
-> 전체 프로젝트의 하이브리드 클라우드, 예측 기반 오토스케일링, Observability 구성은 [FISA-Agri-Pay 조직 프로필](https://github.com/FISA-Agri-Pay)을 참고하세요.
 
 ---
 
 <a id="modules"></a>
 
-## 🏗️ 백엔드 모듈 구성
+## 2. 🏗️ 백엔드 모듈 구성
 
 ### 전체 서비스 구조
 
@@ -117,9 +109,21 @@ flowchart LR
 
 ---
 
+<a id="erd"></a>
+
+## 3. 🗂️ ERD
+
+농업인 신용 한도 승인부터 BNPL 이용, 이자 납부, 원금 상환까지의 금융 흐름을 기준으로 데이터 모델을 구성했습니다.
+
+<div align="center">
+  <img src="docs/images/erd.png" alt="콩콩팥팥 back-end ERD" width="95%" />
+</div>
+
+---
+
 <a id="workflow"></a>
 
-## 🔁 핵심 업무 흐름
+## 4. 🔁 핵심 업무 흐름
 
 ```text
 회원가입 / 로그인
@@ -140,11 +144,12 @@ flowchart LR
 
 <a id="features"></a>
 
-## 🔍 핵심 기능
+## 5. 🔍 핵심 기능
 
 <a id="scoring"></a>
 
-### 1. 농업 데이터 기반 대안신용평가
+<details>
+<summary><strong>1. 농업 데이터 기반 대안신용평가</strong></summary>
 
 급여나 일반 금융거래 이력만으로 판단하기 어려운 농업인을 위해, 농업 데이터를 기반으로 신용 한도를 산정합니다.
 
@@ -162,11 +167,14 @@ flowchart LR
 * [`CreditSubmitPersistenceService.java`](service-core/src/main/java/com/kkpp/core/credit/service/CreditSubmitPersistenceService.java)
 * [`CreditReviewService.java`](service-admin/src/main/java/com/kkpp/admin/credit/service/CreditReviewService.java)
 
+</details>
+
 ---
 
 <a id="sqs-payment"></a>
 
-### 2. AWS SQS 기반 BNPL 결제 이벤트 처리
+<details>
+<summary><strong>2. AWS SQS 기반 BNPL 결제 이벤트 처리</strong></summary>
 
 #### 결제 이벤트 흐름
 
@@ -210,11 +218,14 @@ sequenceDiagram
 * [`CreditPaymentProcessingService.java`](service-payment/src/main/java/com/kkpp/payment/service/CreditPaymentProcessingService.java)
 * [`PaymentEventProcessLog.java`](service-payment/src/main/java/com/kkpp/payment/domain/PaymentEventProcessLog.java)
 
+</details>
+
 ---
 
 <a id="batch"></a>
 
-### 3. 배치 처리
+<details>
+<summary><strong>3. 배치 처리</strong></summary>
 
 `service-batch`는 BNPL 이용 이후 발생하는 이자, 상환, 연체 처리를 담당합니다.
 
@@ -234,11 +245,14 @@ sequenceDiagram
 * [`PrincipalAutoPaymentJobConfig.java`](service-batch/src/main/java/com/kkpp/batch/principal/repayment/job/PrincipalAutoPaymentJobConfig.java)
 * [`OverdueDetectionJobConfig.java`](service-batch/src/main/java/com/kkpp/batch/overdue/job/OverdueDetectionJobConfig.java)
 
+</details>
+
 ---
 
 <a id="cqrs"></a>
 
-### 4. CQRS 기반 관리자 조회 최적화
+<details>
+<summary><strong>4. CQRS 기반 관리자 조회 최적화</strong></summary>
 
 관리자 서비스는 심사 목록, BNPL 현황, 주문/상품 상태 등 조회성 API가 많기 때문에 CQRS 패턴을 적용했습니다.
 
@@ -271,11 +285,14 @@ sequenceDiagram
 * [`CreditReviewApplicationRepository.java`](service-admin/src/main/java/com/kkpp/admin/credit/repository/CreditReviewApplicationRepository.java)
 * [`BnplAdminService.java`](service-admin/src/main/java/com/kkpp/admin/bnpl/service/BnplAdminService.java)
 
+</details>
+
 ---
 
 <a id="security"></a>
 
-### 5. 인증 및 보안
+<details>
+<summary><strong>5. 인증 및 보안</strong></summary>
 
 금융 서비스 특성을 고려해 인증 토큰, 민감정보, 결제 인증 흐름을 분리했습니다.
 
@@ -289,11 +306,14 @@ sequenceDiagram
 | CORS | 운영 도메인 기준 allowlist 구성 |
 | 이미지 보안 | Trivy 기반 컨테이너 이미지 취약점 스캔 |
 
+</details>
+
 ---
 
 <a id="observability"></a>
 
-### 6. Observability
+<details>
+<summary><strong>6. Observability</strong></summary>
 
 비동기 결제 구조에서는 하나의 사용자 요청이 여러 서비스와 메시지 큐를 거치기 때문에, OpenTelemetry 기반 분산 추적을 적용했습니다.
 
@@ -312,11 +332,13 @@ service-catalog checkout
 | 로그 연계 | 로그 패턴에 `trace_id`, `span_id` 포함 |
 | 시각화 | Grafana / Tempo에서 결제 흐름 추적 |
 
+</details>
+
 ---
 
 <a id="test-scenarios"></a>
 
-## ✅ 테스트 시나리오
+## 6. ✅ 테스트 시나리오
 
 본 프로젝트는 단순 API 호출 성공 여부뿐 아니라, BNPL 금융 도메인의 데이터 정합성을 중심으로 테스트했습니다.
 
@@ -339,7 +361,7 @@ service-catalog checkout
 
 <a id="troubleshooting"></a>
 
-## 🧯 운영 이슈 해결 사례
+## 7. 🧯 운영 이슈 해결 사례
 
 프로젝트 진행 중 Kubernetes 배포 환경과 다중 DB 구조에서 발생한 운영 이슈를 분석하고 개선했습니다.
 
@@ -355,7 +377,7 @@ service-catalog checkout
 
 <a id="cicd"></a>
 
-## 🚀 CI/CD 및 배포 기준
+## 8. 🚀 CI/CD 및 배포 기준
 
 본 백엔드는 단일 애플리케이션이 아니라, 서비스별로 독립 컨테이너 이미지를 생성하고 Kubernetes에 배포하는 구조입니다.
 
@@ -397,7 +419,7 @@ flowchart LR
 
 <a id="tech-stack"></a>
 
-## 🛠️ 기술 스택
+## 9. 🛠️ 기술 스택
 
 | 영역 | 스택 |
 | --- | --- |
@@ -414,7 +436,7 @@ flowchart LR
 
 <a id="directory"></a>
 
-## 📂 디렉터리 구조
+## 10. 📂 디렉터리 구조
 
 ```text
 back-end/
@@ -432,34 +454,3 @@ back-end/
 ├─ settings.gradle
 └─ build.gradle
 ```
-
----
-
-<a id="repositories"></a>
-
-## 🔗 관련 레포지토리
-
-| 레포 | 설명 |
-| --- | --- |
-| [`back-end`](https://github.com/FISA-Agri-Pay/back-end) | 금융 핵심 도메인 백엔드 |
-| [`front-end`](https://github.com/FISA-Agri-Pay/front-end) | 사용자용 웹앱 프론트엔드 |
-| [`front-end-admin`](https://github.com/FISA-Agri-Pay/front-end-admin) | 관리자용 웹 프론트엔드 |
-| [`ai-prediction-model`](https://github.com/FISA-Agri-Pay/ai-prediction-model) | 시계열 예측 모델 · 오토스케일링 정책 |
-| [`mcp-aiops-backend`](https://github.com/FISA-Agri-Pay/mcp-aiops-backend) | FastMCP 기반 AIOps 백엔드 |
-| [`infra`](https://github.com/FISA-Agri-Pay/infra) | Terraform 기반 IaC · 운영 스크립트 |
-| [`git-ops`](https://github.com/FISA-Agri-Pay/git-ops) | ArgoCD GitOps 배포 매니페스트 |
-
----
-
-<a id="team"></a>
-
-## 👥 팀원 소개
-
-| <img src="https://github.com/Federico-15.png" width="90"/> | <img src="https://github.com/HiLeeS.png" width="90"/> | <img src="https://github.com/cuterrabbit.png" width="90"/> | <img src="https://github.com/Zaixian5.png" width="90"/> | <img src="https://github.com/ygreee0320.png" width="90"/> |
-| :---: | :---: | :---: | :---: | :---: |
-| **류승환** | **이승준** | **이동욱** | **사재헌** | **양규리** |
-| [@Federico-15](https://github.com/Federico-15) | [@HiLeeS](https://github.com/HiLeeS) | [@cuterrabbit](https://github.com/cuterrabbit) | [@Zaixian5](https://github.com/Zaixian5) | [@ygreee0320](https://github.com/ygreee0320) |
-
-우리FISA 6기 클라우드 엔지니어링 과정 3팀
-
-팀원 상세 소개는 [조직 프로필](https://github.com/FISA-Agri-Pay)을 참고하세요.
